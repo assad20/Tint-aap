@@ -33,13 +33,12 @@ class MainShellPage extends StatelessWidget {
             children: [
               Positioned.fill(
                 child: Center(
+                  // يملأ الشاشة كاملة على الجوالات، ويُقيَّد ويُوسَّط على الأجهزة اللوحية.
+                  // المساحة الآمنة العلوية تُدار داخل كل صفحة (AppBar أو TopHeader).
                   child: Container(
-                    width: 420,
-                    constraints: const BoxConstraints(maxWidth: 430),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(0),
-                    ),
+                    width: double.infinity,
+                    constraints: const BoxConstraints(maxWidth: 600),
+                    color: Colors.white,
                     child: IndexedStack(
                       index: currentIndex,
                       children: _pages,
@@ -78,6 +77,8 @@ class _BottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cubit = context.read<ShellCubit>();
+    // مساحة آمنة سفلية متغيرة حسب الجهاز (شريط الإيماءات/الزر السفلي)
+    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
     final items = [
       _NavItem(icon: Icons.person_outline_rounded, label: 'حسابي', index: 4),
       _NavItem(icon: Icons.trending_up_rounded, label: 'الترندات', index: 1),
@@ -86,7 +87,7 @@ class _BottomNav extends StatelessWidget {
     ];
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 22),
+      padding: EdgeInsets.fromLTRB(16, 8, 16, 12 + bottomInset),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(color: TintColors.line)),

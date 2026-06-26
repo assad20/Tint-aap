@@ -15,9 +15,18 @@ class TintApp extends StatelessWidget {
       routerConfig: AppRouter.router,
       locale: const Locale('ar'),
       builder: (context, child) {
-        return Directionality(
-          textDirection: TextDirection.rtl,
-          child: child ?? const SizedBox.shrink(),
+        final mediaQuery = MediaQuery.of(context);
+        // تثبيت مقياس الخط ضمن نطاق آمن حتى لا يكسر إعداد النظام التخطيط
+        final clampedTextScaler = mediaQuery.textScaler.clamp(
+          minScaleFactor: 0.85,
+          maxScaleFactor: 1.2,
+        );
+        return MediaQuery(
+          data: mediaQuery.copyWith(textScaler: clampedTextScaler),
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: child ?? const SizedBox.shrink(),
+          ),
         );
       },
     );

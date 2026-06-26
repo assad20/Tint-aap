@@ -15,9 +15,11 @@ class TopHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<HomeStoreCubit, HomeStoreState>(
       builder: (context, state) {
+        // إضافة ارتفاع شريط الحالة/النوتش حتى لا يتداخل الشعار مع أعلى الشاشة
+        final topInset = MediaQuery.viewPaddingOf(context).top;
         return Container(
           color: Colors.white,
-          padding: const EdgeInsets.fromLTRB(14, 16, 14, 10),
+          padding: EdgeInsets.fromLTRB(14, 16 + topInset, 14, 10),
           child: Column(
             children: [
               const Center(child: TintBrandLogo()),
