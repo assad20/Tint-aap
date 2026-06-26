@@ -11,6 +11,7 @@ import '../../../account/presentation/cubit/addresses_cubit.dart';
 import '../../../cart/presentation/cubit/cart_cubit.dart';
 import '../cubit/checkout_cubit.dart';
 import '../services/tabby_checkout_service.dart';
+import '../widgets/tabby_promo_snippet.dart';
 
 class CheckoutPage extends StatefulWidget {
   const CheckoutPage({super.key});
@@ -328,12 +329,10 @@ class _PaymentMethodsCard extends StatelessWidget {
                 if (appConfig.hasTabbyConfig)
                   Directionality(
                     textDirection: TextDirection.ltr,
-                    child: TabbyPresentationSnippet(
+                    child: buildTabbyPromoSnippet(
                       price: cartState.total.toStringAsFixed(2),
-                      currency: Currency.sar,
-                      lang: appConfig.tabbyLanguage.toLowerCase() == 'en'
-                          ? Lang.en
-                          : Lang.ar,
+                      currencyCode: appConfig.currencyCode,
+                      langCode: appConfig.tabbyLanguage,
                     ),
                   )
                 else

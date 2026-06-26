@@ -30,6 +30,8 @@ class HomeStoreState {
       errorMessage: errorMessage,
     );
   }
+
+  List<ProductModel> productsOf(String key) => catalog[key] ?? const [];
 }
 
 class HomeStoreCubit extends Cubit<HomeStoreState> {
