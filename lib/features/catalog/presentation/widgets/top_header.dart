@@ -23,26 +23,6 @@ class TopHeader extends StatelessWidget {
           child: Column(
             children: [
               const Center(child: TintBrandLogo()),
-              const SizedBox(height: 8),
-              // 🔧 شريط اختبار مؤقت — للتأكد من نجاح السحب من فرع live
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-                decoration: BoxDecoration(
-                  color: TintColors.success.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: TintColors.success),
-                ),
-                child: const Text(
-                  '✅ تم سحب التحديث من فرع live بنجاح',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: TintColors.success,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
               const SizedBox(height: 12),
               Row(
                 children: [
