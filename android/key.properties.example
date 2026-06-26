@@ -1,0 +1,11 @@
+# انسخ هذا الملف إلى key.properties واملأ القيم الحقيقية.
+# لا ترفع key.properties ولا ملف .jks إلى Git إطلاقاً.
+#
+# لإنشاء مفتاح التوقيع (مرة واحدة):
+#   keytool -genkey -v -keystore %USERPROFILE%\tint-upload-keystore.jks ^
+#     -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+#
+storePassword=كلمة_مرور_المتجر
+keyPassword=كلمة_مرور_المفتاح
+keyAlias=upload
+storeFile=C:/Users/user/tint-upload-keystore.jks

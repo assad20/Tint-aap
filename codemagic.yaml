@@ -1,0 +1,66 @@
+# إعداد بناء سحابي لـ Codemagic — يبني Android و iOS بدون الحاجة لجهاز Mac محلي.
+# ارفع المشروع إلى GitHub/GitLab ثم اربطه في codemagic.io.
+# املأ المتغيرات الحساسة في Codemagic UI كـ Environment variables (مجموعة "tint").
+workflows:
+  android-workflow:
+    name: Tint Android (AAB)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      groups:
+        - tint            # عرّف فيها: TINT_API_BASE_URL, TINT_TABBY_PUBLIC_KEY, TINT_TABBY_MERCHANT_CODE
+      android_signing:
+        - tint_keystore   # ارفع keystore في Codemagic > Code signing identities
+    scripts:
+      - name: Generate platform folders if missing
+        script: flutter create . --org com.tintstore --platforms=android,ios
+      - name: Get packages
+        script: flutter pub get
+      - name: Generate icons & splash
+        script: |
+          dart run flutter_launcher_icons
+          dart run flutter_native_splash:create
+      - name: Build AAB
+        script: |
+          flutter build appbundle --release \
+            --dart-define=TINT_API_BASE_URL=$TINT_API_BASE_URL \
+            --dart-define=TINT_TABBY_PUBLIC_KEY=$TINT_TABBY_PUBLIC_KEY \
+            --dart-define=TINT_TABBY_MERCHANT_CODE=$TINT_TABBY_MERCHANT_CODE \
+            --dart-define=TINT_TABBY_LANG=ar
+    artifacts:
+      - build/**/outputs/bundle/**/*.aab
+
+  ios-workflow:
+    name: Tint iOS (IPA)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      groups:
+        - tint
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.tintstore.app
+    scripts:
+      - name: Generate platform folders if missing
+        script: flutter create . --org com.tintstore --platforms=android,ios
+      - name: Get packages
+        script: flutter pub get
+      - name: Generate icons & splash
+        script: |
+          dart run flutter_launcher_icons
+          dart run flutter_native_splash:create
+      - name: Install pods
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+      - name: Build IPA
+        script: |
+          flutter build ipa --release \
+            --dart-define=TINT_API_BASE_URL=$TINT_API_BASE_URL \
+            --dart-define=TINT_TABBY_PUBLIC_KEY=$TINT_TABBY_PUBLIC_KEY \
+            --dart-define=TINT_TABBY_MERCHANT_CODE=$TINT_TABBY_MERCHANT_CODE \
+            --dart-define=TINT_TABBY_LANG=ar \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa

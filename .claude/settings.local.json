@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter --version)",
+      "Bash(echo \"---EXIT:$?---\")",
+      "PowerShell($ErrorActionPreference='SilentlyContinue'; \\(Get-Command flutter\\).Source; flutter --version)"
+    ]
+  }
+}
