@@ -6,7 +6,7 @@ abstract final class ApiRoutes {
   static const authRequestOtp = '/customer/auth/request-otp';
   static const authVerifyOtp = '/customer/auth/verify-otp';
 
-  static const dashboard = '/me/dashboard';
+  static const dashboard = '/customer/me';
   static const rewards = '/me/rewards';
   // مسارات العميل الحقيقيّة على الوسيط (محميّة بتوكن Bearer).
   static const orders = '/customer/orders';
