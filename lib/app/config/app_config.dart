@@ -20,7 +20,9 @@ class AppConfig {
     return const AppConfig(
       baseUrl: String.fromEnvironment(
         'TINT_API_BASE_URL',
-        defaultValue: 'http://10.0.2.2:3000/api',
+        // محاكي أندرويد: 10.0.2.2 = localhost المضيف؛ الوسيط على المنفذ 5181.
+        // للإنتاج: --dart-define=TINT_API_BASE_URL=https://<middleware-host>/api
+        defaultValue: 'http://10.0.2.2:5181/api',
       ),
       tabbyPublicKey: String.fromEnvironment(
         'TINT_TABBY_PUBLIC_KEY',

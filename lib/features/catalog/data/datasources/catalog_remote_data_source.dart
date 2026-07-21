@@ -14,10 +14,20 @@ class CatalogRemoteDataSource {
     return _apiClient.getList(ApiRoutes.catalogTrends);
   }
 
-  Future<List<dynamic>> searchProducts(String query) {
-    return _apiClient.getList(
+  Future<List<dynamic>> searchProducts(String query) async {
+    // الوسيط يُعيد { query, count, items:[card] } (كائن لا مصفوفة)، والبطاقة تحمل
+    // categorySlug؛ نُخرج items ونطابق category الذي يقرأه ProductModel.
+    final data = await _apiClient.getMap(
       ApiRoutes.catalogSearch,
       queryParameters: {'q': query},
     );
+    final items = data['items'];
+    if (items is! List) return const <dynamic>[];
+    return items.map((e) {
+      if (e is Map<String, dynamic> && e['category'] == null && e['categorySlug'] != null) {
+        return {...e, 'category': e['categorySlug']};
+      }
+      return e;
+    }).toList();
   }
 }
