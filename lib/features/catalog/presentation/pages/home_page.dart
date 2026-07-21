@@ -37,6 +37,22 @@ class HomePage extends StatelessWidget {
   }
 
   Widget _buildStorefront(BuildContext context, HomeStoreState state) {
+    // الأقسام التحريريّة الحقيقيّة من الوسيط (/catalog/bootstrap)؛ التراجُع
+    // للبيانات التجريبيّة يحدث فقط إن كان القسم فارغاً (فشل الجلب / بلا اتّصال).
+    final newArrivals = state.productsOf('وصل حديثاً');
+    final offers = state.productsOf('عروض وخصومات');
+    final bestSellers = state.productsOf('الأكثر مبيعاً');
+    final picks = state.productsOf('مختارات لك');
+    final realPool = <ProductModel>[
+      ...bestSellers,
+      ...newArrivals,
+      ...offers,
+      ...picks,
+    ];
+    final poolOrFake = realPool.isNotEmpty ? realPool : FakeSeedData.allProducts;
+    List<ProductModel> or(List<ProductModel> real, List<ProductModel> fallback) =>
+        real.isNotEmpty ? real : fallback;
+
     switch (state.activeTopNav) {
       case 'المكياج':
         return _CategoryStorefront(
@@ -46,7 +62,7 @@ class HomePage extends StatelessWidget {
           overline: 'Glow & Glamour',
           title: 'أبرزي جمالك\nبأرقى اللمسات',
           subtitle: 'تشكيلة حصرية من أفضل العلامات التجارية لتتألقي كل يوم.',
-          products: state.productsOf('makeup'),
+          products: poolOrFake,
           chips: const ['للوجه', 'للعيون', 'للشفاه', 'الفرش والأدوات'],
           tipsTitle: 'روتين جمالك المتكامل',
           tipsSubtitle: 'خطوات أساسية لمكياج احترافي وثابت',
@@ -62,7 +78,7 @@ class HomePage extends StatelessWidget {
           overline: 'Luxury Fragrances',
           title: 'عالم العطور',
           subtitle: 'نفحات تأسر الحواس وتعبر عن أناقتك برقي لا يُنسى.',
-          products: state.productsOf('perfumes'),
+          products: poolOrFake,
           chips: const ['عطور نسائية', 'عطور فاخرة', 'عطور يومية', 'هدايا عطور'],
           tipsTitle: 'اختاري حسب الطابع',
           tipsSubtitle: 'عائلات عطرية تناسب كل إحساس',
@@ -78,7 +94,7 @@ class HomePage extends StatelessWidget {
           overline: 'Boutique Collection',
           title: 'أناقة محتشمة',
           subtitle: 'تصاميم تعكس ذوقك الرفيع في كل تفصيلة.',
-          products: state.productsOf('abayas'),
+          products: poolOrFake,
           chips: const ['عبايات يومية', 'مناسبات فاخرة', 'ملونة', 'عملية'],
           tipsTitle: 'اختاري حسب المناسبة',
           tipsSubtitle: 'تصاميم تناسب أسلوب حياتك',
@@ -93,7 +109,7 @@ class HomePage extends StatelessWidget {
           overline: 'Soft Elegance',
           title: 'إطلالات\nتخطف الأنظار',
           subtitle: 'اكتشفي تشكيلة الفساتين التي تعانق أنوثتك بكل نعومة.',
-          products: state.productsOf('dresses'),
+          products: poolOrFake,
           chips: const ['ناعم', 'فاخر', 'كلاسيكي', 'عصري'],
           tipsTitle: 'تألقي في كل لحظة',
           tipsSubtitle: 'اختاري فستانك حسب مناسبتك القادمة',
@@ -108,7 +124,7 @@ class HomePage extends StatelessWidget {
           overline: 'The Finishing Touch',
           title: 'لمسات تكمل\nأناقتك',
           subtitle: 'تفاصيل صغيرة تصنع فرقًا كبيرًا في إطلالتك.',
-          products: state.productsOf('accessories'),
+          products: poolOrFake,
           chips: const ['أقراط', 'أساور', 'خواتم', 'أطقم'],
           tipsTitle: 'اختاري لمستك',
           tipsSubtitle: 'قطع تعكس شخصيتك الفريدة',
@@ -116,28 +132,30 @@ class HomePage extends StatelessWidget {
           gridTitle: 'الأكثر مبيعًا',
         );
       case 'الهدايا':
-        return _GiftsStorefront(products: state.productsOf('gifts'));
+        return _GiftsStorefront(
+          products: or(picks, FakeSeedData.productsByCategory['gifts']!),
+        );
       case 'الجديد':
         return _SimpleGridStorefront(
           title: 'وصل حديثًا',
           subtitle: 'منتجات جديدة أضيفت هذا الأسبوع',
-          products: FakeSeedData.newArrivals,
+          products: or(newArrivals, FakeSeedData.newArrivals),
         );
       case 'العروض':
         return _SimpleGridStorefront(
           title: 'عروض اليوم',
           subtitle: 'خصومات حصرية لفترة محدودة',
-          products: FakeSeedData.offers,
+          products: or(offers, FakeSeedData.offers),
           highlighted: true,
         );
       case 'الرئيسية':
       default:
         return _HomeGatewayStorefront(
-          quickLinks: FakeSeedData.quickLinks,
-          bestSellers: FakeSeedData.bestSellers,
-          newArrivals: FakeSeedData.newArrivals,
-          offers: FakeSeedData.offers,
-          gifts: state.productsOf('gifts'),
+          quickLinks: FakeSeedData.quickLinks, // لا خادم للروابط السريعة بعد
+          bestSellers: or(bestSellers, FakeSeedData.bestSellers),
+          newArrivals: or(newArrivals, FakeSeedData.newArrivals),
+          offers: or(offers, FakeSeedData.offers),
+          gifts: or(picks, FakeSeedData.productsByCategory['gifts']!),
         );
     }
   }

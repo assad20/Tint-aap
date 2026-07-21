@@ -41,18 +41,17 @@ class ProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Stack(
-              children: [
-                AspectRatio(
-                  aspectRatio: dense ? 1 : 0.78,
-                  child: TintNetworkImage(
+            Expanded(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  TintNetworkImage(
                     url: product.image,
                     fit: BoxFit.cover,
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(18),
                     ),
                   ),
-                ),
                 if (product.tag != null)
                   Positioned(
                     top: 8,
@@ -83,7 +82,8 @@ class ProductCard extends StatelessWidget {
                       foregroundColor: Colors.white,
                     ),
                   ),
-              ],
+                ],
+              ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
