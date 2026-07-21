@@ -3,11 +3,15 @@ abstract final class ApiRoutes {
   static const catalogTrends = '/catalog/trends';
   static const catalogSearch = '/catalog/search';
 
+  static const authRequestOtp = '/customer/auth/request-otp';
+  static const authVerifyOtp = '/customer/auth/verify-otp';
+
   static const dashboard = '/me/dashboard';
   static const rewards = '/me/rewards';
-  static const orders = '/me/orders';
+  // مسارات العميل الحقيقيّة على الوسيط (محميّة بتوكن Bearer).
+  static const orders = '/customer/orders';
   static const favorites = '/me/favorites';
-  static const addresses = '/me/addresses';
+  static const addresses = '/customer/addresses';
 
   static const checkout = '/orders/checkout';
   static const tabbyRegisterPending = '/payments/tabby/register-pending';

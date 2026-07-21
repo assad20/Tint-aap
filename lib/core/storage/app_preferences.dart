@@ -32,4 +32,25 @@ class AppPreferences {
   Future<void> clearRecentSearches() async {
     await _prefs.remove('recent_searches');
   }
+
+  // ─── بيانات العميل بعد تسجيل الدخول (التوكن نفسه في التخزين الآمن) ───
+  String? get customerPhone => _prefs.getString('customer_phone');
+  String? get customerName => _prefs.getString('customer_name');
+  String? get customerEmail => _prefs.getString('customer_email');
+
+  Future<void> saveCustomer({
+    required String phone,
+    String? name,
+    String? email,
+  }) async {
+    await _prefs.setString('customer_phone', phone);
+    if (name != null && name.isNotEmpty) await _prefs.setString('customer_name', name);
+    if (email != null && email.isNotEmpty) await _prefs.setString('customer_email', email);
+  }
+
+  Future<void> clearCustomer() async {
+    await _prefs.remove('customer_phone');
+    await _prefs.remove('customer_name');
+    await _prefs.remove('customer_email');
+  }
 }

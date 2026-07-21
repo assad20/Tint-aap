@@ -16,6 +16,7 @@ import '../../features/account/presentation/pages/size_profiles_page.dart';
 import '../../features/account/presentation/pages/stock_alerts_page.dart';
 import '../../features/account/presentation/pages/wallet_page.dart';
 import '../../features/assistant/presentation/pages/assistant_page.dart';
+import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/catalog/presentation/pages/search_page.dart';
 import '../../features/checkout/presentation/pages/checkout_page.dart';
 import '../../features/shell/presentation/pages/main_shell_page.dart';
@@ -35,6 +36,10 @@ class AppRouter {
           GoRoute(
             path: 'assistant',
             builder: (context, state) => const AssistantPage(),
+          ),
+          GoRoute(
+            path: 'login',
+            builder: (context, state) => const LoginPage(),
           ),
           GoRoute(
             path: 'checkout',

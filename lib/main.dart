@@ -19,6 +19,10 @@ import 'features/assistant/data/datasources/assistant_remote_data_source.dart';
 import 'features/assistant/data/repositories/assistant_repository_impl.dart';
 import 'features/assistant/domain/repositories/assistant_repository.dart';
 import 'features/assistant/presentation/cubit/assistant_cubit.dart';
+import 'features/auth/data/datasources/auth_remote_data_source.dart';
+import 'features/auth/data/repositories/auth_repository_impl.dart';
+import 'features/auth/domain/repositories/auth_repository.dart';
+import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/cart/presentation/cubit/cart_cubit.dart';
 import 'features/catalog/data/datasources/catalog_remote_data_source.dart';
 import 'features/catalog/data/repositories/catalog_repository_impl.dart';
@@ -62,6 +66,11 @@ Future<void> main() async {
   final assistantRepository = AssistantRepositoryImpl(
     remoteDataSource: AssistantRemoteDataSource(apiClient),
   );
+  final authRepository = AuthRepositoryImpl(
+    remoteDataSource: AuthRemoteDataSource(apiClient),
+    tokenStorage: tokenStorage,
+    preferences: appPreferences,
+  );
 
   runApp(
     MultiRepositoryProvider(
@@ -74,6 +83,7 @@ Future<void> main() async {
         RepositoryProvider<AccountRepository>.value(value: accountRepository),
         RepositoryProvider<CheckoutRepository>.value(value: checkoutRepository),
         RepositoryProvider<AssistantRepository>.value(value: assistantRepository),
+        RepositoryProvider<AuthRepository>.value(value: authRepository),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -133,6 +143,11 @@ Future<void> main() async {
           BlocProvider(
             create: (context) => AssistantCubit(
               repository: context.read<AssistantRepository>(),
+            ),
+          ),
+          BlocProvider(
+            create: (context) => AuthCubit(
+              repository: context.read<AuthRepository>(),
             ),
           ),
         ],
