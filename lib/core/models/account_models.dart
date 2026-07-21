@@ -258,8 +258,20 @@ class OrderItemModel {
   final String variant;
 
   factory OrderItemModel.fromJson(Map<String, dynamic> json) {
+    // الخادم (/customer/orders) يرجع السطر مسطّحاً: {sku, qty, price, title, image}
+    // — لا كائن product متداخل. ندعم الشكلين تفادياً للتعطّل.
+    final nested = json['product'];
+    final product = nested is Map<String, dynamic>
+        ? ProductModel.fromJson(nested)
+        : ProductModel.fromJson({
+            'id': json['sku']?.toString() ?? '',
+            'brand': (json['brand'] ?? '').toString(),
+            'title': (json['title'] ?? json['sku'] ?? '').toString(),
+            'price': json['price'] ?? 0,
+            'image': (json['image'] ?? '').toString(),
+          });
     return OrderItemModel(
-      product: ProductModel.fromJson(json['product'] as Map<String, dynamic>),
+      product: product,
       qty: int.tryParse(json['qty'].toString()) ?? 1,
       variant: json['variant']?.toString() ?? '',
     );
