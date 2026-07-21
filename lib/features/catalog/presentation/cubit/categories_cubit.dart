@@ -7,27 +7,32 @@ import '../../domain/repositories/catalog_repository.dart';
 class CategoriesState {
   const CategoriesState({
     this.isLoading = true,
-    this.sidebar = const [],
-    this.catalog = const {},
-    this.selectedCategory = 'الفساتين',
+    this.categories = const [],
+    this.selected,
+    this.products = const [],
+    this.isProductsLoading = false,
   });
 
   final bool isLoading;
-  final List<String> sidebar;
-  final Map<String, List<ProductModel>> catalog;
-  final String selectedCategory;
+  // أقسام المتجر الحقيقيّة (/catalog/navigation).
+  final List<CategoryModel> categories;
+  final CategoryModel? selected;
+  final List<ProductModel> products;
+  final bool isProductsLoading;
 
   CategoriesState copyWith({
     bool? isLoading,
-    List<String>? sidebar,
-    Map<String, List<ProductModel>>? catalog,
-    String? selectedCategory,
+    List<CategoryModel>? categories,
+    CategoryModel? selected,
+    List<ProductModel>? products,
+    bool? isProductsLoading,
   }) {
     return CategoriesState(
       isLoading: isLoading ?? this.isLoading,
-      sidebar: sidebar ?? this.sidebar,
-      catalog: catalog ?? this.catalog,
-      selectedCategory: selectedCategory ?? this.selectedCategory,
+      categories: categories ?? this.categories,
+      selected: selected ?? this.selected,
+      products: products ?? this.products,
+      isProductsLoading: isProductsLoading ?? this.isProductsLoading,
     );
   }
 }
@@ -41,18 +46,21 @@ class CategoriesCubit extends Cubit<CategoriesState> {
 
   Future<void> load() async {
     emit(state.copyWith(isLoading: true));
-    final sidebar = await _repository.fetchSidebarCategories();
-    final catalog = await _repository.fetchBootstrapCatalog();
-    emit(
-      state.copyWith(
-        isLoading: false,
-        sidebar: sidebar,
-        catalog: catalog,
-      ),
-    );
+    final cats = await _repository.fetchNavigation();
+    emit(state.copyWith(isLoading: false, categories: cats));
+    if (cats.isNotEmpty) {
+      await select(cats.first);
+    }
   }
 
-  void select(String category) {
-    emit(state.copyWith(selectedCategory: category));
+  Future<void> select(CategoryModel category) async {
+    emit(state.copyWith(
+      selected: category,
+      isProductsLoading: true,
+      products: const [],
+    ));
+    final products = await _repository.fetchCategoryProducts(category.id);
+    if (state.selected?.id != category.id) return; // تغيّر الاختيار أثناء الجلب
+    emit(state.copyWith(isProductsLoading: false, products: products));
   }
 }
