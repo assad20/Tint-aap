@@ -17,6 +17,8 @@ import '../../features/account/presentation/pages/stock_alerts_page.dart';
 import '../../features/account/presentation/pages/wallet_page.dart';
 import '../../features/assistant/presentation/pages/assistant_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
+import '../../core/models/product_model.dart';
+import '../../features/catalog/presentation/pages/product_detail_page.dart';
 import '../../features/catalog/presentation/pages/search_page.dart';
 import '../../features/checkout/presentation/pages/checkout_page.dart';
 import '../../features/shell/presentation/pages/main_shell_page.dart';
@@ -32,6 +34,14 @@ class AppRouter {
           GoRoute(
             path: 'search',
             builder: (context, state) => const SearchPage(),
+          ),
+          GoRoute(
+            path: 'product',
+            builder: (context, state) => state.extra is ProductModel
+                ? ProductDetailPage(product: state.extra as ProductModel)
+                : const Scaffold(
+                    body: Center(child: Text('المنتج غير متاح')),
+                  ),
           ),
           GoRoute(
             path: 'assistant',

@@ -2,7 +2,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/models/cart_item_model.dart';
 import '../../../../core/models/product_model.dart';
-import '../../../../core/utils/fake_seed_data.dart';
 
 class CartState {
   const CartState({
@@ -32,7 +31,7 @@ class CartState {
 }
 
 class CartCubit extends Cubit<CartState> {
-  CartCubit() : super(CartState(items: FakeSeedData.cartItems));
+  CartCubit() : super(const CartState());
 
   void increment(String cartId) {
     emit(

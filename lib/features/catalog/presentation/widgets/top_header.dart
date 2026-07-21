@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/tint_ui.dart';
+import '../../../cart/presentation/cubit/cart_cubit.dart';
 import '../../../shell/presentation/cubit/shell_cubit.dart';
 import '../cubit/home_store_cubit.dart';
 
@@ -16,6 +17,11 @@ class TopHeader extends StatelessWidget {
       builder: (context, state) {
         // إضافة ارتفاع شريط الحالة/النوتش حتى لا يتداخل الشعار مع أعلى الشاشة
         final topInset = MediaQuery.viewPaddingOf(context).top;
+        final cartCount = context
+            .watch<CartCubit>()
+            .state
+            .items
+            .fold<int>(0, (sum, item) => sum + item.quantity);
         return Container(
           color: Colors.white,
           padding: EdgeInsets.fromLTRB(14, 16 + topInset, 14, 10),
@@ -66,27 +72,29 @@ class TopHeader extends StatelessWidget {
                       clipBehavior: Clip.none,
                       children: [
                         const Icon(Icons.shopping_cart_outlined),
-                        Positioned(
-                          top: -2,
-                          left: -6,
-                          child: Container(
-                            width: 16,
-                            height: 16,
-                            decoration: const BoxDecoration(
-                              color: TintColors.sand,
-                              shape: BoxShape.circle,
-                            ),
-                            alignment: Alignment.center,
-                            child: const Text(
-                              '3',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 8,
-                                fontWeight: FontWeight.w800,
+                        if (cartCount > 0)
+                          Positioned(
+                            top: -4,
+                            left: -6,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              constraints: const BoxConstraints(minWidth: 16),
+                              height: 16,
+                              decoration: BoxDecoration(
+                                color: TintColors.sand,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                '$cartCount',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                   ),
