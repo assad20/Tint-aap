@@ -146,6 +146,8 @@ class AddressModel {
     required this.neighborhood,
     required this.details,
     required this.isDefault,
+    this.lat,
+    this.lng,
   });
 
   final String id;
@@ -156,6 +158,8 @@ class AddressModel {
   final String neighborhood;
   final String details;
   final bool isDefault;
+  final double? lat;
+  final double? lng;
 
   AddressModel copyWith({
     String? id,
@@ -166,6 +170,8 @@ class AddressModel {
     String? neighborhood,
     String? details,
     bool? isDefault,
+    double? lat,
+    double? lng,
   }) {
     return AddressModel(
       id: id ?? this.id,
@@ -176,6 +182,8 @@ class AddressModel {
       neighborhood: neighborhood ?? this.neighborhood,
       details: details ?? this.details,
       isDefault: isDefault ?? this.isDefault,
+      lat: lat ?? this.lat,
+      lng: lng ?? this.lng,
     );
   }
 
@@ -189,6 +197,8 @@ class AddressModel {
       neighborhood: json['neighborhood']?.toString() ?? '',
       details: json['details']?.toString() ?? '',
       isDefault: json['isDefault'] as bool? ?? false,
+      lat: json['lat'] == null ? null : double.tryParse(json['lat'].toString()),
+      lng: json['lng'] == null ? null : double.tryParse(json['lng'].toString()),
     );
   }
 
@@ -202,6 +212,8 @@ class AddressModel {
       'neighborhood': neighborhood,
       'details': details,
       'isDefault': isDefault,
+      if (lat != null) 'lat': lat,
+      if (lng != null) 'lng': lng,
     };
   }
 }

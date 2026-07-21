@@ -3,6 +3,10 @@
     <!-- الإنترنت مطلوب للاتصال بالـ Middleware -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- تحديد موقع التوصيل (اختياريّ) عند الدفع -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
     <!-- صلاحيات Tabby (التحقق من الهوية / KYC) -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />

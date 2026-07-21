@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tabby_flutter_inapp_sdk/tabby_flutter_inapp_sdk.dart';
 
@@ -34,6 +35,49 @@ class _CheckoutPageState extends State<CheckoutPage> {
   final _neighborhood = TextEditingController();
   final _details = TextEditingController();
   String _addressId = 'mobile-form';
+  double? _lat;
+  double? _lng;
+  bool _locating = false;
+
+  void _snack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
+    );
+  }
+
+  // التقاط إحداثيّات موقع التوصيل عبر GPS (بلا خريطة/مفتاح خارجيّ).
+  Future<void> _captureLocation() async {
+    setState(() => _locating = true);
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        _snack('خدمة الموقع غير مفعّلة على الجهاز.');
+        return;
+      }
+      var perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.deniedForever) {
+        _snack('لتحديد الموقع فعّل إذن الموقع للتطبيق.');
+        return;
+      }
+      // الموقع المخزّن أوّلاً (فوريّ)، وإلا موقع حيّ بمهلة تمنع التعليق.
+      final pos = await Geolocator.getLastKnownPosition() ??
+          await Geolocator.getCurrentPosition()
+              .timeout(const Duration(seconds: 15));
+      setState(() {
+        _lat = pos.latitude;
+        _lng = pos.longitude;
+      });
+      _snack('تمّ تحديد موقع التوصيل ✅');
+    } catch (_) {
+      _snack('تعذّر تحديد الموقع، حاول مجدداً.');
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
 
   @override
   void initState() {
@@ -98,6 +142,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
             neighborhoodC: _neighborhood,
             detailsC: _details,
             onChanged: () => setState(() {}),
+            hasLocation: _lat != null && _lng != null,
+            isLocating: _locating,
+            onLocate: _captureLocation,
           ),
           const SizedBox(height: 12),
           const _ProductsMiniSummary(),
@@ -132,6 +179,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       neighborhood: _neighborhood.text.trim(),
       details: _details.text.trim(),
       isDefault: true,
+      lat: _lat,
+      lng: _lng,
     );
   }
 
@@ -175,6 +224,9 @@ class _ShippingFormCard extends StatelessWidget {
     required this.neighborhoodC,
     required this.detailsC,
     required this.onChanged,
+    required this.hasLocation,
+    required this.isLocating,
+    required this.onLocate,
   });
 
   final TextEditingController nameC;
@@ -184,6 +236,9 @@ class _ShippingFormCard extends StatelessWidget {
   final TextEditingController neighborhoodC;
   final TextEditingController detailsC;
   final VoidCallback onChanged;
+  final bool hasLocation;
+  final bool isLocating;
+  final VoidCallback onLocate;
 
   @override
   Widget build(BuildContext context) {
@@ -215,6 +270,51 @@ class _ShippingFormCard extends StatelessWidget {
             ],
           ),
           _field(detailsC, 'تفاصيل العنوان *', Icons.home_outlined, maxLines: 2),
+          const SizedBox(height: 2),
+          InkWell(
+            onTap: isLocating ? null : onLocate,
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: BoxDecoration(
+                color: hasLocation ? const Color(0xFFF0FBF3) : const Color(0xFFF8F9FA),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: hasLocation ? Colors.green : TintColors.line,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    hasLocation ? Icons.check_circle_rounded : Icons.my_location,
+                    color: hasLocation ? Colors.green : TintColors.sand,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      isLocating
+                          ? 'جارٍ تحديد موقعك…'
+                          : hasLocation
+                              ? 'تمّ تحديد موقع التوصيل ✅'
+                              : 'تحديد موقع التوصيل على الخريطة (اختياريّ)',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        color: hasLocation ? Colors.green.shade700 : TintColors.charcoal,
+                      ),
+                    ),
+                  ),
+                  if (isLocating)
+                    const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2.2),
+                    ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
