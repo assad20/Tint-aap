@@ -2,5 +2,6 @@
     <!-- وضع التطوير فقط: السماح بـ HTTP غير المشفّر للاتصال بـ 10.0.2.2 وHot Reload -->
     <uses-permission android:name="android.permission.INTERNET" />
     <application android:usesCleartextTraffic="true" tools:ignore="GoogleAppIndexingWarning"
+        tools:replace="android:usesCleartextTraffic"
         xmlns:tools="http://schemas.android.com/tools" />
 </manifest>

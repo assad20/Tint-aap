@@ -19,7 +19,9 @@ class AssistantRepositoryImpl implements AssistantRepository {
         message: message,
         history: history,
       );
-      return response['reply']?.toString() ??
+      // ‼️ الوسيط يُرجع الحقل `answer` (لا `reply`). نقرأ answer أوّلاً مع تراجع آمن.
+      return response['answer']?.toString() ??
+          response['reply']?.toString() ??
           'أفهم طلبك، وأوصيك بالبدء بالقسم الأقرب لاحتياجك الحالي مع تنسيق الألوان والإكسسوارات المناسبة ✨';
     } catch (_) {
       return 'أرشح لكِ تنسيقًا عمليًا: اختاري قطعة أساسية واحدة ثم أضيفي إكسسوارًا ناعمًا وعطرًا خفيفًا ليكتمل اللوك ✨';
