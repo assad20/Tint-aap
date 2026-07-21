@@ -45,7 +45,7 @@ class TopHeader extends StatelessWidget {
                             SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'ابحثي عن مكياج، عطور، عبايات...',
+                                'ابحث عن منتجات، أقسام، ماركات…',
                                 style: TextStyle(
                                   color: TintColors.textMuted,
                                   fontSize: 13,

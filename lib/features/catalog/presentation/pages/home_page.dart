@@ -49,7 +49,7 @@ class HomePage extends StatelessWidget {
     // «الرئيسية» = البوّابة بالأقسام التحريريّة الحقيقيّة من /catalog/bootstrap.
     if (state.activeTopNav == kHomeNav) {
       return _HomeGatewayStorefront(
-        quickLinks: FakeSeedData.quickLinks, // لا خادم للروابط السريعة بعد
+        quickLinks: state.topNav.isNotEmpty ? state.topNav : FakeSeedData.quickLinks,
         bestSellers: or(bestSellers, FakeSeedData.bestSellers),
         newArrivals: or(newArrivals, FakeSeedData.newArrivals),
         offers: or(offers, FakeSeedData.offers),
@@ -110,44 +110,12 @@ class _HomeGatewayStorefront extends StatelessWidget {
         _HeroBanner(
           image:
               'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=800&q=80',
-          overline: 'تشكيلة الموسم الجديدة',
-          title: 'تألقي بإطلالة\nلا تُنسى',
-          subtitle: 'اكتشفي أحدث صيحات الموضة والجمال المختارة بعناية لكِ.',
-          buttonLabel: 'تسوقي الآن',
+          overline: 'كل ما تحتاجه في مكان واحد',
+          title: 'تسوّق أونلاين\nبكل سهولة',
+          subtitle: 'تشكيلة واسعة من كل الأقسام بأسعار تنافسية وتوصيل سريع.',
+          buttonLabel: 'تسوّق الآن',
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
-          child: Wrap(
-            spacing: 12,
-            runSpacing: 14,
-            children: quickLinks
-                .map((item) => SizedBox(
-                      width: (MediaQuery.of(context).size.width - 64) / 5,
-                      child: Column(
-                        children: [
-                          ClipOval(
-                            child: TintNetworkImage(
-                              url: item.image,
-                              fit: BoxFit.cover,
-                              width: 58,
-                              height: 58,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            item.name,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ))
-                .toList(),
-          ),
-        ),
+        const SizedBox(height: 6),
         Padding(
           padding: const EdgeInsets.all(16),
           child: TintSurfaceCard(
@@ -163,14 +131,14 @@ class _HomeGatewayStorefront extends StatelessWidget {
         ),
         _SectionCarousel(
           title: 'الأكثر مبيعًا',
-          subtitle: 'المنتجات المفضلة لدى عميلاتنا',
+          subtitle: 'الأكثر رواجًا لدى عملائنا',
           items: bestSellers,
         ),
         Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              const TintSectionHeader(title: 'عوالم تنت المتخصصة'),
+              const TintSectionHeader(title: 'تسوّق حسب القسم'),
               const SizedBox(height: 14),
               GridView.count(
                 shrinkWrap: true,
@@ -179,28 +147,14 @@ class _HomeGatewayStorefront extends StatelessWidget {
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
                 childAspectRatio: 1.15,
-                children: const [
-                  _CategoryWorldCard(
-                    image:
-                        'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400&q=80',
-                    title: 'عالم المكياج',
-                  ),
-                  _CategoryWorldCard(
-                    image:
-                        'https://images.unsplash.com/photo-1541643600914-78b084683601?w=400&q=80',
-                    title: 'عالم العطور',
-                  ),
-                  _CategoryWorldCard(
-                    image:
-                        'https://images.unsplash.com/photo-1589465885855-40813f367eb7?w=400&q=80',
-                    title: 'أناقة العبايات',
-                  ),
-                  _CategoryWorldCard(
-                    image:
-                        'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400&q=80',
-                    title: 'فساتينك المفضلة',
-                  ),
-                ],
+                children: quickLinks
+                    .take(4)
+                    .map((c) => GestureDetector(
+                          onTap: () =>
+                              context.read<HomeStoreCubit>().setActiveTopNav(c.name),
+                          child: _CategoryWorldCard(image: c.image, title: c.name),
+                        ))
+                    .toList(),
               ),
             ],
           ),

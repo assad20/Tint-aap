@@ -67,7 +67,7 @@ class _SignInGate extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'سجّلي الدخول لمتابعة طلباتك وعناوينك وتفاصيل حسابك.',
+            'سجّل الدخول لمتابعة طلباتك وعناوينك وتفاصيل حسابك.',
             textAlign: TextAlign.center,
             style: TextStyle(color: TintColors.textMuted, height: 1.7, fontSize: 13),
           ),
