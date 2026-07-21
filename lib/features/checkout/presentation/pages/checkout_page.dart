@@ -8,6 +8,7 @@ import '../../../../app/theme/app_theme.dart';
 import '../../../../core/models/account_models.dart';
 import '../../../../core/widgets/tint_ui.dart';
 import '../../../account/presentation/cubit/addresses_cubit.dart';
+import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../cart/presentation/cubit/cart_cubit.dart';
 import '../cubit/checkout_cubit.dart';
 import '../services/tabby_checkout_service.dart';
@@ -25,16 +26,58 @@ class _CheckoutPageState extends State<CheckoutPage> {
   final _tabbyDobController = TextEditingController();
   DateTime? _selectedDob;
 
+  // نموذج بيانات العميل والشحن — يُملأ مسبقاً من حساب العميل + عنوانه المحفوظ.
+  final _name = TextEditingController();
+  final _phone = TextEditingController();
+  final _email = TextEditingController();
+  final _city = TextEditingController();
+  final _neighborhood = TextEditingController();
+  final _details = TextEditingController();
+  String _addressId = 'mobile-form';
+
+  @override
+  void initState() {
+    super.initState();
+    final customer = context.read<AuthCubit>().state.customer;
+    if (customer != null) {
+      _name.text = customer.name ?? '';
+      _phone.text = customer.phone;
+      _email.text = customer.email ?? '';
+    }
+    final addresses = context.read<AddressesCubit>().state.items;
+    if (addresses.isNotEmpty) {
+      final a = addresses.firstWhere(
+        (x) => x.isDefault,
+        orElse: () => addresses.first,
+      );
+      _addressId = a.id;
+      if (_name.text.isEmpty) _name.text = a.recipient;
+      if (_phone.text.isEmpty) _phone.text = a.mobile;
+      _city.text = a.city;
+      _neighborhood.text = a.neighborhood;
+      _details.text = a.details;
+    }
+    if (_tabbyEmailController.text.isEmpty) {
+      _tabbyEmailController.text = _email.text;
+    }
+  }
+
   @override
   void dispose() {
     _tabbyEmailController.dispose();
     _tabbyDobController.dispose();
+    _name.dispose();
+    _phone.dispose();
+    _email.dispose();
+    _city.dispose();
+    _neighborhood.dispose();
+    _details.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final address = _defaultAddress(context);
+    final address = _currentAddress();
 
     return TintPageScaffold(
       title: 'إتمام الطلب',
@@ -47,7 +90,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         children: [
-          _AddressCard(address: address),
+          _ShippingFormCard(
+            nameC: _name,
+            phoneC: _phone,
+            emailC: _email,
+            cityC: _city,
+            neighborhoodC: _neighborhood,
+            detailsC: _details,
+            onChanged: () => setState(() {}),
+          ),
           const SizedBox(height: 12),
           const _ProductsMiniSummary(),
           const SizedBox(height: 12),
@@ -70,23 +121,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-  AddressModel _defaultAddress(BuildContext context) {
-    final items = context.read<AddressesCubit>().state.items;
-    if (items.isEmpty) {
-      return const AddressModel(
-        id: 'fallback',
-        title: 'المنزل',
-        recipient: 'ضيف تنت',
-        mobile: '0500000000',
-        city: 'الرياض',
-        neighborhood: 'الورود',
-        details: 'عنوان افتراضي مؤقت حتى تتم مزامنة البيانات من السيرفر.',
-        isDefault: true,
-      );
-    }
-    return items.firstWhere(
-      (item) => item.isDefault,
-      orElse: () => items.first,
+  // عنوان الطلب مبنيّ من نموذج الشحن الحقيقيّ (لا بيانات افتراضيّة وهميّة).
+  AddressModel _currentAddress() {
+    return AddressModel(
+      id: _addressId,
+      title: 'التوصيل',
+      recipient: _name.text.trim(),
+      mobile: _phone.text.trim(),
+      city: _city.text.trim(),
+      neighborhood: _neighborhood.text.trim(),
+      details: _details.text.trim(),
+      isDefault: true,
     );
   }
 
@@ -120,65 +165,82 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 }
 
-class _AddressCard extends StatelessWidget {
-  const _AddressCard({required this.address});
+// نموذج بيانات العميل والشحن (مطابق للمتجر) — يُملأ من الحساب ويُحرّر يدويّاً.
+class _ShippingFormCard extends StatelessWidget {
+  const _ShippingFormCard({
+    required this.nameC,
+    required this.phoneC,
+    required this.emailC,
+    required this.cityC,
+    required this.neighborhoodC,
+    required this.detailsC,
+    required this.onChanged,
+  });
 
-  final AddressModel address;
+  final TextEditingController nameC;
+  final TextEditingController phoneC;
+  final TextEditingController emailC;
+  final TextEditingController cityC;
+  final TextEditingController neighborhoodC;
+  final TextEditingController detailsC;
+  final VoidCallback onChanged;
 
   @override
   Widget build(BuildContext context) {
     return TintSurfaceCard(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const TintSectionHeader(title: 'عنوان التوصيل'),
-          const SizedBox(height: 12),
+          const TintSectionHeader(title: 'بيانات العميل والشحن'),
+          const SizedBox(height: 4),
+          const Text(
+            'تُستخدم هذه البيانات لمعالجة الطلب وتوصيله.',
+            style: TextStyle(color: TintColors.textMuted, fontSize: 11),
+          ),
+          const SizedBox(height: 14),
+          _field(nameC, 'الاسم الكامل *', Icons.person_outline),
+          _field(phoneC, 'رقم الجوال *', Icons.phone_outlined,
+              ltr: true, type: TextInputType.phone),
+          _field(emailC, 'البريد الإلكترونيّ (اختياري)', Icons.mail_outline,
+              ltr: true, type: TextInputType.emailAddress),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF4F0),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(Icons.location_on_outlined,
-                    color: TintColors.sand),
-              ),
-              const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${address.recipient} (${address.title})',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${address.city}، ${address.neighborhood}\n${address.details}',
-                      style: const TextStyle(
-                        color: TintColors.textMuted,
-                        fontSize: 11,
-                        height: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      address.mobile,
-                      style: const TextStyle(
-                        color: TintColors.textMuted,
-                        fontSize: 11,
-                      ),
-                      textDirection: TextDirection.ltr,
-                    ),
-                  ],
-                ),
-              ),
+                  child: _field(
+                      cityC, 'المدينة *', Icons.location_city_outlined)),
+              const SizedBox(width: 10),
+              Expanded(
+                  child: _field(neighborhoodC, 'الحيّ *', Icons.map_outlined)),
             ],
           ),
+          _field(detailsC, 'تفاصيل العنوان *', Icons.home_outlined, maxLines: 2),
         ],
+      ),
+    );
+  }
+
+  Widget _field(
+    TextEditingController c,
+    String label,
+    IconData icon, {
+    bool ltr = false,
+    TextInputType? type,
+    int maxLines = 1,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: TextField(
+        controller: c,
+        keyboardType: type,
+        maxLines: maxLines,
+        textDirection: ltr ? TextDirection.ltr : null,
+        onChanged: (_) => onChanged(),
+        decoration: InputDecoration(
+          labelText: label,
+          isDense: true,
+          prefixIcon: Icon(icon, color: TintColors.sand, size: 20),
+        ),
       ),
     );
   }
@@ -408,6 +470,16 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
   Future<void> _submit(BuildContext context, CheckoutState state) async {
     final cartState = context.read<CartCubit>().state;
     if (cartState.items.isEmpty) return;
+
+    // تحقّق من اكتمال بيانات الشحن المطلوبة قبل الإرسال.
+    final a = widget.address;
+    if (a.recipient.isEmpty ||
+        a.mobile.isEmpty ||
+        a.city.isEmpty ||
+        a.details.isEmpty) {
+      _showSnackBar(context, 'أكمل بيانات الشحن المطلوبة (المميّزة بـ*).');
+      return;
+    }
 
     if (state.paymentMethod == 'tabby') {
       await _handleTabbyPayment(context, state);
