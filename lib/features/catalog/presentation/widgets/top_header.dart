@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_theme.dart';
-import '../../../../core/utils/fake_seed_data.dart';
 import '../../../../core/widgets/tint_ui.dart';
 import '../../../shell/presentation/cubit/shell_cubit.dart';
 import '../cubit/home_store_cubit.dart';
@@ -98,10 +97,10 @@ class TopHeader extends StatelessWidget {
                 height: 34,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
-                  itemCount: FakeSeedData.topNavCategories.length,
+                  itemCount: state.navLabels.length,
                   separatorBuilder: (_, __) => const SizedBox(width: 18),
                   itemBuilder: (context, index) {
-                    final item = FakeSeedData.topNavCategories[index];
+                    final item = state.navLabels[index];
                     final isActive = item == state.activeTopNav;
                     return InkWell(
                       onTap: () => context.read<HomeStoreCubit>().setActiveTopNav(item),

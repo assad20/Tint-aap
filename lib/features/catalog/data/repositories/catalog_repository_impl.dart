@@ -61,6 +61,32 @@ class CatalogRepositoryImpl implements CatalogRepository {
   }
 
   @override
+  Future<List<CategoryModel>> fetchNavigation() async {
+    try {
+      final items = await _remoteDataSource.fetchNavigation();
+      return items
+          .whereType<Map<String, dynamic>>()
+          .map(CategoryModel.fromJson)
+          .toList();
+    } catch (_) {
+      return const <CategoryModel>[];
+    }
+  }
+
+  @override
+  Future<List<ProductModel>> fetchCategoryProducts(String slug) async {
+    try {
+      final items = await _remoteDataSource.fetchCategoryProducts(slug);
+      return items
+          .whereType<Map<String, dynamic>>()
+          .map(ProductModel.fromJson)
+          .toList();
+    } catch (_) {
+      return const <ProductModel>[];
+    }
+  }
+
+  @override
   Future<List<ProductModel>> searchProducts(String query) async {
     try {
       final items = await _remoteDataSource.searchProducts(query);

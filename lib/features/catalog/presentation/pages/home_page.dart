@@ -43,121 +43,47 @@ class HomePage extends StatelessWidget {
     final offers = state.productsOf('عروض وخصومات');
     final bestSellers = state.productsOf('الأكثر مبيعاً');
     final picks = state.productsOf('مختارات لك');
-    final realPool = <ProductModel>[
-      ...bestSellers,
-      ...newArrivals,
-      ...offers,
-      ...picks,
-    ];
-    final poolOrFake = realPool.isNotEmpty ? realPool : FakeSeedData.allProducts;
     List<ProductModel> or(List<ProductModel> real, List<ProductModel> fallback) =>
         real.isNotEmpty ? real : fallback;
 
-    switch (state.activeTopNav) {
-      case 'المكياج':
-        return _CategoryStorefront(
-          heroImage:
-              'https://images.unsplash.com/photo-1515688594390-b649af70d282?w=800&q=80',
-          accent: const Color(0xFFF43F5E),
-          overline: 'Glow & Glamour',
-          title: 'أبرزي جمالك\nبأرقى اللمسات',
-          subtitle: 'تشكيلة حصرية من أفضل العلامات التجارية لتتألقي كل يوم.',
-          products: poolOrFake,
-          chips: const ['للوجه', 'للعيون', 'للشفاه', 'الفرش والأدوات'],
-          tipsTitle: 'روتين جمالك المتكامل',
-          tipsSubtitle: 'خطوات أساسية لمكياج احترافي وثابت',
-          bannerText: 'إطلالة يومية ناعمة',
-          gridTitle: 'ترندات المكياج',
-        );
-      case 'العطور':
-        return _CategoryStorefront(
-          heroImage:
-              'https://images.unsplash.com/photo-1594035910387-fea47794261f?w=800&q=80',
-          accent: const Color(0xFFD4AF37),
-          darkTheme: true,
-          overline: 'Luxury Fragrances',
-          title: 'عالم العطور',
-          subtitle: 'نفحات تأسر الحواس وتعبر عن أناقتك برقي لا يُنسى.',
-          products: poolOrFake,
-          chips: const ['عطور نسائية', 'عطور فاخرة', 'عطور يومية', 'هدايا عطور'],
-          tipsTitle: 'اختاري حسب الطابع',
-          tipsSubtitle: 'عائلات عطرية تناسب كل إحساس',
-          bannerText: 'تجربة فاخرة متكاملة',
-          gridTitle: 'الأكثر رواجًا الآن',
-        );
-      case 'العبايات':
-        return _CategoryStorefront(
-          heroImage:
-              'https://images.unsplash.com/photo-1589465885855-40813f367eb7?w=800&q=80',
-          accent: TintColors.charcoal,
-          darkTheme: true,
-          overline: 'Boutique Collection',
-          title: 'أناقة محتشمة',
-          subtitle: 'تصاميم تعكس ذوقك الرفيع في كل تفصيلة.',
-          products: poolOrFake,
-          chips: const ['عبايات يومية', 'مناسبات فاخرة', 'ملونة', 'عملية'],
-          tipsTitle: 'اختاري حسب المناسبة',
-          tipsSubtitle: 'تصاميم تناسب أسلوب حياتك',
-          bannerText: 'أناقة المناسبات',
-          gridTitle: 'اختيارات عميلاتنا',
-        );
-      case 'الفساتين':
-        return _CategoryStorefront(
-          heroImage:
-              'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&q=80',
-          accent: TintColors.sand,
-          overline: 'Soft Elegance',
-          title: 'إطلالات\nتخطف الأنظار',
-          subtitle: 'اكتشفي تشكيلة الفساتين التي تعانق أنوثتك بكل نعومة.',
-          products: poolOrFake,
-          chips: const ['ناعم', 'فاخر', 'كلاسيكي', 'عصري'],
-          tipsTitle: 'تألقي في كل لحظة',
-          tipsSubtitle: 'اختاري فستانك حسب مناسبتك القادمة',
-          bannerText: 'إطلالات المناسبات',
-          gridTitle: 'الفساتين المفضلة',
-        );
-      case 'الإكسسوارات':
-        return _CategoryStorefront(
-          heroImage:
-              'https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=800&q=80',
-          accent: const Color(0xFFBDA588),
-          overline: 'The Finishing Touch',
-          title: 'لمسات تكمل\nأناقتك',
-          subtitle: 'تفاصيل صغيرة تصنع فرقًا كبيرًا في إطلالتك.',
-          products: poolOrFake,
-          chips: const ['أقراط', 'أساور', 'خواتم', 'أطقم'],
-          tipsTitle: 'اختاري لمستك',
-          tipsSubtitle: 'قطع تعكس شخصيتك الفريدة',
-          bannerText: 'تنسيقات جاهزة',
-          gridTitle: 'الأكثر مبيعًا',
-        );
-      case 'الهدايا':
-        return _GiftsStorefront(
-          products: or(picks, FakeSeedData.productsByCategory['gifts']!),
-        );
-      case 'الجديد':
-        return _SimpleGridStorefront(
-          title: 'وصل حديثًا',
-          subtitle: 'منتجات جديدة أضيفت هذا الأسبوع',
-          products: or(newArrivals, FakeSeedData.newArrivals),
-        );
-      case 'العروض':
-        return _SimpleGridStorefront(
-          title: 'عروض اليوم',
-          subtitle: 'خصومات حصرية لفترة محدودة',
-          products: or(offers, FakeSeedData.offers),
-          highlighted: true,
-        );
-      case 'الرئيسية':
-      default:
-        return _HomeGatewayStorefront(
-          quickLinks: FakeSeedData.quickLinks, // لا خادم للروابط السريعة بعد
-          bestSellers: or(bestSellers, FakeSeedData.bestSellers),
-          newArrivals: or(newArrivals, FakeSeedData.newArrivals),
-          offers: or(offers, FakeSeedData.offers),
-          gifts: or(picks, FakeSeedData.productsByCategory['gifts']!),
-        );
+    // «الرئيسية» = البوّابة بالأقسام التحريريّة الحقيقيّة من /catalog/bootstrap.
+    if (state.activeTopNav == kHomeNav) {
+      return _HomeGatewayStorefront(
+        quickLinks: FakeSeedData.quickLinks, // لا خادم للروابط السريعة بعد
+        bestSellers: or(bestSellers, FakeSeedData.bestSellers),
+        newArrivals: or(newArrivals, FakeSeedData.newArrivals),
+        offers: or(offers, FakeSeedData.offers),
+        gifts: or(picks, FakeSeedData.productsByCategory['gifts']!),
+      );
     }
+
+    // أيّ قسم آخر = قسم متجر حقيقيّ من /catalog/navigation → منتجاته الفعليّة.
+    if (state.isCategoryLoading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 90),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (state.categoryProducts.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 90, horizontal: 24),
+        child: Center(
+          child: Text(
+            'لا منتجات في «${state.activeTopNav}» حالياً',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: TintColors.textMuted,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      );
+    }
+    return _SimpleGridStorefront(
+      title: state.activeTopNav,
+      subtitle: 'تشكيلة القسم',
+      products: state.categoryProducts,
+    );
   }
 }
 
@@ -328,264 +254,6 @@ class _HomeGatewayStorefront extends StatelessWidget {
           items: safeGifts,
         ),
         const SizedBox(height: 10),
-      ],
-    );
-  }
-}
-
-class _CategoryStorefront extends StatelessWidget {
-  const _CategoryStorefront({
-    required this.heroImage,
-    required this.accent,
-    required this.overline,
-    required this.title,
-    required this.subtitle,
-    required this.products,
-    required this.chips,
-    required this.tipsTitle,
-    required this.tipsSubtitle,
-    required this.bannerText,
-    required this.gridTitle,
-    this.darkTheme = false,
-  });
-
-  final String heroImage;
-  final Color accent;
-  final String overline;
-  final String title;
-  final String subtitle;
-  final List<ProductModel> products;
-  final List<String> chips;
-  final String tipsTitle;
-  final String tipsSubtitle;
-  final String bannerText;
-  final String gridTitle;
-  final bool darkTheme;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = darkTheme;
-    final safeProducts = products.isNotEmpty ? products : FakeSeedData.allProducts.take(4).toList();
-    return Container(
-      color: isDark ? const Color(0xFFFDFBF7) : const Color(0xFFFFFCFB),
-      child: Column(
-        children: [
-          _HeroBanner(
-            image: heroImage,
-            overline: overline,
-            title: title,
-            subtitle: subtitle,
-            buttonLabel: 'اكتشفي المجموعة',
-            darkOverlay: true,
-          ),
-          SizedBox(
-            height: 44,
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              scrollDirection: Axis.horizontal,
-              itemCount: chips.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (context, index) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: accent.withOpacity(0.2)),
-                ),
-                child: Text(
-                  chips[index],
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? TintColors.charcoal : accent,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          _SectionCarousel(
-            title: 'الأكثر مبيعًا',
-            subtitle: 'اختيارات عميلاتنا الراقية',
-            items: safeProducts,
-            accent: accent,
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TintSurfaceCard(
-              color: isDark ? const Color(0xFFF7F1E7) : const Color(0xFFFFF5F7),
-              child: Column(
-                children: [
-                  TintSectionHeader(
-                    title: tipsTitle,
-                    subtitle: tipsSubtitle,
-                  ),
-                  const SizedBox(height: 12),
-                  _WideBanner(
-                    image: safeProducts.first.image,
-                    title: bannerText,
-                    subtitle: 'اختيارات منسقة بعناية لتسهيل قرار الشراء',
-                  ),
-                  const SizedBox(height: 14),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: safeProducts.take(2).length,
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisExtent: 250,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                    ),
-                    itemBuilder: (context, index) => ProductCard(
-                      product: safeProducts[index],
-                      dense: true,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Column(
-              children: [
-                TintSectionHeader(title: gridTitle),
-                const SizedBox(height: 12),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: safeProducts.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisExtent: 260,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
-                  itemBuilder: (context, index) => ProductCard(
-                    product: products[index],
-                    showViews: true,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GiftsStorefront extends StatelessWidget {
-  const _GiftsStorefront({required this.products});
-
-  final List<ProductModel> products;
-
-  @override
-  Widget build(BuildContext context) {
-    final safeProducts = products.isNotEmpty ? products : FakeSeedData.productsByCategory['gifts']!;
-    return Column(
-      children: [
-        _WideBanner(
-          image:
-              'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=800&q=80',
-          title: 'دليلك للهدايا',
-          subtitle: 'لكل مناسبة، هدية تليق بها',
-          height: 180,
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: const [
-            _ChoiceChipLabel('لها'),
-            _ChoiceChipLabel('فاخرة'),
-            _ChoiceChipLabel('ميزانية محدودة'),
-            _ChoiceChipLabel('جاهزة للإهداء'),
-            _ChoiceChipLabel('أطقم عطور'),
-          ],
-        ),
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              const TintSectionHeader(title: 'بوكسات هدايا جاهزة'),
-              const SizedBox(height: 14),
-              ...safeProducts.map(
-                (product) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: TintSurfaceCard(
-                    padding: EdgeInsets.zero,
-                    child: Column(
-                      children: [
-                        Stack(
-                          children: [
-                            AspectRatio(
-                              aspectRatio: 16 / 8,
-                              child: TintNetworkImage(
-                                url: product.image,
-                                fit: BoxFit.cover,
-                                borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(24),
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              top: 0,
-                              right: 0,
-                              child: Container(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                decoration: const BoxDecoration(
-                                  color: TintColors.sand,
-                                  borderRadius: BorderRadius.only(
-                                    topRight: Radius.circular(24),
-                                    bottomLeft: Radius.circular(18),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'هدية مثالية',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(14),
-                          child: Column(
-                            children: [
-                              Text(
-                                product.title,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                '${product.price.toStringAsFixed(0)}﷼',
-                                style: const TextStyle(
-                                  color: TintColors.charcoal,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }
@@ -956,27 +624,6 @@ class _PromiseTile extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _ChoiceChipLabel extends StatelessWidget {
-  const _ChoiceChipLabel(this.label);
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Chip(
-      label: Text(
-        label,
-        style: const TextStyle(
-          color: TintColors.sand,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-      backgroundColor: Colors.white,
-      side: const BorderSide(color: TintColors.sand),
     );
   }
 }

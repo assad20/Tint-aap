@@ -11,4 +11,9 @@ abstract class CatalogRepository {
   Future<List<ProductModel>> fetchTrendingProducts();
 
   Future<List<ProductModel>> searchProducts(String query);
+
+  // تنقّل المتجر الحقيقيّ (مجموعات المتجر) + منتجات قسم بالـslug.
+  Future<List<CategoryModel>> fetchNavigation();
+
+  Future<List<ProductModel>> fetchCategoryProducts(String slug);
 }
