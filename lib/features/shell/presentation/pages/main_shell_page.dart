@@ -128,7 +128,7 @@ class _BottomNav extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: currentIndex == 0 ? TintColors.sand : TintColors.charcoal,
                   shape: BoxShape.circle,
-                  border: Border.all(color: TintColors.tintOrange, width: 4),
+                  border: Border.all(color: TintColors.tintYellow, width: 4),
                   boxShadow: const [
                     BoxShadow(
                       color: Color(0x22000000),

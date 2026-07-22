@@ -11,6 +11,7 @@ class TintColors {
   static const danger = Color(0xFFE53935);
   static const warning = Color(0xFFFB8C00);
   static const tintOrange = Color(0xFFF97316);
+  static const tintYellow = Color(0xFFFFC107);
 }
 
 class AppTheme {

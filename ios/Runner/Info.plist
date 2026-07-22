@@ -56,6 +56,9 @@
 		<string>يُستخدم للسماح لـ Tabby بالتقاط صورة الهوية أثناء عملية التحقق.</string>
 		<key>NSMicrophoneUsageDescription</key>
 		<string>يُستخدم للسماح لـ Tabby بإجراء التحقق المباشر أثناء عملية KYC.</string>
+		<!-- تحديد موقع التوصيل (اختياريّ) عند الدفع -->
+		<key>NSLocationWhenInUseUsageDescription</key>
+		<string>يُستخدم لتحديد موقع التوصيل وتعبئة المدينة والحيّ تلقائياً عند إتمام الطلب.</string>
 		<!-- App Transport Security: يُسمح بـ HTTP فقط للتطوير المحلي (احذف القسم في الإنتاج) -->
 		<key>NSAppTransportSecurity</key>
 		<dict>
