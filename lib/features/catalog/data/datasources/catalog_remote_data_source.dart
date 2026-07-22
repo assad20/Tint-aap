@@ -33,6 +33,11 @@ class CatalogRemoteDataSource {
     }).toList();
   }
 
+  // صفحة القسم الخام (تحوي products و heroSlides و heroImage).
+  Future<Map<String, dynamic>> fetchCategoryPageRaw(String slug) {
+    return _apiClient.getMap('${ApiRoutes.catalogCategories}/$slug');
+  }
+
   Future<List<dynamic>> searchProducts(String query) async {
     // الوسيط يُعيد { query, count, items:[card] } (كائن لا مصفوفة)، والبطاقة تحمل
     // categorySlug؛ نُخرج items ونطابق category الذي يقرأه ProductModel.

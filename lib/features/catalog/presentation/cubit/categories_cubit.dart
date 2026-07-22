@@ -10,6 +10,7 @@ class CategoriesState {
     this.categories = const [],
     this.selected,
     this.products = const [],
+    this.banners = const [],
     this.isProductsLoading = false,
   });
 
@@ -18,6 +19,8 @@ class CategoriesState {
   final List<CategoryModel> categories;
   final CategoryModel? selected;
   final List<ProductModel> products;
+  // بانرات سلايدر القسم (heroSlides المُدارة من الأدمن).
+  final List<String> banners;
   final bool isProductsLoading;
 
   CategoriesState copyWith({
@@ -25,6 +28,7 @@ class CategoriesState {
     List<CategoryModel>? categories,
     CategoryModel? selected,
     List<ProductModel>? products,
+    List<String>? banners,
     bool? isProductsLoading,
   }) {
     return CategoriesState(
@@ -32,6 +36,7 @@ class CategoriesState {
       categories: categories ?? this.categories,
       selected: selected ?? this.selected,
       products: products ?? this.products,
+      banners: banners ?? this.banners,
       isProductsLoading: isProductsLoading ?? this.isProductsLoading,
     );
   }
@@ -58,9 +63,14 @@ class CategoriesCubit extends Cubit<CategoriesState> {
       selected: category,
       isProductsLoading: true,
       products: const [],
+      banners: const [],
     ));
-    final products = await _repository.fetchCategoryProducts(category.id);
+    final page = await _repository.fetchCategoryPage(category.id);
     if (state.selected?.id != category.id) return; // تغيّر الاختيار أثناء الجلب
-    emit(state.copyWith(isProductsLoading: false, products: products));
+    emit(state.copyWith(
+      isProductsLoading: false,
+      products: page.products,
+      banners: page.banners,
+    ));
   }
 }

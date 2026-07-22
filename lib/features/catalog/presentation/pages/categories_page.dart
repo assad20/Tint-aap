@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/widgets/tint_ui.dart';
 import '../cubit/categories_cubit.dart';
 import '../widgets/product_card.dart';
 
@@ -137,23 +140,28 @@ class _ProductsPane extends StatelessWidget {
       return const Center(child: CircularProgressIndicator());
     }
     if (state.products.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            'لا منتجات في «${state.selected?.name ?? ''}» حالياً',
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: TintColors.textMuted,
-              fontWeight: FontWeight.w700,
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(14, 4, 14, 110),
+        children: [
+          if (state.banners.isNotEmpty) _BannerSlider(images: state.banners),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 40),
+            child: Text(
+              'لا منتجات في «${state.selected?.name ?? ''}» حالياً',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: TintColors.textMuted,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
-        ),
+        ],
       );
     }
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 4, 14, 110),
       children: [
+        if (state.banners.isNotEmpty) _BannerSlider(images: state.banners),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 10),
           child: Text(
@@ -175,6 +183,92 @@ class _ProductsPane extends StatelessWidget {
               ProductCard(product: state.products[index]),
         ),
       ],
+    );
+  }
+}
+
+// سلايدر بانرات القسم (heroSlides) — تمرير تلقائيّ + نقاط مؤشّر.
+class _BannerSlider extends StatefulWidget {
+  const _BannerSlider({required this.images});
+
+  final List<String> images;
+
+  @override
+  State<_BannerSlider> createState() => _BannerSliderState();
+}
+
+class _BannerSliderState extends State<_BannerSlider> {
+  final _controller = PageController();
+  Timer? _timer;
+  int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.images.length > 1) {
+      _timer = Timer.periodic(const Duration(seconds: 4), (_) {
+        if (!mounted) return;
+        final next = (_index + 1) % widget.images.length;
+        _controller.animateToPage(
+          next,
+          duration: const Duration(milliseconds: 450),
+          curve: Curves.easeInOut,
+        );
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 6),
+      child: Column(
+        children: [
+          SizedBox(
+            height: 150,
+            child: PageView.builder(
+              controller: _controller,
+              itemCount: widget.images.length,
+              onPageChanged: (i) => setState(() => _index = i),
+              itemBuilder: (context, i) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: TintNetworkImage(
+                  url: widget.images[i],
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+            ),
+          ),
+          if (widget.images.length > 1) ...[
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                widget.images.length,
+                (i) => AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: i == _index ? 18 : 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: i == _index ? TintColors.sand : TintColors.line,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

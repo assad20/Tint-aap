@@ -87,6 +87,36 @@ class CatalogRepositoryImpl implements CatalogRepository {
   }
 
   @override
+  Future<CategoryPageResult> fetchCategoryPage(String slug) async {
+    try {
+      final data = await _remoteDataSource.fetchCategoryPageRaw(slug);
+      // المنتجات
+      final rawItems = (data['products'] as List<dynamic>?) ?? const [];
+      final products = rawItems.whereType<Map<String, dynamic>>().map((e) {
+        if (e['category'] == null && e['categorySlug'] != null) {
+          return {...e, 'category': e['categorySlug']};
+        }
+        return e;
+      }).map(ProductModel.fromJson).toList();
+      // بانرات السلايدر (heroSlides[].image)، وإلا heroImage كبانر واحد.
+      final banners = <String>[];
+      for (final s in (data['heroSlides'] as List<dynamic>?) ?? const []) {
+        if (s is Map && s['image'] is String && (s['image'] as String).isNotEmpty) {
+          banners.add(s['image'] as String);
+        }
+      }
+      if (banners.isEmpty &&
+          data['heroImage'] is String &&
+          (data['heroImage'] as String).isNotEmpty) {
+        banners.add(data['heroImage'] as String);
+      }
+      return CategoryPageResult(products: products, banners: banners);
+    } catch (_) {
+      return const CategoryPageResult(products: [], banners: []);
+    }
+  }
+
+  @override
   Future<List<ProductModel>> searchProducts(String query) async {
     try {
       final items = await _remoteDataSource.searchProducts(query);
