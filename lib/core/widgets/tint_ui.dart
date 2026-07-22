@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -509,12 +510,15 @@ class TintNetworkImage extends StatelessWidget {
           if (resolved.isEmpty)
             _placeholder()
           else
-            Image.network(
-              resolved,
+            CachedNetworkImage(
+              imageUrl: resolved,
               fit: fit,
               height: height,
               width: width,
-              errorBuilder: (context, error, stackTrace) => _placeholder(),
+              // تخزين دائم على القرص: تظهر فوراً في الجلسات/العروض التالية.
+              fadeInDuration: const Duration(milliseconds: 220),
+              placeholder: (context, url) => _placeholder(),
+              errorWidget: (context, url, error) => _placeholder(),
             ),
           if (overlay != null) Positioned.fill(child: overlay!),
         ],
