@@ -51,8 +51,10 @@ android {
         release {
             // يوقّع بمفتاح الإصدار إن وُجد key.properties، وإلا يستخدم مفتاح debug للتجربة
             signingConfig keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug
-            minifyEnabled true
-            shrinkResources true
+            // تعطيل تقليص R8 مؤقّتاً: أحد SDKات المكتبات ينقصه keep-rules فيفشل R8.
+            // APK أكبر قليلاً لكنّه يُبنى ويعمل للتوزيع/التجربة. يُعاد تفعيله لاحقاً بقواعد keep صحيحة.
+            minifyEnabled false
+            shrinkResources false
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }
     }
