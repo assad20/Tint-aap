@@ -13,6 +13,8 @@ class AssistantRemoteDataSource {
   }) {
     return _apiClient.postMap(
       ApiRoutes.assistantChat,
+      // مهلة أطول: المستشار ينتظر ردّ مزوّد الذكاء (قد يبرد) — يمنع التراجع المبكّر.
+      receiveTimeout: const Duration(seconds: 45),
       data: {
         'message': message,
         'history': history.map((item) => item.toJson()).toList(),
