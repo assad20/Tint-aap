@@ -7,6 +7,7 @@ import 'app/tint_app.dart';
 import 'core/network/api_client.dart';
 import 'core/storage/app_preferences.dart';
 import 'core/storage/token_storage.dart';
+import 'core/widgets/tint_ui.dart';
 import 'features/account/data/datasources/account_remote_data_source.dart';
 import 'features/account/data/repositories/account_repository_impl.dart';
 import 'features/account/domain/repositories/account_repository.dart';
@@ -41,6 +42,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final appConfig = AppConfig.fromEnvironment();
+  // روابط الصور المحلّيّة (localhost) تُعاد كتابتها لمضيف الـAPI لتظهر على المحاكي/الجهاز.
+  TintNetworkImage.apiOrigin = appConfig.origin;
   if (appConfig.hasTabbyConfig) {
     TabbySDK().setup(withApiKey: appConfig.tabbyPublicKey);
   }

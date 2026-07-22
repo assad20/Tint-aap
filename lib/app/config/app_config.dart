@@ -16,6 +16,15 @@ class AppConfig {
   bool get hasTabbyConfig =>
       tabbyPublicKey.trim().isNotEmpty && tabbyMerchantCode.trim().isNotEmpty;
 
+  // أصل الـAPI بلا مسار: http://10.0.2.2:5181/api → http://10.0.2.2:5181
+  // يُستخدم لإعادة كتابة روابط الصور المحلّيّة (localhost) لتظهر على المحاكي/الجهاز.
+  String get origin {
+    final u = Uri.tryParse(baseUrl);
+    if (u == null || u.host.isEmpty) return '';
+    final port = u.hasPort ? ':${u.port}' : '';
+    return '${u.scheme}://${u.host}$port';
+  }
+
   factory AppConfig.fromEnvironment() {
     return const AppConfig(
       baseUrl: String.fromEnvironment(

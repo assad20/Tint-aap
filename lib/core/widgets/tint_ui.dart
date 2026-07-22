@@ -478,30 +478,44 @@ class TintNetworkImage extends StatelessWidget {
   final double? width;
   final Widget? overlay;
 
+  // يُضبط مرّة في main() من AppConfig.origin. يعيد كتابة مضيف الصور المحلّيّ
+  // (localhost/127.0.0.1) إلى مضيف الـAPI نفسه لتظهر الصور على المحاكي/الجهاز.
+  // آمن في الإنتاج: روابط الإنتاج لا تحوي localhost فلا تتأثّر.
+  static String apiOrigin = '';
+
+  String get _resolvedUrl {
+    if (url.isEmpty || apiOrigin.isEmpty) return url;
+    return url.replaceFirst(
+      RegExp(r'^https?://(localhost|127\.0\.0\.1)(:\d+)?'),
+      apiOrigin,
+    );
+  }
+
+  Widget _placeholder() => Container(
+        height: height,
+        width: width,
+        color: const Color(0xFFF2F3F5),
+        alignment: Alignment.center,
+        child: const Icon(Icons.image_outlined, color: TintColors.textMuted),
+      );
+
   @override
   Widget build(BuildContext context) {
+    final resolved = _resolvedUrl;
     return ClipRRect(
       borderRadius: borderRadius,
       child: Stack(
         children: [
-          Image.network(
-            url,
-            fit: fit,
-            height: height,
-            width: width,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                height: height,
-                width: width,
-                color: const Color(0xFFF2F3F5),
-                alignment: Alignment.center,
-                child: const Icon(
-                  Icons.image_outlined,
-                  color: TintColors.textMuted,
-                ),
-              );
-            },
-          ),
+          if (resolved.isEmpty)
+            _placeholder()
+          else
+            Image.network(
+              resolved,
+              fit: fit,
+              height: height,
+              width: width,
+              errorBuilder: (context, error, stackTrace) => _placeholder(),
+            ),
           if (overlay != null) Positioned.fill(child: overlay!),
         ],
       ),
