@@ -1,3 +1,5 @@
+import 'product_model.dart';
+
 enum ChatRole { user, assistant }
 
 class ChatMessageModel {
@@ -5,11 +7,14 @@ class ChatMessageModel {
     required this.role,
     required this.content,
     required this.createdAt,
+    this.products = const [],
   });
 
   final ChatRole role;
   final String content;
   final DateTime createdAt;
+  // منتجات موصى بها يرفقها المستشار بردّه (فارغة لرسائل المستخدم).
+  final List<ProductModel> products;
 
   Map<String, dynamic> toJson() => {
         'role': role.name,

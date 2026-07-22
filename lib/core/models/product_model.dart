@@ -10,6 +10,8 @@ class ProductModel {
     this.tag,
     this.views,
     this.isAvailable = true,
+    this.sku,
+    this.barcode,
   });
 
   final String id;
@@ -22,6 +24,9 @@ class ProductModel {
   final String? tag;
   final String? views;
   final bool isAvailable;
+  // السكيو والباركود (يُستخدمان في توصيات المستشار لعرض رمز المنتج).
+  final String? sku;
+  final String? barcode;
 
   double? get discountPercent {
     if (oldPrice == null || oldPrice == 0) {
@@ -41,6 +46,8 @@ class ProductModel {
     String? tag,
     String? views,
     bool? isAvailable,
+    String? sku,
+    String? barcode,
   }) {
     return ProductModel(
       id: id ?? this.id,
@@ -53,6 +60,8 @@ class ProductModel {
       tag: tag ?? this.tag,
       views: views ?? this.views,
       isAvailable: isAvailable ?? this.isAvailable,
+      sku: sku ?? this.sku,
+      barcode: barcode ?? this.barcode,
     );
   }
 
@@ -73,6 +82,8 @@ class ProductModel {
       tag: json['tag']?.toString(),
       views: json['views']?.toString(),
       isAvailable: json['isAvailable'] as bool? ?? true,
+      sku: json['sku']?.toString(),
+      barcode: json['barcode']?.toString(),
     );
   }
 
@@ -88,6 +99,8 @@ class ProductModel {
       'tag': tag,
       'views': views,
       'isAvailable': isAvailable,
+      'sku': sku,
+      'barcode': barcode,
     };
   }
 }

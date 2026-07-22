@@ -57,8 +57,9 @@ class AssistantCubit extends Cubit<AssistantState> {
 
     final assistantMessage = ChatMessageModel(
       role: ChatRole.assistant,
-      content: reply,
+      content: reply.answer,
       createdAt: DateTime.now(),
+      products: reply.products,
     );
 
     emit(
