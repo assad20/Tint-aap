@@ -110,7 +110,7 @@ class _Sidebar extends StatelessWidget {
                 ),
               ),
               child: Text(
-                c.name,
+                c.displayName,
                 textAlign: TextAlign.center,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
