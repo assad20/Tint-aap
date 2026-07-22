@@ -48,15 +48,12 @@ class CatalogRepositoryImpl implements CatalogRepository {
   Future<List<ProductModel>> fetchTrendingProducts() async {
     try {
       final items = await _remoteDataSource.fetchTrendingProducts();
-      if (items.isEmpty) {
-        return FakeSeedData.topTrending;
-      }
       return items
           .whereType<Map<String, dynamic>>()
           .map(ProductModel.fromJson)
           .toList();
     } catch (_) {
-      return FakeSeedData.topTrending;
+      return const <ProductModel>[]; // بلا وهم — تُعاد المحاولة عند فتح التبويب
     }
   }
 

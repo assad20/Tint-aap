@@ -13,9 +13,10 @@ class ApiClient {
         _dio = Dio(
           BaseOptions(
             baseUrl: baseUrl,
-            connectTimeout: const Duration(seconds: 8),
-            receiveTimeout: const Duration(seconds: 12),
-            sendTimeout: const Duration(seconds: 12),
+            connectTimeout: const Duration(seconds: 10),
+            // بعض النقاط (الترندات) بطيئة عند البرودة (~8ث) وتحت حمل الإقلاع المتزامن.
+            receiveTimeout: const Duration(seconds: 25),
+            sendTimeout: const Duration(seconds: 25),
             headers: const {
               'Accept': 'application/json',
               'Content-Type': 'application/json',

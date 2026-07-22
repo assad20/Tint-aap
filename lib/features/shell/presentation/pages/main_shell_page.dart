@@ -7,6 +7,7 @@ import '../../../../core/widgets/tint_ui.dart';
 import '../../../assistant/presentation/cubit/assistant_cubit.dart';
 import '../../../cart/presentation/pages/cart_page.dart';
 import '../../../catalog/presentation/pages/categories_page.dart';
+import '../../../catalog/presentation/cubit/trends_cubit.dart';
 import '../../../catalog/presentation/pages/home_page.dart';
 import '../../../catalog/presentation/pages/trends_page.dart';
 import '../../../account/presentation/pages/profile_page.dart';
@@ -25,7 +26,10 @@ class MainShellPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ShellCubit, int>(
+    return BlocConsumer<ShellCubit, int>(
+      // عند فتح تبويب الترندات (1) أعِد جلبها — يتعافى من أيّ فشل جلب وقت الإقلاع.
+      listenWhen: (prev, curr) => curr == 1 && prev != 1,
+      listener: (context, index) => context.read<TrendsCubit>().load(),
       builder: (context, currentIndex) {
         return Scaffold(
           backgroundColor: const Color(0xFFE5E7EB),
