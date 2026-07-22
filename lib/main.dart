@@ -101,12 +101,12 @@ Future<void> main() async {
           BlocProvider(
             create: (context) => TrendsCubit(
               repository: context.read<CatalogRepository>(),
-            )..load(),
+            ), // تحميل كسول: يُجلب عند فتح تبويب الترندات (يقلّل زحام الإقلاع)
           ),
           BlocProvider(
             create: (context) => CategoriesCubit(
               repository: context.read<CatalogRepository>(),
-            )..load(),
+            ), // تحميل كسول: عند فتح تبويب الأقسام
           ),
           BlocProvider(
             create: (context) => SearchCubit(
@@ -116,27 +116,27 @@ Future<void> main() async {
           BlocProvider(
             create: (context) => ProfileCubit(
               repository: context.read<AccountRepository>(),
-            )..load(),
+            ), // تحميل كسول: عند فتح تبويب حسابي
           ),
           BlocProvider(
             create: (context) => RewardsCubit(
               repository: context.read<AccountRepository>(),
-            )..load(),
+            ), // تحميل كسول: عند فتح تبويب حسابي
           ),
           BlocProvider(
             create: (context) => OrdersCubit(
               repository: context.read<AccountRepository>(),
-            )..load(),
+            ), // تحميل كسول: عند فتح تبويب حسابي
           ),
           BlocProvider(
             create: (context) => FavoritesCubit(
               repository: context.read<AccountRepository>(),
-            )..load(),
+            ), // تحميل كسول: عند فتح تبويب حسابي
           ),
           BlocProvider(
             create: (context) => AddressesCubit(
               repository: context.read<AccountRepository>(),
-            )..load(),
+            ), // تحميل كسول: عند فتح تبويب حسابي
           ),
           BlocProvider(
             create: (context) => CheckoutCubit(

@@ -4,18 +4,28 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/tint_ui.dart';
-import '../../../assistant/presentation/cubit/assistant_cubit.dart';
 import '../../../cart/presentation/pages/cart_page.dart';
 import '../../../catalog/presentation/pages/categories_page.dart';
+import '../../../catalog/presentation/cubit/categories_cubit.dart';
 import '../../../catalog/presentation/cubit/trends_cubit.dart';
 import '../../../catalog/presentation/pages/home_page.dart';
 import '../../../catalog/presentation/pages/trends_page.dart';
+import '../../../account/presentation/cubit/addresses_cubit.dart';
+import '../../../account/presentation/cubit/favorites_cubit.dart';
+import '../../../account/presentation/cubit/orders_cubit.dart';
+import '../../../account/presentation/cubit/profile_cubit.dart';
+import '../../../account/presentation/cubit/rewards_cubit.dart';
 import '../../../account/presentation/pages/profile_page.dart';
 import '../cubit/shell_cubit.dart';
 
-class MainShellPage extends StatelessWidget {
+class MainShellPage extends StatefulWidget {
   const MainShellPage({super.key});
 
+  @override
+  State<MainShellPage> createState() => _MainShellPageState();
+}
+
+class _MainShellPageState extends State<MainShellPage> {
   static const _pages = [
     HomePage(),
     TrendsPage(),
@@ -24,12 +34,36 @@ class MainShellPage extends StatelessWidget {
     ProfilePage(),
   ];
 
+  // الرئيسيّة (0) تُحمَّل عند الإقلاع؛ بقيّة التبويبات كسولة عند أوّل فتح.
+  // بلا تحميل كسول كانت كلّ الـCubits تجلب دفعةً واحدة عند البدء فتزاحمت
+  // على خادم أوروبا وتجاوزت المهلة عند البرودة.
+  final Set<int> _loaded = {0};
+
+  void _ensureLoaded(BuildContext context, int index) {
+    switch (index) {
+      case 1: // الترندات: يُعاد جلبها عند كلّ فتح (تعافٍ رخيص من فشل سابق).
+        context.read<TrendsCubit>().load();
+        break;
+      case 2:
+        if (_loaded.add(2)) context.read<CategoriesCubit>().load();
+        break;
+      case 4: // حسابي: كلّ بيانات الحساب تُجلب مرّةً عند أوّل فتح.
+        if (_loaded.add(4)) {
+          context.read<ProfileCubit>().load();
+          context.read<OrdersCubit>().load();
+          context.read<AddressesCubit>().load();
+          context.read<RewardsCubit>().load();
+          context.read<FavoritesCubit>().load();
+        }
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<ShellCubit, int>(
-      // عند فتح تبويب الترندات (1) أعِد جلبها — يتعافى من أيّ فشل جلب وقت الإقلاع.
-      listenWhen: (prev, curr) => curr == 1 && prev != 1,
-      listener: (context, index) => context.read<TrendsCubit>().load(),
+      listenWhen: (prev, curr) => prev != curr,
+      listener: _ensureLoaded,
       builder: (context, currentIndex) {
         return Scaffold(
           backgroundColor: const Color(0xFFE5E7EB),
