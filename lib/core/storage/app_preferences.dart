@@ -33,6 +33,13 @@ class AppPreferences {
     await _prefs.remove('recent_searches');
   }
 
+  // ─── لقطة الرئيسيّة المحفوظة (فتح لحظيّ: تُعرَض فوراً ثمّ تُحدَّث من الشبكة) ───
+  String? get cachedHomeSnapshot => _prefs.getString('home_snapshot_v1');
+
+  Future<void> setCachedHomeSnapshot(String json) async {
+    await _prefs.setString('home_snapshot_v1', json);
+  }
+
   // ─── بيانات العميل بعد تسجيل الدخول (التوكن نفسه في التخزين الآمن) ───
   String? get customerPhone => _prefs.getString('customer_phone');
   String? get customerName => _prefs.getString('customer_name');

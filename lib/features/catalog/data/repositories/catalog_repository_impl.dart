@@ -17,7 +17,7 @@ class CatalogRepositoryImpl implements CatalogRepository {
       final data = await _remoteDataSource.fetchBootstrapCatalog();
       final catalog = (data['catalog'] as Map<String, dynamic>? ?? {});
       if (catalog.isEmpty) {
-        return FakeSeedData.productsByCategory;
+        return const {}; // بلا وهم — فارغ يعني فارغ (يبقى الكاش المعروض)
       }
 
       return catalog.map(
@@ -30,7 +30,7 @@ class CatalogRepositoryImpl implements CatalogRepository {
         ),
       );
     } catch (_) {
-      return FakeSeedData.productsByCategory;
+      return const {}; // بلا وهم عند فشل الشبكة
     }
   }
 

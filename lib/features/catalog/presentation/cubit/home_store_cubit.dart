@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/models/category_model.dart';
@@ -66,34 +68,93 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
   final AppPreferences _appPreferences;
 
   Future<void> bootstrap() async {
-    emit(state.copyWith(isLoading: true));
+    // ① لقطة محفوظة → عرض لحظيّ للرئيسيّة بينما نُحدّث في الخلفيّة (يُخفي بُعد الخادم).
+    final cached = _readCachedSnapshot();
+    if (cached != null) {
+      emit(state.copyWith(
+        isLoading: true, // المحتوى ظاهر؛ مؤشّر تحديث خفيف فقط
+        catalog: cached.$1,
+        topNav: cached.$2,
+      ));
+    } else {
+      emit(state.copyWith(isLoading: true));
+    }
+    // ② تحديث من الشبكة.
     try {
-      // الأقسام الحقيقيّة والكتالوج معاً.
       final results = await Future.wait([
         _catalogRepository.fetchBootstrapCatalog(),
         _catalogRepository.fetchNavigation(),
       ]);
       final catalog = results[0] as Map<String, List<ProductModel>>;
       final nav = results[1] as List<CategoryModel>;
-      emit(
-        state.copyWith(
+      final gotData = catalog.isNotEmpty || nav.isNotEmpty;
+      if (gotData) {
+        emit(state.copyWith(
           isLoading: false,
           catalog: catalog,
           topNav: nav,
           errorMessage: null,
-        ),
-      );
-      // إن كان التبويب المحفوظ قسماً حقيقيّاً، حمّل منتجاته.
+        ));
+        await _saveSnapshot(catalog, nav);
+      } else {
+        // لا بيانات جديدة (فشل/فارغ): أبقِ المعروض (الكاش أو الفارغ)، لا تُفرّغه.
+        emit(state.copyWith(
+          isLoading: false,
+          errorMessage: cached == null ? 'تعذّر تحميل الكتالوج' : null,
+        ));
+      }
       if (state.activeTopNav != kHomeNav) {
         await _loadCategory(state.activeTopNav);
       }
     } catch (error) {
-      emit(
-        state.copyWith(
-          isLoading: false,
-          errorMessage: error.toString(),
+      // خطأ غير متوقّع: أبقِ اللقطة المعروضة إن وُجدت.
+      emit(state.copyWith(
+        isLoading: false,
+        errorMessage: cached == null ? error.toString() : null,
+      ));
+    }
+  }
+
+  // قراءة لقطة الرئيسيّة المحفوظة (كتالوج + تنقّل). null إن لا لقطة/تلفت.
+  (Map<String, List<ProductModel>>, List<CategoryModel>)? _readCachedSnapshot() {
+    final raw = _appPreferences.cachedHomeSnapshot;
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      final catalog = (decoded['catalog'] as Map<String, dynamic>).map(
+        (k, v) => MapEntry(
+          k,
+          (v as List)
+              .whereType<Map<String, dynamic>>()
+              .map(ProductModel.fromJson)
+              .toList(),
         ),
       );
+      final nav = (decoded['nav'] as List)
+          .whereType<Map<String, dynamic>>()
+          .map(CategoryModel.fromJson)
+          .toList();
+      if (catalog.isEmpty && nav.isEmpty) return null;
+      return (catalog, nav);
+    } catch (_) {
+      return null; // كاش تحسينيّ فقط — تجاهل أيّ تلف
+    }
+  }
+
+  Future<void> _saveSnapshot(
+    Map<String, List<ProductModel>> catalog,
+    List<CategoryModel> nav,
+  ) async {
+    try {
+      final payload = {
+        'catalog': catalog.map(
+          (k, v) => MapEntry(k, v.map((p) => p.toJson()).toList()),
+        ),
+        'nav': nav.map((c) => c.toJson()).toList(),
+      };
+      await _appPreferences.setCachedHomeSnapshot(jsonEncode(payload));
+    } catch (_) {
+      // تجاهل: الكاش تحسينيّ لا يؤثّر على العمل.
     }
   }
 
