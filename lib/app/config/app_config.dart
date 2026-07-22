@@ -29,9 +29,10 @@ class AppConfig {
     return const AppConfig(
       baseUrl: String.fromEnvironment(
         'TINT_API_BASE_URL',
-        // محاكي أندرويد: 10.0.2.2 = localhost المضيف؛ الوسيط على المنفذ 5181.
-        // للإنتاج: --dart-define=TINT_API_BASE_URL=https://<middleware-host>/api
-        defaultValue: 'http://10.0.2.2:5181/api',
+        // الافتراضيّ = المتجر المنشور (وسيط الإنتاج على Railway)، فأيّ APK يُبنى
+        // يتغذّى من المتجر المنشور مباشرةً.
+        // للتطوير المحلّيّ تجاوَزه: --dart-define=TINT_API_BASE_URL=http://10.0.2.2:5181/api
+        defaultValue: 'https://tint-production-4d38.up.railway.app/api',
       ),
       tabbyPublicKey: String.fromEnvironment(
         'TINT_TABBY_PUBLIC_KEY',
