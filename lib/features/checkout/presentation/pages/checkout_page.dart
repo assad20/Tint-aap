@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tabby_flutter_inapp_sdk/tabby_flutter_inapp_sdk.dart';
@@ -71,7 +72,35 @@ class _CheckoutPageState extends State<CheckoutPage> {
         _lat = pos.latitude;
         _lng = pos.longitude;
       });
-      _snack('تمّ تحديد موقع التوصيل ✅');
+      // عكس الترميز الجغرافيّ: تعبئة المدينة والحيّ تلقائياً من الإحداثيّات
+      // (مُحوّل عناوين أندرويد المدمج — بلا مفتاح خارجيّ).
+      var filled = false;
+      try {
+        final places = await Geocoding().placemarkFromCoordinates(
+          pos.latitude,
+          pos.longitude,
+          locale: const Locale('ar'),
+        );
+        if (places.isNotEmpty) {
+          final p = places.first;
+          final city = (p.locality?.trim().isNotEmpty ?? false)
+              ? p.locality!.trim()
+              : (p.administrativeArea?.trim() ?? '');
+          final hood = (p.subLocality?.trim().isNotEmpty ?? false)
+              ? p.subLocality!.trim()
+              : (p.subAdministrativeArea?.trim() ?? '');
+          setState(() {
+            if (city.isNotEmpty) _city.text = city;
+            if (hood.isNotEmpty) _neighborhood.text = hood;
+          });
+          filled = city.isNotEmpty || hood.isNotEmpty;
+        }
+      } catch (_) {
+        // تعذّر الترميز العكسيّ (قد لا يتوفّر على بعض الأجهزة) — نبقي الإحداثيّات فقط.
+      }
+      _snack(filled
+          ? 'تمّ تحديد الموقع وتعبئة المدينة/الحيّ ✅'
+          : 'تمّ تحديد موقع التوصيل ✅ (أكمل المدينة/الحيّ يدويّاً)');
     } catch (_) {
       _snack('تعذّر تحديد الموقع، حاول مجدداً.');
     } finally {
