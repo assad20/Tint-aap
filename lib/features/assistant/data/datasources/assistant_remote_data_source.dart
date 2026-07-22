@@ -17,7 +17,11 @@ class AssistantRemoteDataSource {
       receiveTimeout: const Duration(seconds: 45),
       data: {
         'message': message,
-        'history': history.map((item) => item.toJson()).toList(),
+        // الخادم يقبل {role, content} فقط (تحقّق صارم forbidNonWhitelisted).
+        // إرسال createdAt الزائد كان يسبّب 400 فيقع الردّ على التراجع الاحتياطيّ.
+        'history': history
+            .map((item) => {'role': item.role.name, 'content': item.content})
+            .toList(),
       },
     );
   }
