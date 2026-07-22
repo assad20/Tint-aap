@@ -10,6 +10,7 @@ class TintColors {
   static const success = Color(0xFF1F9D55);
   static const danger = Color(0xFFE53935);
   static const warning = Color(0xFFFB8C00);
+  static const tintOrange = Color(0xFFF97316);
 }
 
 class AppTheme {
