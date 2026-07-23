@@ -251,25 +251,7 @@ class _BannerSliderState extends State<_BannerSlider> {
               ),
             ),
           ),
-          if (widget.images.length > 1) ...[
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                widget.images.length,
-                (i) => AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: i == _index ? 18 : 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: i == _index ? TintColors.sand : TintColors.line,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-              ),
-            ),
-          ],
+          // نقاط المؤشّر مُخفاة عمداً (مظهر أنظف)؛ البانر يتبدّل تلقائيّاً كلّ 4ث.
         ],
       ),
     );
