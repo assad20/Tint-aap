@@ -232,7 +232,9 @@ class _BannerSliderState extends State<_BannerSlider> {
       child: Column(
         children: [
           SizedBox(
-            height: 150,
+            // ارتفاع يناسب البانر العريض (~3:1) بلا فراغ أسفله. تمرير height
+            // صريح للصورة يجبرها على ملء المربّع (cover) فيختفي الفراغ.
+            height: 108,
             child: PageView.builder(
               controller: _controller,
               itemCount: widget.images.length,
@@ -243,6 +245,7 @@ class _BannerSliderState extends State<_BannerSlider> {
                   url: widget.images[i],
                   fit: BoxFit.cover,
                   width: double.infinity,
+                  height: 108,
                   borderRadius: BorderRadius.circular(18),
                 ),
               ),
