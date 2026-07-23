@@ -41,7 +41,19 @@ class CheckoutRemoteDataSource {
         'phone': address.mobile,
         'dob': buyerDob,
       },
-      'address': address.toJson(),
+      // نُرسل الحقول المسموح بها في CheckoutAddressDto فقط — الخادم صارم
+      // (forbidNonWhitelisted) ويرفض isDefault/country التي يضمّها toJson().
+      'address': {
+        'id': address.id,
+        'title': address.title,
+        'recipient': address.recipient,
+        'mobile': address.mobile,
+        'city': address.city,
+        'neighborhood': address.neighborhood,
+        'details': address.details,
+        if (address.lat != null) 'lat': address.lat,
+        if (address.lng != null) 'lng': address.lng,
+      },
       'shippingMethod': shippingMethod,
       'totals': {
         'subtotal': subtotal,
