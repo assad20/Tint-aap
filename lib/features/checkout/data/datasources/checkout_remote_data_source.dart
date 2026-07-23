@@ -19,10 +19,13 @@ class CheckoutRemoteDataSource {
     String? sessionId,
     String? buyerEmail,
     String? buyerDob,
+    double codFee = 0,
   }) {
     final subtotal = items.fold<double>(0, (sum, item) => sum + item.lineTotal);
     final shippingAmount = shippingMethod == 'smsa' ? 0.0 : 25.0;
-    final total = subtotal + shippingAmount;
+    // ‼️ رسوم الدفع عند الاستلام تُضاف للإجماليّ المُرسَل. الخادم يعيد الحساب
+    // ويرفض الطلب إن كان حسابه أعلى من حساب العميل — فإغفالها يعني رفض كلّ طلب COD.
+    final total = subtotal + shippingAmount + codFee;
 
     return {
       'externalOrderId': orderReference,
@@ -44,6 +47,7 @@ class CheckoutRemoteDataSource {
         'subtotal': subtotal,
         'shipping': shippingAmount,
         'discount': 0,
+        if (codFee > 0) 'codFee': codFee,
         'total': total,
       },
       'items': items
@@ -64,11 +68,18 @@ class CheckoutRemoteDataSource {
     };
   }
 
+  // وسائل الدفع المفعّلة من الخادم (المصدر الوحيد الموثوق للرسوم).
+  Future<List<dynamic>> fetchPaymentMethods() async {
+    final res = await _apiClient.getMap(ApiRoutes.catalogPaymentMethods);
+    return (res['methods'] as List<dynamic>?) ?? const [];
+  }
+
   Future<Map<String, dynamic>> submitOrder({
     required List<CartItemModel> items,
     required AddressModel address,
     required String shippingMethod,
     required String paymentMethod,
+    double codFee = 0,
   }) {
     final orderReference = 'TN-${DateTime.now().millisecondsSinceEpoch}';
 
@@ -80,6 +91,7 @@ class CheckoutRemoteDataSource {
         shippingMethod: shippingMethod,
         paymentMethod: paymentMethod,
         orderReference: orderReference,
+        codFee: codFee,
       ),
     );
   }

@@ -1,5 +1,6 @@
 import '../../../../core/models/account_models.dart';
 import '../../../../core/models/cart_item_model.dart';
+import '../../../../core/models/payment_method_model.dart';
 import '../../domain/models/tabby_payment_result.dart';
 import '../../domain/repositories/checkout_repository.dart';
 import '../datasources/checkout_remote_data_source.dart';
@@ -12,17 +13,28 @@ class CheckoutRepositoryImpl implements CheckoutRepository {
   final CheckoutRemoteDataSource _remoteDataSource;
 
   @override
+  Future<List<PaymentMethodModel>> fetchPaymentMethods() async {
+    final raw = await _remoteDataSource.fetchPaymentMethods();
+    return raw
+        .whereType<Map<String, dynamic>>()
+        .map(PaymentMethodModel.fromJson)
+        .toList();
+  }
+
+  @override
   Future<String> submitOrder({
     required List<CartItemModel> items,
     required AddressModel address,
     required String shippingMethod,
     required String paymentMethod,
+    double codFee = 0,
   }) async {
     final response = await _remoteDataSource.submitOrder(
       items: items,
       address: address,
       shippingMethod: shippingMethod,
       paymentMethod: paymentMethod,
+      codFee: codFee,
     );
 
     return response['orderId']?.toString() ??

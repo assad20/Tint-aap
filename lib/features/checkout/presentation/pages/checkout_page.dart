@@ -10,6 +10,7 @@ import 'location_picker_page.dart';
 import '../../../../app/config/app_config.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/models/account_models.dart';
+import '../../../../core/models/payment_method_model.dart';
 import '../../../../core/widgets/tint_ui.dart';
 import '../../../account/presentation/cubit/addresses_cubit.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
@@ -142,6 +143,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
     if (_tabbyEmailController.text.isEmpty) {
       _tabbyEmailController.text = _email.text;
     }
+    // وسائل الدفع المفعّلة من الخادم (المصدر الوحيد للوسائل والرسوم).
+    context.read<CheckoutCubit>().loadPaymentMethods();
   }
 
   @override
@@ -496,6 +499,30 @@ class _PaymentMethodsCard extends StatelessWidget {
   final DateTime? selectedDob;
   final VoidCallback onSelectDob;
 
+  // شارة الوسيلة (نصّ صغير على اليسار) ولونها.
+  static String _badge(String id) => switch (id) {
+        'cod' => 'نقد',
+        'tabby' => 'tabby',
+        'tamara' => 'tamara',
+        'card' => 'بطاقة',
+        _ => id,
+      };
+  static Color _color(String id) => switch (id) {
+        'tabby' => const Color(0xFF3EEDBF),
+        'tamara' => const Color(0xFFF2A7A4),
+        _ => TintColors.sand,
+      };
+
+  // العنوان الفرعيّ: الوصف + الرسوم إن وُجدت.
+  String _subtitle(PaymentMethodModel m) {
+    final desc = m.description ?? '';
+    if (m.hasFee) {
+      final fee = m.fee.toStringAsFixed(m.fee % 1 == 0 ? 0 : 2);
+      return desc.isEmpty ? 'رسوم $fee ﷼' : '$desc · رسوم $fee ﷼';
+    }
+    return desc;
+  }
+
   @override
   Widget build(BuildContext context) {
     final appConfig = context.read<AppConfig>();
@@ -508,79 +535,64 @@ class _PaymentMethodsCard extends StatelessWidget {
             children: [
               const TintSectionHeader(title: 'طريقة الدفع'),
               const SizedBox(height: 12),
-              _SelectableTile(
-                selected: state.paymentMethod == 'applepay',
-                title: 'Apple Pay',
-                subtitle: 'دفع سريع وآمن',
-                trailing: 'Pay',
-                onTap: () => context.read<CheckoutCubit>().setPaymentMethod('applepay'),
-              ),
-              const SizedBox(height: 10),
-              _SelectableTile(
-                selected: state.paymentMethod == 'tabby',
-                title: 'Tabby - 4 دفعات بدون فوائد',
-                subtitle: 'ادفعي على 4 دفعات سريعة وبدون رسوم إضافية.',
-                trailing: 'tabby',
-                trailingColor: const Color(0xFF3EEDBF),
-                onTap: () => context.read<CheckoutCubit>().setPaymentMethod('tabby'),
-              ),
-              if (state.paymentMethod == 'tabby') ...[
-                const SizedBox(height: 12),
-                if (appConfig.hasTabbyConfig)
-                  Directionality(
-                    textDirection: TextDirection.ltr,
-                    child: buildTabbyPromoSnippet(
-                      price: cartState.total.toStringAsFixed(2),
-                      currencyCode: appConfig.currencyCode,
-                      langCode: appConfig.tabbyLanguage,
-                    ),
-                  )
-                else
-                  const Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      'مفاتيح Tabby العامة غير مضبوطة بعد في التطبيق.',
-                      style: TextStyle(color: TintColors.danger, fontSize: 11),
-                    ),
+              if (state.methodsLoading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (state.methods.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Text(
+                    'لا توجد وسيلة دفع متاحة حالياً. يُرجى التواصل مع الدعم.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: TintColors.danger, fontWeight: FontWeight.w700),
                   ),
-                const SizedBox(height: 12),
-                _TabbyBuyerCard(
-                  emailController: tabbyEmailController,
-                  dobController: tabbyDobController,
-                  selectedDob: selectedDob,
-                  onSelectDob: onSelectDob,
-                ),
-              ],
-              const SizedBox(height: 10),
-              _SelectableTile(
-                selected: state.paymentMethod == 'tamara',
-                title: 'Tamara - 3 دفعات',
-                subtitle: 'بدون رسوم تأخير',
-                trailing: 'tamara',
-                trailingColor: const Color(0xFFF2A7A4),
-                onTap: () => context.read<CheckoutCubit>().setPaymentMethod('tamara'),
-              ),
-              const SizedBox(height: 10),
-              _SelectableTile(
-                selected: state.paymentMethod == 'card',
-                title: 'البطاقة الائتمانية / مدى',
-                subtitle: 'VISA / MC / mada',
-                trailing: 'بطاقة',
-                onTap: () => context.read<CheckoutCubit>().setPaymentMethod('card'),
-              ),
-              if (state.paymentMethod == 'card') ...[
-                const SizedBox(height: 12),
-                const _CardForm(),
-              ],
-              const SizedBox(height: 10),
-              _SelectableTile(
-                selected: state.paymentMethod == 'paypal',
-                title: 'PayPal',
-                subtitle: 'الدفع عبر PayPal',
-                trailing: 'PayPal',
-                trailingColor: const Color(0xFF003087),
-                onTap: () => context.read<CheckoutCubit>().setPaymentMethod('paypal'),
-              ),
+                )
+              else
+                for (final m in state.methods) ...[
+                  _SelectableTile(
+                    selected: state.paymentMethod == m.id,
+                    title: m.label,
+                    subtitle: _subtitle(m),
+                    trailing: _badge(m.id),
+                    trailingColor: _color(m.id),
+                    onTap: () =>
+                        context.read<CheckoutCubit>().setPaymentMethod(m.id),
+                  ),
+                  // كتلة Tabby الخاصّة (العرض + بيانات المشتري) عند اختياره فقط.
+                  if (m.id == 'tabby' && state.paymentMethod == 'tabby') ...[
+                    const SizedBox(height: 12),
+                    if (appConfig.hasTabbyConfig ||
+                        (m.publicKey?.isNotEmpty ?? false))
+                      Directionality(
+                        textDirection: TextDirection.ltr,
+                        child: buildTabbyPromoSnippet(
+                          price: cartState.total.toStringAsFixed(2),
+                          currencyCode: appConfig.currencyCode,
+                          langCode: appConfig.tabbyLanguage,
+                        ),
+                      )
+                    else
+                      const Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          'مفاتيح Tabby العامة غير مضبوطة بعد.',
+                          style:
+                              TextStyle(color: TintColors.danger, fontSize: 11),
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+                    _TabbyBuyerCard(
+                      emailController: tabbyEmailController,
+                      dobController: tabbyDobController,
+                      selectedDob: selectedDob,
+                      onSelectDob: onSelectDob,
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                ],
             ],
           ),
         );
@@ -752,9 +764,32 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
         }
       },
       builder: (context, state) {
+        final fee = state.selectedFee;
+        final grandTotal = cartState.total + fee;
         return TintSurfaceCard(
           child: Column(
             children: [
+              // سطر رسوم الدفع عند الاستلام (يظهر فقط عند وجود رسوم).
+              if (fee > 0) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'رسوم الدفع عند الاستلام',
+                      style: TextStyle(
+                          color: TintColors.textMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700),
+                    ),
+                    Text(
+                      '${fee.toStringAsFixed(fee % 1 == 0 ? 0 : 2)} ﷼',
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w800),
+                    ),
+                  ],
+                ),
+                const Divider(height: 20),
+              ],
               Row(
                 children: [
                   const Expanded(
@@ -780,7 +815,7 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
                     ),
                   ),
                   Text(
-                    '${cartState.total.toStringAsFixed(2)} ﷼',
+                    '${grandTotal.toStringAsFixed(2)} ﷼',
                     style: const TextStyle(
                       color: TintColors.sand,
                       fontSize: 26,
@@ -909,37 +944,6 @@ class _SelectableTile extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _CardForm extends StatelessWidget {
-  const _CardForm();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: const [
-        TextField(decoration: InputDecoration(hintText: 'رقم البطاقة')),
-        SizedBox(height: 10),
-        TextField(decoration: InputDecoration(hintText: 'الاسم على البطاقة')),
-        SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                decoration: InputDecoration(hintText: 'تاريخ الانتهاء (MM/YY)'),
-              ),
-            ),
-            SizedBox(width: 10),
-            Expanded(
-              child: TextField(
-                decoration: InputDecoration(hintText: 'CVV'),
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 }

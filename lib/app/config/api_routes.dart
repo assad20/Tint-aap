@@ -4,6 +4,7 @@ abstract final class ApiRoutes {
   static const catalogSearch = '/catalog/search';
   static const catalogNavigation = '/catalog/navigation';
   static const catalogCategories = '/catalog/categories'; // + /<slug>
+  static const catalogPaymentMethods = '/catalog/payment-methods';
 
   static const authRequestOtp = '/customer/auth/request-otp';
   static const authVerifyOtp = '/customer/auth/verify-otp';

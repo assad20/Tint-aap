@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/models/account_models.dart';
 import '../../../../core/models/cart_item_model.dart';
+import '../../../../core/models/payment_method_model.dart';
 import '../../domain/models/tabby_payment_result.dart';
 import '../../domain/repositories/checkout_repository.dart';
 
@@ -9,7 +10,9 @@ class CheckoutState {
   const CheckoutState({
     this.isSubmitting = false,
     this.shippingMethod = 'aramex',
-    this.paymentMethod = 'card',
+    this.paymentMethod = 'cod',
+    this.methods = const [],
+    this.methodsLoading = true,
     this.lastOrderId,
     this.errorMessage,
   });
@@ -17,13 +20,23 @@ class CheckoutState {
   final bool isSubmitting;
   final String shippingMethod;
   final String paymentMethod;
+  // وسائل الدفع المفعّلة من الخادم (المصدر الوحيد للرسوم).
+  final List<PaymentMethodModel> methods;
+  final bool methodsLoading;
   final String? lastOrderId;
   final String? errorMessage;
+
+  // رسوم الوسيلة المختارة (0 إن لم تُوجَد) — تُرسَل للخادم ليتطابق الإجماليّ.
+  double get selectedFee => methods
+      .where((m) => m.id == paymentMethod)
+      .fold<double>(0, (_, m) => m.fee);
 
   CheckoutState copyWith({
     bool? isSubmitting,
     String? shippingMethod,
     String? paymentMethod,
+    List<PaymentMethodModel>? methods,
+    bool? methodsLoading,
     String? lastOrderId,
     String? errorMessage,
   }) {
@@ -31,6 +44,8 @@ class CheckoutState {
       isSubmitting: isSubmitting ?? this.isSubmitting,
       shippingMethod: shippingMethod ?? this.shippingMethod,
       paymentMethod: paymentMethod ?? this.paymentMethod,
+      methods: methods ?? this.methods,
+      methodsLoading: methodsLoading ?? this.methodsLoading,
       lastOrderId: lastOrderId ?? this.lastOrderId,
       errorMessage: errorMessage,
     );
@@ -43,6 +58,24 @@ class CheckoutCubit extends Cubit<CheckoutState> {
         super(const CheckoutState());
 
   final CheckoutRepository _repository;
+
+  // تُستدعى عند فتح السلّة: تجلب الوسائل المفعّلة وتختار أوّلها.
+  Future<void> loadPaymentMethods() async {
+    emit(state.copyWith(methodsLoading: true));
+    try {
+      final methods = await _repository.fetchPaymentMethods();
+      final selected = methods.any((m) => m.id == state.paymentMethod)
+          ? state.paymentMethod
+          : (methods.isNotEmpty ? methods.first.id : state.paymentMethod);
+      emit(state.copyWith(
+        methods: methods,
+        methodsLoading: false,
+        paymentMethod: selected,
+      ));
+    } catch (_) {
+      emit(state.copyWith(methods: const [], methodsLoading: false));
+    }
+  }
 
   void setShippingMethod(String value) {
     emit(state.copyWith(shippingMethod: value));
@@ -63,6 +96,7 @@ class CheckoutCubit extends Cubit<CheckoutState> {
         address: address,
         shippingMethod: state.shippingMethod,
         paymentMethod: state.paymentMethod,
+        codFee: state.selectedFee,
       );
       emit(
         state.copyWith(
