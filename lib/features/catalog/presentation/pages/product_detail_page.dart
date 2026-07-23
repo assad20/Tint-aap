@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/models/product_model.dart';
 import '../../../../core/widgets/tint_ui.dart';
 import '../../../cart/presentation/cubit/cart_cubit.dart';
+import '../../../shell/presentation/cubit/shell_cubit.dart';
 
 // صفحة تفاصيل المنتج (PDP): تُبنى من ProductModel المُمرَّر من البطاقة.
 class ProductDetailPage extends StatefulWidget {
@@ -24,13 +26,27 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     for (var i = 0; i < _qty; i++) {
       cart.addProduct(widget.product);
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('أُضيف $_qty إلى السلة'),
-        backgroundColor: TintColors.success,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('أُضيف $_qty إلى السلة'),
+          backgroundColor: TintColors.success,
+          behavior: SnackBarBehavior.floating,
+          // زرّ مباشر للسلة كي لا يتوه العميل عن مكان المنتج (نمط شي إن).
+          action: SnackBarAction(
+            label: 'عرض السلة',
+            textColor: Colors.white,
+            onPressed: _openCart,
+          ),
+        ),
+      );
+  }
+
+  // يفتح تبويب السلة (٣) ويعود إليه من صفحة المنتج المدفوعة.
+  void _openCart() {
+    context.read<ShellCubit>().selectTab(3);
+    context.pop();
   }
 
   @override
@@ -49,6 +65,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
           style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
         ),
         actions: [
+          // أيقونة السلة بعدّاد حيّ — يرى العميل أين ذهب المنتج ويفتح السلة بنقرة.
+          _CartAction(onOpen: _openCart),
           IconButton(
             onPressed: () {},
             icon: const Icon(Icons.favorite_border_rounded),
@@ -231,6 +249,56 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// أيقونة السلة في الرأس مع شارة عدد القطع (تتحدّث فور الإضافة) — نمط شي إن.
+class _CartAction extends StatelessWidget {
+  const _CartAction({required this.onOpen});
+
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<CartCubit, CartState>(
+      builder: (context, state) {
+        final count =
+            state.items.fold<int>(0, (sum, item) => sum + item.quantity);
+        return Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            IconButton(
+              onPressed: onOpen,
+              icon: const Icon(Icons.shopping_cart_outlined),
+            ),
+            if (count > 0)
+              Positioned(
+                right: 4,
+                top: 6,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  constraints:
+                      const BoxConstraints(minWidth: 18, minHeight: 18),
+                  decoration: const BoxDecoration(
+                    color: TintColors.danger,
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    count > 99 ? '99+' : '$count',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
