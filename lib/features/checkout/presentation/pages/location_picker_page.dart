@@ -15,6 +15,32 @@ class LocationPickerPage extends StatefulWidget {
   State<LocationPickerPage> createState() => _LocationPickerPageState();
 }
 
+// زرّ دائريّ صغير فوق الخريطة (تكبير/تصغير/موقعي).
+class _MapButton extends StatelessWidget {
+  const _MapButton({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      shape: const CircleBorder(),
+      elevation: 3,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: Icon(icon, size: 22, color: TintColors.charcoal),
+        ),
+      ),
+    );
+  }
+}
+
 class _LocationPickerPageState extends State<LocationPickerPage> {
   final _controller = MapController();
   late LatLng _center = widget.initial;
@@ -35,6 +61,19 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
   }
 
   void _confirm() => Navigator.of(context).pop(_center);
+
+  // تكبير/تصغير بالأزرار — أدقّ من القرص بإصبعين لتحديد مبنى بعينه.
+  void _zoomBy(double delta) {
+    final cam = _controller.camera;
+    final zoom = (cam.zoom + delta).clamp(3.0, 19.0);
+    _controller.move(cam.center, zoom);
+  }
+
+  // العودة لموقع الجهاز الأوّل.
+  void _recenter() {
+    _controller.move(widget.initial, 16);
+    setState(() => _center = widget.initial);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -100,6 +139,22 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                 padding: EdgeInsets.only(bottom: 44),
                 child: Icon(Icons.location_pin, size: 46, color: TintColors.sand),
               ),
+            ),
+          ),
+          // أزرار التكبير/التصغير + العودة لموقعي — تحديد دقيق لمبنى بعينه.
+          Positioned(
+            // 20 لا 12: يُبعد الأزرار عن منطقة إيماءة الرجوع على حافّة أندرويد.
+            left: 20,
+            bottom: 96,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _MapButton(icon: Icons.add, onTap: () => _zoomBy(1)),
+                const SizedBox(height: 8),
+                _MapButton(icon: Icons.remove, onTap: () => _zoomBy(-1)),
+                const SizedBox(height: 14),
+                _MapButton(icon: Icons.my_location, onTap: _recenter),
+              ],
             ),
           ),
           // زرّ التأكيد أسفل الشاشة.
