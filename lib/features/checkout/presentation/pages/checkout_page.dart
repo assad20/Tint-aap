@@ -3,8 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:tabby_flutter_inapp_sdk/tabby_flutter_inapp_sdk.dart';
 
+import 'location_picker_page.dart';
 import '../../../../app/config/app_config.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/models/account_models.dart';
@@ -51,60 +53,67 @@ class _CheckoutPageState extends State<CheckoutPage> {
   Future<void> _captureLocation() async {
     setState(() => _locating = true);
     try {
-      if (!await Geolocator.isLocationServiceEnabled()) {
-        _snack('خدمة الموقع غير مفعّلة على الجهاز.');
-        return;
-      }
-      var perm = await Geolocator.checkPermission();
-      if (perm == LocationPermission.denied) {
-        perm = await Geolocator.requestPermission();
-      }
-      if (perm == LocationPermission.denied ||
-          perm == LocationPermission.deniedForever) {
-        _snack('لتحديد الموقع فعّل إذن الموقع للتطبيق.');
-        return;
-      }
-      // الموقع المخزّن أوّلاً (فوريّ)، وإلا موقع حيّ بمهلة تمنع التعليق.
-      final pos = await Geolocator.getLastKnownPosition() ??
-          await Geolocator.getCurrentPosition()
-              .timeout(const Duration(seconds: 15));
-      setState(() {
-        _lat = pos.latitude;
-        _lng = pos.longitude;
-      });
-      // عكس الترميز الجغرافيّ: تعبئة المدينة والحيّ تلقائياً من الإحداثيّات
-      // (مُحوّل عناوين أندرويد المدمج — بلا مفتاح خارجيّ).
-      var filled = false;
+      // نقطة بداية للخريطة: موقع الجهاز إن سُمح (فوريّ من المخزّن ثمّ الحيّ)،
+      // وإلا الرياض افتراضاً — ويحرّك العميل الخريطة للموقع الدقيق على أيّ حال.
+      LatLng start = const LatLng(24.7136, 46.6753); // الرياض
       try {
-        final places = await Geocoding().placemarkFromCoordinates(
-          pos.latitude,
-          pos.longitude,
-          locale: const Locale('ar'),
-        );
-        if (places.isNotEmpty) {
-          final p = places.first;
-          final city = (p.locality?.trim().isNotEmpty ?? false)
-              ? p.locality!.trim()
-              : (p.administrativeArea?.trim() ?? '');
-          final hood = (p.subLocality?.trim().isNotEmpty ?? false)
-              ? p.subLocality!.trim()
-              : (p.subAdministrativeArea?.trim() ?? '');
-          setState(() {
-            if (city.isNotEmpty) _city.text = city;
-            if (hood.isNotEmpty) _neighborhood.text = hood;
-          });
-          filled = city.isNotEmpty || hood.isNotEmpty;
+        if (await Geolocator.isLocationServiceEnabled()) {
+          var perm = await Geolocator.checkPermission();
+          if (perm == LocationPermission.denied) {
+            perm = await Geolocator.requestPermission();
+          }
+          if (perm != LocationPermission.denied &&
+              perm != LocationPermission.deniedForever) {
+            final pos = await Geolocator.getLastKnownPosition() ??
+                await Geolocator.getCurrentPosition()
+                    .timeout(const Duration(seconds: 15));
+            start = LatLng(pos.latitude, pos.longitude);
+          }
         }
       } catch (_) {
-        // تعذّر الترميز العكسيّ (قد لا يتوفّر على بعض الأجهزة) — نبقي الإحداثيّات فقط.
+        // بلا موقع جهاز — نبدأ من الرياض.
       }
+      if (!mounted) return;
+      // خريطة OpenStreetMap تفاعليّة (بلا مفتاح): العميل يضع الدبّوس بدقّة.
+      final picked = await Navigator.of(context).push<LatLng>(
+        MaterialPageRoute(builder: (_) => LocationPickerPage(initial: start)),
+      );
+      if (picked == null) return; // ألغى العميل
+      setState(() {
+        _lat = picked.latitude;
+        _lng = picked.longitude;
+      });
+      final filled = await _reverseGeocode(picked.latitude, picked.longitude);
       _snack(filled
           ? 'تمّ تحديد الموقع وتعبئة المدينة/الحيّ ✅'
           : 'تمّ تحديد موقع التوصيل ✅ (أكمل المدينة/الحيّ يدويّاً)');
-    } catch (_) {
-      _snack('تعذّر تحديد الموقع، حاول مجدداً.');
     } finally {
       if (mounted) setState(() => _locating = false);
+    }
+  }
+
+  // عكس الترميز الجغرافيّ: تعبئة المدينة والحيّ من الإحداثيّات
+  // (مُحوّل عناوين أندرويد المدمج — بلا مفتاح خارجيّ). يعيد true إن مُلئ شيء.
+  Future<bool> _reverseGeocode(double lat, double lng) async {
+    try {
+      final places = await Geocoding()
+          .placemarkFromCoordinates(lat, lng, locale: const Locale('ar'));
+      if (places.isEmpty) return false;
+      final p = places.first;
+      final city = (p.locality?.trim().isNotEmpty ?? false)
+          ? p.locality!.trim()
+          : (p.administrativeArea?.trim() ?? '');
+      final hood = (p.subLocality?.trim().isNotEmpty ?? false)
+          ? p.subLocality!.trim()
+          : (p.subAdministrativeArea?.trim() ?? '');
+      setState(() {
+        if (city.isNotEmpty) _city.text = city;
+        if (hood.isNotEmpty) _neighborhood.text = hood;
+      });
+      return city.isNotEmpty || hood.isNotEmpty;
+    } catch (_) {
+      // تعذّر الترميز العكسيّ (قد لا يتوفّر على بعض الأجهزة) — نبقي الإحداثيّات فقط.
+      return false;
     }
   }
 
