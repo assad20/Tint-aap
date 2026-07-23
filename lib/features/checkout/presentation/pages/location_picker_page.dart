@@ -20,10 +20,21 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
   late LatLng _center = widget.initial;
 
   @override
+  void initState() {
+    super.initState();
+    // نُخفي أيّ إشعار عالق (مثل «أُضيف للسلة») كي لا يغطّي زرّ التأكيد.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    });
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
+
+  void _confirm() => Navigator.of(context).pop(_center);
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +47,20 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
           'حدّد موقع التوصيل',
           style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
         ),
+        actions: [
+          // تأكيد دائم في الرأس — لا يحجبه أيّ إشعار.
+          TextButton(
+            onPressed: _confirm,
+            child: const Text(
+              'تأكيد',
+              style: TextStyle(
+                color: TintColors.sand,
+                fontWeight: FontWeight.w900,
+                fontSize: 15,
+              ),
+            ),
+          ),
+        ],
       ),
       body: Stack(
         alignment: Alignment.center,
@@ -51,7 +76,12 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
             ),
             children: [
               TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                // خريطة CartoDB Voyager — نظيفة وأنيقة (نمط التطبيقات الحديثة)،
+                // مجّانيّة بلا مفتاح، بديلاً عن تُيوب OSM الخام المزدحمة.
+                urlTemplate:
+                    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                subdomains: const ['a', 'b', 'c', 'd'],
+                retinaMode: RetinaMode.isHighDensity(context),
                 userAgentPackageName: 'com.tintstore.app',
               ),
             ],
@@ -82,7 +112,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  onPressed: () => Navigator.of(context).pop(_center),
+                  onPressed: _confirm,
                   icon: const Icon(Icons.check_rounded),
                   label: const Text(
                     'تأكيد الموقع',
