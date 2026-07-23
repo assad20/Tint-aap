@@ -229,13 +229,14 @@ class _SimpleGridStorefront extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(14, 6, 14, 16),
       child: TintSurfaceCard(
         color: highlighted ? const Color(0xFFFFF4F1) : Colors.white,
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
         child: Column(
           children: [
             TintSectionHeader(title: title, subtitle: subtitle),
-            const SizedBox(height: 14),
+            const SizedBox(height: 10),
             GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
