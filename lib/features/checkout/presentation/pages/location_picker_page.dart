@@ -72,6 +72,11 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
               initialZoom: 15,
               minZoom: 3,
               maxZoom: 19,
+              // تعطيل الدوران: التكبير بإصبعين كان يدوّر الخريطة عن طريق الخطأ
+              // فيتغيّر الاتجاه. نُبقي السحب/التكبير/النقر المزدوج فقط.
+              interactionOptions: const InteractionOptions(
+                flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+              ),
               onPositionChanged: (camera, _) => _center = camera.center,
             ),
             children: [
