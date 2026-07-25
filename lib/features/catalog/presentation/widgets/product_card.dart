@@ -141,11 +141,7 @@ class ProductCard extends StatelessWidget {
                       IconButton.filledTonal(
                         onPressed: () {
                           context.read<CartCubit>().addProduct(product);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('تمت إضافة المنتج إلى السلة'),
-                            ),
-                          );
+                          showTintToast(context, 'تمت إضافة المنتج إلى السلة');
                         },
                         style: IconButton.styleFrom(
                           backgroundColor: const Color(0xFFF7F8FA),

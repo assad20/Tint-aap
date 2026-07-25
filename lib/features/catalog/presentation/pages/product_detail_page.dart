@@ -26,21 +26,13 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     for (var i = 0; i < _qty; i++) {
       cart.addProduct(widget.product);
     }
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('أُضيف $_qty إلى السلة'),
-          backgroundColor: TintColors.success,
-          behavior: SnackBarBehavior.floating,
-          // زرّ مباشر للسلة كي لا يتوه العميل عن مكان المنتج (نمط شي إن).
-          action: SnackBarAction(
-            label: 'عرض السلة',
-            textColor: Colors.white,
-            onPressed: _openCart,
-          ),
-        ),
-      );
+    // رسالة لطيفة مدمجة تختفي تلقائيّاً + زرّ خفيف للسلة (نمط شي إن).
+    showTintToast(
+      context,
+      'أُضيف $_qty إلى السلة',
+      actionLabel: 'عرض السلة',
+      onAction: _openCart,
+    );
   }
 
   // يفتح تبويب السلة (٣) ويعود إليه من صفحة المنتج المدفوعة.
