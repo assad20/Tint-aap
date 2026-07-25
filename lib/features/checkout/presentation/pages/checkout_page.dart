@@ -648,6 +648,13 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
         );
   }
 
+  // حالة «لم تُحسم بعد» من الخادم: العمليّة أُنشئت ولم تُؤكَّد ولم تفشل.
+  bool _isPending(Map<String, dynamic> res) {
+    if (res['ok'] == true) return false;
+    final status = res['status']?.toString().toUpperCase();
+    return status == 'INITIATED' || status == 'PENDING';
+  }
+
   // تدفّق نون: إنشاء الطلب → فتح الدفع المستضاف في webview → التحقّق من الخادم.
   Future<void> _handleNoonPayment(BuildContext context) async {
     final cubit = context.read<CheckoutCubit>();
@@ -678,7 +685,13 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
         return;
       }
       // التحقّق النهائيّ من الخادم (يسأل نون مباشرةً).
-      final res = await cubit.verifyNoon(noonId);
+      // ‼️ INITIATED ليست فشلاً — العمليّة لم تُحسم بعد وقد يُسوّيها webhook نون
+      // خلال ثوانٍ. نُعيد المحاولة بتباعد متزايد قبل إعلان أيّ نتيجة سلبيّة.
+      Map<String, dynamic> res = await cubit.verifyNoon(noonId);
+      for (var attempt = 0; attempt < 3 && _isPending(res); attempt++) {
+        await Future<void>.delayed(Duration(seconds: 2 * (attempt + 1)));
+        res = await cubit.verifyNoon(noonId);
+      }
       final status = res['status']?.toString().toUpperCase();
       final ok = res['ok'] == true ||
           status == 'PAID' ||
@@ -688,6 +701,12 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
       if (ok) {
         cart.clear();
         await _showSuccessDialog(context, res['orderId']?.toString() ?? noonId);
+      } else if (_isPending(res)) {
+        // ما زالت معلّقة بعد المحاولات: لا نُعلن فشلاً ولا نُفرغ السلّة.
+        _showSnackBar(
+          context,
+          'لم تُحسم عمليّة الدفع بعد. سنؤكّد طلبك تلقائيّاً عند اكتمالها — تابع طلباتك.',
+        );
       } else {
         _showSnackBar(context, 'لم يكتمل الدفع. لم يُخصم أيّ مبلغ.');
       }

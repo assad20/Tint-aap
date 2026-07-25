@@ -20,9 +20,12 @@ class _NoonWebviewPageState extends State<NoonWebviewPage> {
   bool _loading = true;
 
   // روابط العودة التي تعني انتهاء الدفع (النتيجة تُحسم من الخادم لا منها).
+  // الأوّل هو ما يصل فعليّاً؛ البقيّة صفحات نتيجة المتجر تُلتقط احتياطاً إن
+  // اكتمل التحويل قبل أن نعترضه.
   bool _isReturnUrl(String url) {
     final u = url.toLowerCase();
     return u.contains('/payments/noon/callback') ||
+        u.contains('/checkout/noon/result') ||
         u.contains('/payment/success') ||
         u.contains('/payment/failed') ||
         u.contains('/payment/pending');
