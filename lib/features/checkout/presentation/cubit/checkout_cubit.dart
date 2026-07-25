@@ -77,6 +77,25 @@ class CheckoutCubit extends Cubit<CheckoutState> {
     }
   }
 
+  // نون: إنشاء الطلب (يعيد {checkoutUrl, noonOrderId}).
+  Future<Map<String, dynamic>> initiateNoon({
+    required List<CartItemModel> items,
+    required AddressModel address,
+    String? buyerEmail,
+  }) {
+    return _repository.initiateNoon(
+      items: items,
+      address: address,
+      shippingMethod: state.shippingMethod,
+      buyerEmail: buyerEmail,
+    );
+  }
+
+  // نون: تحقّق من الحالة بعد إغلاق webview.
+  Future<Map<String, dynamic>> verifyNoon(String noonOrderId) {
+    return _repository.verifyNoon(noonOrderId);
+  }
+
   void setShippingMethod(String value) {
     emit(state.copyWith(shippingMethod: value));
   }

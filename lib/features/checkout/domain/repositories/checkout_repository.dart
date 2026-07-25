@@ -7,6 +7,17 @@ abstract class CheckoutRepository {
   /// وسائل الدفع المفعّلة (+ رسومها) من الخادم.
   Future<List<PaymentMethodModel>> fetchPaymentMethods();
 
+  /// نون: إنشاء الطلب → {checkoutUrl, noonOrderId}.
+  Future<Map<String, dynamic>> initiateNoon({
+    required List<CartItemModel> items,
+    required AddressModel address,
+    required String shippingMethod,
+    String? buyerEmail,
+  });
+
+  /// نون: تحقّق من الحالة بعد webview → {ok, status, orderId?}.
+  Future<Map<String, dynamic>> verifyNoon(String noonOrderId);
+
   Future<String> submitOrder({
     required List<CartItemModel> items,
     required AddressModel address,

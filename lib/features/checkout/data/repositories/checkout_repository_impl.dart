@@ -22,6 +22,26 @@ class CheckoutRepositoryImpl implements CheckoutRepository {
   }
 
   @override
+  Future<Map<String, dynamic>> initiateNoon({
+    required List<CartItemModel> items,
+    required AddressModel address,
+    required String shippingMethod,
+    String? buyerEmail,
+  }) {
+    return _remoteDataSource.initiateNoon(
+      items: items,
+      address: address,
+      shippingMethod: shippingMethod,
+      buyerEmail: buyerEmail,
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> verifyNoon(String noonOrderId) {
+    return _remoteDataSource.verifyNoon(noonOrderId);
+  }
+
+  @override
   Future<String> submitOrder({
     required List<CartItemModel> items,
     required AddressModel address,

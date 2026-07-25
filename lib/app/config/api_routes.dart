@@ -19,5 +19,7 @@ abstract final class ApiRoutes {
   static const checkout = '/orders/checkout';
   static const tabbyRegisterPending = '/payments/tabby/register-pending';
   static const tabbyConfirm = '/payments/tabby/confirm';
+  static const noonInitiate = '/payments/noon/initiate';
+  static const noonVerify = '/payments/noon/order'; // + /<noonOrderId>
   static const assistantChat = '/assistant/chat';
 }

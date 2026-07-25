@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:tabby_flutter_inapp_sdk/tabby_flutter_inapp_sdk.dart';
 
 import 'location_picker_page.dart';
+import 'noon_webview_page.dart';
 import '../../../../app/config/app_config.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/models/account_models.dart';
@@ -636,10 +637,66 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
       return;
     }
 
+    if (state.paymentMethod == 'noon') {
+      await _handleNoonPayment(context);
+      return;
+    }
+
     await context.read<CheckoutCubit>().submitOrder(
           items: cartState.items,
           address: widget.address,
         );
+  }
+
+  // تدفّق نون: إنشاء الطلب → فتح الدفع المستضاف في webview → التحقّق من الخادم.
+  Future<void> _handleNoonPayment(BuildContext context) async {
+    final cubit = context.read<CheckoutCubit>();
+    final cart = context.read<CartCubit>();
+    try {
+      final init = await cubit.initiateNoon(
+        items: cart.state.items,
+        address: widget.address,
+        buyerEmail: widget.tabbyEmailController.text.trim().isNotEmpty
+            ? widget.tabbyEmailController.text.trim()
+            : null,
+      );
+      final url = init['checkoutUrl']?.toString();
+      final noonId = init['noonOrderId']?.toString();
+      if (url == null || url.isEmpty || noonId == null) {
+        if (context.mounted) {
+          _showSnackBar(context, 'تعذّر بدء الدفع عبر نون. حاول مجدداً.');
+        }
+        return;
+      }
+      if (!context.mounted) return;
+      // فتح نافذة نون؛ ترجع true عند بلوغ رابط العودة، false عند الإلغاء.
+      final done = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (_) => NoonWebviewPage(checkoutUrl: url)),
+      );
+      if (done != true) {
+        if (context.mounted) _showSnackBar(context, 'أُلغي الدفع.');
+        return;
+      }
+      // التحقّق النهائيّ من الخادم (يسأل نون مباشرةً).
+      final res = await cubit.verifyNoon(noonId);
+      final status = res['status']?.toString().toUpperCase();
+      final ok = res['ok'] == true ||
+          status == 'PAID' ||
+          status == 'CAPTURED' ||
+          status == 'AUTHORIZED';
+      if (!context.mounted) return;
+      if (ok) {
+        cart.clear();
+        await _showSuccessDialog(context, res['orderId']?.toString() ?? noonId);
+      } else {
+        _showSnackBar(context, 'لم يكتمل الدفع. لم يُخصم أيّ مبلغ.');
+      }
+    } catch (error) {
+      if (context.mounted) {
+        _showSnackBar(
+            context, error.toString().replaceFirst('Exception: ', ''));
+      }
+    }
   }
 
   Future<void> _handleTabbyPayment(

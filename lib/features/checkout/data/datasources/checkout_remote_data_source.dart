@@ -108,6 +108,32 @@ class CheckoutRemoteDataSource {
     );
   }
 
+  // نون: إنشاء الطلب والحصول على رابط الدفع المستضاف (يُفتح في webview).
+  Future<Map<String, dynamic>> initiateNoon({
+    required List<CartItemModel> items,
+    required AddressModel address,
+    required String shippingMethod,
+    String? buyerEmail,
+  }) {
+    final orderReference = 'NOON-${DateTime.now().millisecondsSinceEpoch}';
+    return _apiClient.postMap(
+      ApiRoutes.noonInitiate,
+      data: _buildOrderPayload(
+        items: items,
+        address: address,
+        shippingMethod: shippingMethod,
+        paymentMethod: 'noon',
+        orderReference: orderReference,
+        buyerEmail: buyerEmail,
+      ),
+    );
+  }
+
+  // نون: تحقّق/تسوية بعد إغلاق webview (الخادم يسأل نون مباشرةً).
+  Future<Map<String, dynamic>> verifyNoon(String noonOrderId) {
+    return _apiClient.getMap('${ApiRoutes.noonVerify}/$noonOrderId');
+  }
+
   Future<Map<String, dynamic>> registerPendingTabbyOrder({
     required String paymentId,
     String? paymentToken,
