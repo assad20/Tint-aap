@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_theme.dart';
-import '../../../../core/widgets/tint_ui.dart';
 import '../../../cart/presentation/cubit/cart_cubit.dart';
 import '../../../shell/presentation/cubit/shell_cubit.dart';
 import '../cubit/home_store_cubit.dart';
@@ -27,8 +26,8 @@ class TopHeader extends StatelessWidget {
           padding: EdgeInsets.fromLTRB(14, 16 + topInset, 14, 10),
           child: Column(
             children: [
-              const Center(child: TintBrandLogo()),
-              const SizedBox(height: 12),
+              // الشعار العلويّ أُزيل: الهويّة حاضرة في زرّ «الرئيسيّة» الدائريّ أسفل
+              // الشاشة، والتكرار كان يبتلع ~65 بكسل من أعلى الصفحة بلا فائدة.
               Row(
                 children: [
                   IconButton(
