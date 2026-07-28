@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +22,7 @@ class TintBannerSlider extends StatefulWidget {
     this.margin = EdgeInsets.zero,
     this.pageGap = 0,
     this.showDots = false,
+    this.headerInset = 0,
     this.interval = const Duration(seconds: 4),
     this.onSlideTap,
   });
@@ -37,6 +39,12 @@ class TintBannerSlider extends StatefulWidget {
   /// فاصل أفقيّ بين الشرائح داخل الـPageView.
   final double pageGap;
   final bool showDots;
+
+  /// ارتفاع الهيدر الطافي فوق السلايدر (نمط شي إن). حين يكون > 0 يزداد
+  /// الصندوق بهذا القدر، ويُملأ الفراغ خلف الهيدر **بنسخةٍ مموّهة مكبّرة من
+  /// البانر نفسه** — فتبقى الصورة الأصليّة كاملةً بنسبتها أسفل الهيدر بلا
+  /// قصّ، ويقع نصّ الهيدر على خلفيّةٍ مموّهة داكنة تُبقيه مقروءاً.
+  final double headerInset;
   final Duration interval;
   final void Function(String href)? onSlideTap;
 
@@ -131,6 +139,28 @@ class _TintBannerSliderState extends State<TintBannerSlider> {
           height: widget.height,
           borderRadius: widget.borderRadius,
         );
+        if (widget.headerInset > 0) {
+          image = Stack(
+            fit: StackFit.expand,
+            children: [
+              // خلفيّة الهيدر: البانر نفسه مموّهاً ومعتماً قليلاً. بديلٌ عن
+              // تطويل الصندوق وقصّ الصورة — تبقى الأصليّة كاملةً أسفله.
+              ImageFiltered(
+                imageFilter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                child: TintNetworkImage(
+                  url: slide.image,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                ),
+              ),
+              Container(color: Colors.black.withOpacity(0.22)),
+              Padding(
+                padding: EdgeInsets.only(top: widget.headerInset),
+                child: image,
+              ),
+            ],
+          );
+        }
         if (widget.onSlideTap != null && slide.href.isNotEmpty) {
           image = GestureDetector(
             behavior: HitTestBehavior.opaque,
@@ -147,9 +177,16 @@ class _TintBannerSliderState extends State<TintBannerSlider> {
       },
     );
 
+    // ارتفاع الصندوق = إزاحة الهيدر + ارتفاع البانر بنسبته الأصليّة، فلا
+    // تُقصّ الصورة لتفسح للهيدر مكاناً.
     final box = widget.height != null
-        ? SizedBox(height: widget.height, child: pages)
-        : AspectRatio(aspectRatio: widget.aspectRatio, child: pages);
+        ? SizedBox(height: widget.height! + widget.headerInset, child: pages)
+        : LayoutBuilder(
+            builder: (context, c) => SizedBox(
+              height: widget.headerInset + c.maxWidth / widget.aspectRatio,
+              child: pages,
+            ),
+          );
 
     return Padding(
       padding: widget.margin,

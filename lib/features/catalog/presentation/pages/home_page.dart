@@ -29,25 +29,93 @@ void _openSlideTarget(BuildContext context, String href) {
   }
 }
 
-class HomePage extends StatelessWidget {
+/// ⚙️ مفتاح تجربة «الهيدر الغاطس» (نمط شي إن): السلايدر يمتدّ خلف شريط البحث
+/// والأقسام بدل أن يبدأ تحتهما، والهيدر يطفو شفّافاً ثمّ يصير أبيض بالتمرير.
+///
+/// **للتراجع: بدّلها إلى `false`** — يعود التصميم الحاليّ كما هو حرفيّاً
+/// (عمود: هيدر أبيض ثمّ المحتوى)، ولا يبقى لهذه التجربة أثر.
+const bool kImmersiveHeroHeader = true;
+
+/// ارتفاع الهيدر تقريباً: شريط الحالة + صفّ البحث (50) + المسافات + شريط
+/// الأقسام (42). يُستعمل لإزاحة محتوى التبويبات الأخرى أسفله في الوضع الغاطس.
+double _headerHeight(BuildContext context) =>
+    MediaQuery.viewPaddingOf(context).top + 128;
+
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  final _scroll = ScrollController();
+  double _headerOpacity = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    if (kImmersiveHeroHeader) _scroll.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  // يتحوّل الهيدر من شفّافٍ فوق البانر إلى أبيضَ خلال أوّل ١٤٠ بكسل تمرير.
+  void _onScroll() {
+    if (!_scroll.hasClients) return;
+    final next = (_scroll.offset / 140).clamp(0.0, 1.0);
+    if ((next - _headerOpacity).abs() > 0.02 ||
+        (next == 0 || next == 1) && next != _headerOpacity) {
+      setState(() => _headerOpacity = next);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<HomeStoreCubit, HomeStoreState>(
       builder: (context, state) {
-        return Column(
+        final body = state.isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
+                controller: kImmersiveHeroHeader ? _scroll : null,
+                padding: EdgeInsets.only(
+                  // في الوضع الغاطس يبدأ المحتوى من أعلى الشاشة ليمرّ البانر
+                  // خلف الهيدر؛ وفي الوضع العاديّ الهيدر فوقه في عمود.
+                  bottom: 110,
+                ),
+                children: [
+                  _buildStorefront(context, state),
+                ],
+              );
+
+        if (!kImmersiveHeroHeader) {
+          return Column(
+            children: [
+              const TopHeader(),
+              Expanded(child: body),
+            ],
+          );
+        }
+
+        // الغَطس يعمل على كلّ التبويبات ما دام خلف الهيدر بانر. أمّا قسمٌ بلا
+        // بانر فيُصمَت فيه الوضع (opacity = 1)، وإلّا صار الهيدر أبيضَ شفّافاً
+        // فوق خلفيّةٍ بيضاء = غير مرئيّ بالكامل.
+        final hasBannerBehind = state.activeTopNav == kHomeNav
+            ? state.heroSlides.isNotEmpty
+            : state.categoryBanners.isNotEmpty;
+        final overlay = hasBannerBehind ? _headerOpacity : 1.0;
+        return Stack(
           children: [
-            const TopHeader(),
-            Expanded(
-              child: state.isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : ListView(
-                      padding: const EdgeInsets.only(bottom: 110),
-                      children: [
-                        _buildStorefront(context, state),
-                      ],
-                    ),
+            Positioned.fill(child: body),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: TopHeader(overlayOpacity: overlay),
             ),
           ],
         );
@@ -104,6 +172,9 @@ class HomePage extends StatelessWidget {
     // الرئيسيّة 2304×912 — نسبةٌ واحدة كانت ستقتصّ جوانبها.
     return Column(
       children: [
+        // قسمٌ بلا بانر: لا شيء خلف الهيدر يُغطسه، فيُزاح المحتوى أسفله.
+        if (kImmersiveHeroHeader && state.categoryBanners.isEmpty)
+          SizedBox(height: _headerHeight(context)),
         if (state.categoryBanners.isNotEmpty)
           TintBannerSlider(
             slides: state.categoryBanners
@@ -111,6 +182,8 @@ class HomePage extends StatelessWidget {
                 .toList(),
             aspectRatio: 4,
             showDots: true,
+            headerInset:
+                kImmersiveHeroHeader ? _headerHeight(context) : 0,
           ),
         _SimpleGridStorefront(
           title: state.activeTopNav,
@@ -147,11 +220,17 @@ class _HomeGatewayStorefront extends StatelessWidget {
         // سلايدر البنرات (نمط شي إن): مُلاصق للحواف بلا زوايا ولا فجوة عن
         // المنيو، ولا طبقة نصّ من الشيفرة — النصّ مطبوع في صورة البانر نفسها.
         // البنرات تُدار من «استوديو البنرات» (موضع `hero`).
-        TintBannerSlider(
-          slides: heroSlides,
-          aspectRatio: 2.5,
-          showDots: true,
-          onSlideTap: (href) => _openSlideTarget(context, href),
+        Builder(
+          builder: (context) => TintBannerSlider(
+            slides: heroSlides,
+            // نسبة البانر الأصليّة تبقى كما هي؛ إزاحة الهيدر تُضاف فوقها
+            // وتُملأ بنسخةٍ مموّهة من البانر — فلا يُقصّ ولا يُغطّى نصّه.
+            aspectRatio: 2.5,
+            showDots: true,
+            headerInset:
+                kImmersiveHeroHeader ? _headerHeight(context) : 0,
+            onSlideTap: (href) => _openSlideTarget(context, href),
+          ),
         ),
         _SectionCarousel(
           title: 'الأكثر مبيعًا',

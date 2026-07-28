@@ -14,24 +14,27 @@ const _activeNavColor = TintColors.charcoal;
 /// ☰ في طرف شريط الأقسام — تفتح تبويب «الأقسام» (الفهرس 2 في القشرة)
 /// بكامل شجرة المتجر، كما تفعل شي إن.
 class _AllCategoriesButton extends StatelessWidget {
-  const _AllCategoriesButton();
+  const _AllCategoriesButton({required this.foreground, required this.divider});
+
+  final Color foreground;
+  final Color divider;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () => context.read<ShellCubit>().selectTab(2),
-      child: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             // فاصل رفيع يوضّح أنّ الزرّ ثابت وليس آخر عناصر القائمة المنزلقة.
             SizedBox(
               height: 20,
-              child: VerticalDivider(width: 1, thickness: 1, color: TintColors.line),
+              child: VerticalDivider(width: 1, thickness: 1, color: divider),
             ),
-            SizedBox(width: 10),
-            Icon(Icons.menu_rounded, size: 24, color: _activeNavColor),
+            const SizedBox(width: 10),
+            Icon(Icons.menu_rounded, size: 24, color: foreground),
           ],
         ),
       ),
@@ -40,7 +43,12 @@ class _AllCategoriesButton extends StatelessWidget {
 }
 
 class TopHeader extends StatelessWidget {
-  const TopHeader({super.key});
+  const TopHeader({super.key, this.overlayOpacity});
+
+  /// تجربة الهيدر الشفّاف فوق السلايدر (نمط شي إن).
+  /// `null` = السلوك الأصليّ: خلفيّة بيضاء وألوان داكنة، بلا أيّ تغيّر.
+  /// `0` = شفّاف تماماً بألوانٍ فاتحة فوق البانر، و`1` = أبيض كالأصل.
+  final double? overlayOpacity;
 
   @override
   Widget build(BuildContext context) {
@@ -48,13 +56,44 @@ class TopHeader extends StatelessWidget {
       builder: (context, state) {
         // إضافة ارتفاع شريط الحالة/النوتش حتى لا يتداخل الشعار مع أعلى الشاشة
         final topInset = MediaQuery.viewPaddingOf(context).top;
+        final t = overlayOpacity ?? 1.0;
+        final immersive = overlayOpacity != null;
+        // كلّ لونٍ يتدرّج من «فوق البانر» إلى «فوق الأبيض» مع التمرير.
+        final bg = immersive
+            ? Color.lerp(Colors.transparent, Colors.white, t)!
+            : Colors.white;
+        final fg = immersive
+            ? Color.lerp(Colors.white, _activeNavColor, t)!
+            : _activeNavColor;
+        final muted = immersive
+            ? Color.lerp(Colors.white70, TintColors.textMuted, t)!
+            : TintColors.textMuted;
+        final pill = immersive
+            ? Color.lerp(Colors.white24, const Color(0xFFF3F4F6), t)!
+            : const Color(0xFFF3F4F6);
+        final line = immersive
+            ? Color.lerp(Colors.white38, TintColors.line, t)!
+            : TintColors.line;
         final cartCount = context
             .watch<CartCubit>()
             .state
             .items
             .fold<int>(0, (sum, item) => sum + item.quantity);
         return Container(
-          color: Colors.white,
+          decoration: BoxDecoration(
+            color: bg,
+            // ظلٌّ خفيف يضمن قراءة الأيقونات فوق بانرٍ فاتح، ويتلاشى بالتمرير.
+            gradient: immersive && t < 1
+                ? LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withOpacity(0.40 * (1 - t)),
+                      Colors.black.withOpacity(0.10 * (1 - t)),
+                    ],
+                  )
+                : null,
+          ),
           padding: EdgeInsets.fromLTRB(14, 16 + topInset, 14, 10),
           child: Column(
             children: [
@@ -64,6 +103,7 @@ class TopHeader extends StatelessWidget {
                 children: [
                   IconButton(
                     onPressed: () => context.push('/profile/favorites'),
+                    color: fg,
                     icon: const Icon(Icons.favorite_border_rounded),
                   ),
                   Expanded(
@@ -73,25 +113,24 @@ class TopHeader extends StatelessWidget {
                         height: 50,
                         padding: const EdgeInsets.symmetric(horizontal: 14),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF3F4F6),
+                          color: pill,
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        child: const Row(
+                        child: Row(
                           children: [
-                            Icon(Icons.search, color: TintColors.textMuted),
-                            SizedBox(width: 8),
+                            Icon(Icons.search, color: muted),
+                            const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 'ابحث عن منتجات، أقسام، ماركات…',
                                 style: TextStyle(
-                                  color: TintColors.textMuted,
+                                  color: muted,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ),
-                            Icon(Icons.camera_alt_outlined,
-                                color: TintColors.textMuted),
+                            Icon(Icons.camera_alt_outlined, color: muted),
                           ],
                         ),
                       ),
@@ -99,6 +138,7 @@ class TopHeader extends StatelessWidget {
                   ),
                   IconButton(
                     onPressed: () => context.read<ShellCubit>().selectTab(3),
+                    color: fg,
                     icon: Stack(
                       clipBehavior: Clip.none,
                       children: [
@@ -166,9 +206,7 @@ class TopHeader extends StatelessWidget {
                                       item,
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
-                                        color: isActive
-                                            ? _activeNavColor
-                                            : TintColors.textMuted,
+                                        color: isActive ? fg : muted,
                                         fontSize: 15,
                                         fontWeight: FontWeight.w700,
                                       ),
@@ -181,9 +219,8 @@ class TopHeader extends StatelessWidget {
                                           const Duration(milliseconds: 180),
                                       height: 2.5,
                                       decoration: BoxDecoration(
-                                        color: isActive
-                                            ? _activeNavColor
-                                            : Colors.transparent,
+                                        color:
+                                            isActive ? fg : Colors.transparent,
                                         borderRadius:
                                             BorderRadius.circular(999),
                                       ),
@@ -199,7 +236,7 @@ class TopHeader extends StatelessWidget {
                     // ☰ ثابتة في طرف الشريط لا تنزلق معه (نمط شي إن) — تفتح
                     // تبويب «الأقسام» بكامل شجرة المتجر. وتحلّ محلّ اسم القسم
                     // المقطوع الذي كان يظهر عند الحافّة.
-                    const _AllCategoriesButton(),
+                    _AllCategoriesButton(foreground: fg, divider: line),
                   ],
                 ),
               ),
