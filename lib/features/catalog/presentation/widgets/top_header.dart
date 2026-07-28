@@ -11,6 +11,34 @@ import '../cubit/home_store_cubit.dart';
 // بدّله إلى TintColors.sand (لون الهويّة) بسطرٍ واحد إن أُريد.
 const _activeNavColor = TintColors.charcoal;
 
+/// ☰ في طرف شريط الأقسام — تفتح تبويب «الأقسام» (الفهرس 2 في القشرة)
+/// بكامل شجرة المتجر، كما تفعل شي إن.
+class _AllCategoriesButton extends StatelessWidget {
+  const _AllCategoriesButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => context.read<ShellCubit>().selectTab(2),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // فاصل رفيع يوضّح أنّ الزرّ ثابت وليس آخر عناصر القائمة المنزلقة.
+            SizedBox(
+              height: 20,
+              child: VerticalDivider(width: 1, thickness: 1, color: TintColors.line),
+            ),
+            SizedBox(width: 10),
+            Icon(Icons.menu_rounded, size: 24, color: _activeNavColor),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class TopHeader extends StatelessWidget {
   const TopHeader({super.key});
 
@@ -106,57 +134,73 @@ class TopHeader extends StatelessWidget {
               const SizedBox(height: 10),
               SizedBox(
                 height: 42,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: state.navLabels.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 20),
-                  itemBuilder: (context, index) {
-                    final item = state.navLabels[index];
-                    final isActive = item == state.activeTopNav;
-                    return InkWell(
-                      onTap: () => context.read<HomeStoreCubit>().setActiveTopNav(item),
-                      // IntrinsicWidth ليمتدّ الخطّ السفليّ بعرض الكلمة تماماً
-                      // (نمط شي إن) بدل عرضٍ ثابت لا يناسب «كل» و«مجوهرات
-                      // وإكسسوارات» معاً.
-                      child: IntrinsicWidth(
-                        child: Center(
-                          child: Column(
-                            // mainAxisSize.min + Center: الكلمة وخطّها كتلة
-                            // واحدة متلاصقة تتوسّط الشريط، بدل spaceBetween
-                            // الذي كان يدفع الخطّ لقاع الشريط فتتّسع الفجوة.
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Text(
-                                item,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: isActive
-                                      ? _activeNavColor
-                                      : TintColors.textMuted,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: state.navLabels.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 20),
+                        itemBuilder: (context, index) {
+                          final item = state.navLabels[index];
+                          final isActive = item == state.activeTopNav;
+                          return InkWell(
+                            onTap: () => context
+                                .read<HomeStoreCubit>()
+                                .setActiveTopNav(item),
+                            // IntrinsicWidth ليمتدّ الخطّ السفليّ بعرض الكلمة
+                            // تماماً (نمط شي إن) بدل عرضٍ ثابت لا يناسب «كل»
+                            // و«مجوهرات وإكسسوارات» معاً.
+                            child: IntrinsicWidth(
+                              child: Center(
+                                child: Column(
+                                  // mainAxisSize.min + Center: الكلمة وخطّها
+                                  // كتلة واحدة متلاصقة تتوسّط الشريط، بدل
+                                  // spaceBetween الذي كان يدفع الخطّ لقاع
+                                  // الشريط فتتّسع الفجوة.
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    Text(
+                                      item,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: isActive
+                                            ? _activeNavColor
+                                            : TintColors.textMuted,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    // شفّاف لا بارتفاع صفر حين لا يكون نشطاً،
+                                    // فلا يقفز النصّ رأسيّاً بين قسمٍ وآخر.
+                                    AnimatedContainer(
+                                      duration:
+                                          const Duration(milliseconds: 180),
+                                      height: 2.5,
+                                      decoration: BoxDecoration(
+                                        color: isActive
+                                            ? _activeNavColor
+                                            : Colors.transparent,
+                                        borderRadius:
+                                            BorderRadius.circular(999),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(height: 5),
-                              // شفّاف لا بارتفاع صفر حين لا يكون نشطاً، فلا
-                              // يقفز النصّ رأسيّاً بين قسمٍ وآخر.
-                              AnimatedContainer(
-                                duration: const Duration(milliseconds: 180),
-                                height: 2.5,
-                                decoration: BoxDecoration(
-                                  color: isActive
-                                      ? _activeNavColor
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
+                    ),
+                    // ☰ ثابتة في طرف الشريط لا تنزلق معه (نمط شي إن) — تفتح
+                    // تبويب «الأقسام» بكامل شجرة المتجر. وتحلّ محلّ اسم القسم
+                    // المقطوع الذي كان يظهر عند الحافّة.
+                    const _AllCategoriesButton(),
+                  ],
                 ),
               ),
             ],
