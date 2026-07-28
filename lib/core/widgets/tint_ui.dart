@@ -560,6 +560,10 @@ class TintNetworkImage extends StatelessWidget {
     return ClipRRect(
       borderRadius: borderRadius,
       child: Stack(
+        // صريحة لا افتراضيّة: افتراضيّ Stack هو AlignmentDirectional.topStart،
+        // و`start` في واجهةٍ عربيّة = اليمين — فكانت الصورة التي لا تملأ
+        // صندوقها تُثبَّت في الزاوية العلويّة اليمنى بدل أن تتوسّطه.
+        alignment: Alignment.center,
         children: [
           if (resolved.isEmpty)
             _placeholder()
