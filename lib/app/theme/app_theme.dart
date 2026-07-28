@@ -18,7 +18,8 @@ class AppTheme {
   static ThemeData light() {
     final base = ThemeData(
       useMaterial3: true,
-      fontFamily: 'sans-serif',
+      // خطّ التطبيق كلّه — عربيّ مُحزَّم بدل خطّ النظام (انظر pubspec.yaml).
+      fontFamily: 'Tajawal',
       scaffoldBackgroundColor: Colors.white,
       colorScheme: ColorScheme.fromSeed(
         seedColor: TintColors.sand,

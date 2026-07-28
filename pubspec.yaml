@@ -36,6 +36,20 @@ flutter:
   assets:
     - assets/icon/
     - assets/splash/
+  # خطّ عربيّ حقيقيّ بدل خطّ النظام — مُحزَّم في التطبيق فيعمل بلا إنترنت.
+  fonts:
+    - family: Tajawal
+      fonts:
+        - asset: assets/fonts/Tajawal-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Tajawal-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Tajawal-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Tajawal-ExtraBold.ttf
+          weight: 800
+        - asset: assets/fonts/Tajawal-Black.ttf
+          weight: 900
 
 # أيقونة التطبيق — شغّل بعد توليد المنصات:
 #   dart run flutter_launcher_icons

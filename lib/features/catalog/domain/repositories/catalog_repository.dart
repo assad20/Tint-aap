@@ -1,4 +1,5 @@
 import '../../../../core/models/category_model.dart';
+import '../../../../core/models/hero_slide_model.dart';
 import '../../../../core/models/product_model.dart';
 
 // صفحة القسم: منتجاته + بانرات السلايدر (heroSlides المُدارة من الأدمن).
@@ -19,11 +20,14 @@ abstract class CatalogRepository {
 
   Future<List<ProductModel>> searchProducts(String query);
 
-  // تنقّل المتجر الحقيقيّ (مجموعات المتجر) + منتجات قسم بالـslug.
+  // تنقّل المتجر الحقيقيّ (مجموعات المتجر).
   Future<List<CategoryModel>> fetchNavigation();
-
-  Future<List<ProductModel>> fetchCategoryProducts(String slug);
 
   // منتجات القسم + بانرات السلايدر في نداء واحد.
   Future<CategoryPageResult> fetchCategoryPage(String slug);
+
+  // شرائح سلايدر الرئيسيّة (بنرات موضع `hero` المُدارة من استوديو البنرات).
+  // `null` = تعذّر الجلب (أبقِ المعروض)، بينما `[]` = لا بنرات مُعرَّفة فعلاً
+  // (أخفِ السلايدر). التفريق ضروريّ وإلّا بقيت بنراتٌ حُذفت من اللوحة ظاهرةً.
+  Future<List<HeroSlideModel>?> fetchHomeHeroSlides();
 }

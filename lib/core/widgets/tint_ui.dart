@@ -534,13 +534,17 @@ class TintNetworkImage extends StatelessWidget {
   // آمن في الإنتاج: روابط الإنتاج لا تحوي localhost فلا تتأثّر.
   static String apiOrigin = '';
 
-  String get _resolvedUrl {
+  // معلَنة كي يستعملها التحميل المسبق (precache) بالرابط نفسه؛ وإلّا خُزّن
+  // رابطٌ وطُلب آخر فلا ينفع التحميل المسبق في البيئة المحلّيّة.
+  static String resolve(String url) {
     if (url.isEmpty || apiOrigin.isEmpty) return url;
     return url.replaceFirst(
       RegExp(r'^https?://(localhost|127\.0\.0\.1)(:\d+)?'),
       apiOrigin,
     );
   }
+
+  String get _resolvedUrl => resolve(url);
 
   Widget _placeholder() => Container(
         height: height,

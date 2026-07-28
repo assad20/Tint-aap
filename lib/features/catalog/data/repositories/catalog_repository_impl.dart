@@ -1,4 +1,5 @@
 import '../../../../core/models/category_model.dart';
+import '../../../../core/models/hero_slide_model.dart';
 import '../../../../core/models/product_model.dart';
 import '../../../../core/utils/fake_seed_data.dart';
 import '../../domain/repositories/catalog_repository.dart';
@@ -71,19 +72,6 @@ class CatalogRepositoryImpl implements CatalogRepository {
   }
 
   @override
-  Future<List<ProductModel>> fetchCategoryProducts(String slug) async {
-    try {
-      final items = await _remoteDataSource.fetchCategoryProducts(slug);
-      return items
-          .whereType<Map<String, dynamic>>()
-          .map(ProductModel.fromJson)
-          .toList();
-    } catch (_) {
-      return const <ProductModel>[];
-    }
-  }
-
-  @override
   Future<CategoryPageResult> fetchCategoryPage(String slug) async {
     try {
       final data = await _remoteDataSource.fetchCategoryPageRaw(slug);
@@ -110,6 +98,26 @@ class CatalogRepositoryImpl implements CatalogRepository {
       return CategoryPageResult(products: products, banners: banners);
     } catch (_) {
       return const CategoryPageResult(products: [], banners: []);
+    }
+  }
+
+  @override
+  Future<List<HeroSlideModel>?> fetchHomeHeroSlides() async {
+    try {
+      final data = await _remoteDataSource.fetchHome();
+      final hero = data['hero'];
+      if (hero is! Map) return const [];
+      final slides = hero['slides'];
+      if (slides is! List) return const [];
+      return slides
+          .whereType<Map<String, dynamic>>()
+          .map(HeroSlideModel.fromJson)
+          .where((s) => s.image.isNotEmpty)
+          .toList();
+    } catch (_) {
+      // فشل الجلب — لا نُفرّغ السلايدر المعروض. ولا بيانات تجريبيّة في بانر
+      // المتجر: صورة أجنبيّة في متجر المالك أسوأ من فراغ.
+      return null;
     }
   }
 

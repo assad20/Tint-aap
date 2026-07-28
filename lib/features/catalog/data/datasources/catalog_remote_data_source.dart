@@ -10,6 +10,11 @@ class CatalogRemoteDataSource {
     return _apiClient.getMap(ApiRoutes.catalogBootstrap);
   }
 
+  // رئيسيّة المتجر الخام (تحوي hero.slides — بنرات موضع `hero` من الأدمن).
+  Future<Map<String, dynamic>> fetchHome() {
+    return _apiClient.getMap(ApiRoutes.catalogHome);
+  }
+
   Future<List<dynamic>> fetchTrendingProducts() {
     return _apiClient.getList(ApiRoutes.catalogTrends);
   }
@@ -17,20 +22,6 @@ class CatalogRemoteDataSource {
   // تنقّل المتجر الحقيقيّ (مجموعات المتجر المُدارة): [{id,name,image,href,children}]
   Future<List<dynamic>> fetchNavigation() {
     return _apiClient.getList(ApiRoutes.catalogNavigation);
-  }
-
-  // منتجات قسم بالـslug: الوسيط يُعيد CategoryPageData؛ نُخرج products ونطابق
-  // category الذي يقرأه ProductModel (categorySlug → category).
-  Future<List<dynamic>> fetchCategoryProducts(String slug) async {
-    final data = await _apiClient.getMap('${ApiRoutes.catalogCategories}/$slug');
-    final items = data['products'];
-    if (items is! List) return const <dynamic>[];
-    return items.map((e) {
-      if (e is Map<String, dynamic> && e['category'] == null && e['categorySlug'] != null) {
-        return {...e, 'category': e['categorySlug']};
-      }
-      return e;
-    }).toList();
   }
 
   // صفحة القسم الخام (تحوي products و heroSlides و heroImage).

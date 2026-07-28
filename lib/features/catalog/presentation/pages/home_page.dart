@@ -3,12 +3,31 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/models/category_model.dart';
+import '../../../../core/models/hero_slide_model.dart';
 import '../../../../core/models/product_model.dart';
 import '../../../../core/utils/fake_seed_data.dart';
 import '../../../../core/widgets/tint_ui.dart';
 import '../cubit/home_store_cubit.dart';
+import '../widgets/banner_slider.dart';
 import '../widgets/product_card.dart';
 import '../widgets/top_header.dart';
+
+/// النقر على بانر يفتح قسمه (كشي إن). وجهة البانر تأتي بصيغة الويب
+/// `/category/<slug>`، ولا مسار مقابل لها في `app_router` — الأقسام تُعرض
+/// بتبديل التبويب داخل القشرة. فنترجم الوجهة إلى القسم المطابق، وأيّ وجهة
+/// أخرى تُتجاهَل بلا فعل (لا شاشة بيضاء ولا تعطّل).
+void _openSlideTarget(BuildContext context, String href) {
+  final match = RegExp(r'/category/([^/?#]+)').firstMatch(href);
+  if (match == null) return;
+  final slug = Uri.decodeComponent(match.group(1)!);
+  final cubit = context.read<HomeStoreCubit>();
+  for (final category in cubit.state.topNav) {
+    if (category.id == slug) {
+      cubit.setActiveTopNav(category.name);
+      return;
+    }
+  }
+}
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -49,6 +68,7 @@ class HomePage extends StatelessWidget {
     // «الرئيسية» = البوّابة بالأقسام التحريريّة الحقيقيّة من /catalog/bootstrap.
     if (state.activeTopNav == kHomeNav) {
       return _HomeGatewayStorefront(
+        heroSlides: state.heroSlides,
         quickLinks: state.topNav.isNotEmpty ? state.topNav : FakeSeedData.quickLinks,
         bestSellers: or(bestSellers, FakeSeedData.bestSellers),
         newArrivals: or(newArrivals, FakeSeedData.newArrivals),
@@ -79,16 +99,32 @@ class HomePage extends StatelessWidget {
         ),
       );
     }
-    return _SimpleGridStorefront(
-      title: state.activeTopNav,
-      subtitle: 'تشكيلة القسم',
-      products: state.categoryProducts,
+    // سلايدر القسم أعلى الشاشة (كشي إن): كلّ تبويب علويّ يُظهر بنراته.
+    // نسبته 4:1 لا 2.5:1 لأنّ بنرات الأقسام تُصمَّم 3200×800 بخلاف بنرات
+    // الرئيسيّة 2304×912 — نسبةٌ واحدة كانت ستقتصّ جوانبها.
+    return Column(
+      children: [
+        if (state.categoryBanners.isNotEmpty)
+          TintBannerSlider(
+            slides: state.categoryBanners
+                .map((url) => HeroSlideModel(image: url))
+                .toList(),
+            aspectRatio: 4,
+            showDots: true,
+          ),
+        _SimpleGridStorefront(
+          title: state.activeTopNav,
+          subtitle: 'تشكيلة القسم',
+          products: state.categoryProducts,
+        ),
+      ],
     );
   }
 }
 
 class _HomeGatewayStorefront extends StatelessWidget {
   const _HomeGatewayStorefront({
+    required this.heroSlides,
     required this.quickLinks,
     required this.bestSellers,
     required this.newArrivals,
@@ -96,6 +132,7 @@ class _HomeGatewayStorefront extends StatelessWidget {
     required this.gifts,
   });
 
+  final List<HeroSlideModel> heroSlides;
   final List<CategoryModel> quickLinks;
   final List<ProductModel> bestSellers;
   final List<ProductModel> newArrivals;
@@ -107,27 +144,14 @@ class _HomeGatewayStorefront extends StatelessWidget {
     final safeGifts = gifts.isNotEmpty ? gifts : FakeSeedData.productsByCategory['gifts']!;
     return Column(
       children: [
-        _HeroBanner(
-          image:
-              'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=800&q=80',
-          overline: 'كل ما تحتاجه في مكان واحد',
-          title: 'تسوّق أونلاين\nبكل سهولة',
-          subtitle: 'تشكيلة واسعة من كل الأقسام بأسعار تنافسية وتوصيل سريع.',
-          buttonLabel: 'تسوّق الآن',
-        ),
-        const SizedBox(height: 6),
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: TintSurfaceCard(
-            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-            child: const Row(
-              children: [
-                Expanded(child: _PromiseTile(icon: Icons.local_shipping_outlined, label: 'توصيل سريع')),
-                Expanded(child: _PromiseTile(icon: Icons.restart_alt_rounded, label: 'إرجاع سهل')),
-                Expanded(child: _PromiseTile(icon: Icons.verified_user_outlined, label: 'دفع آمن')),
-              ],
-            ),
-          ),
+        // سلايدر البنرات (نمط شي إن): مُلاصق للحواف بلا زوايا ولا فجوة عن
+        // المنيو، ولا طبقة نصّ من الشيفرة — النصّ مطبوع في صورة البانر نفسها.
+        // البنرات تُدار من «استوديو البنرات» (موضع `hero`).
+        TintBannerSlider(
+          slides: heroSlides,
+          aspectRatio: 2.5,
+          showDots: true,
+          onSlideTap: (href) => _openSlideTarget(context, href),
         ),
         _SectionCarousel(
           title: 'الأكثر مبيعًا',
@@ -142,6 +166,10 @@ class _HomeGatewayStorefront extends StatelessWidget {
               const SizedBox(height: 14),
               GridView.count(
                 shrinkWrap: true,
+                // بلا padding صريح يضيف Flutter حشوة MediaQuery العلويّة
+                // والسفليّة تلقائيّاً — والرئيسيّة بلا SafeArea (تتعامل مع
+                // شريط الحالة داخل TopHeader) فكانت تظهر فراغات فوق كلّ شبكة.
+                padding: EdgeInsets.zero,
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisCount: 2,
                 crossAxisSpacing: 12,
@@ -177,6 +205,7 @@ class _HomeGatewayStorefront extends StatelessWidget {
                 const SizedBox(height: 14),
                 GridView.builder(
                   shrinkWrap: true,
+                  padding: EdgeInsets.zero,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: offers.take(2).length,
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -239,6 +268,7 @@ class _SimpleGridStorefront extends StatelessWidget {
             const SizedBox(height: 10),
             GridView.builder(
               shrinkWrap: true,
+              padding: EdgeInsets.zero,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: products.length,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -307,122 +337,6 @@ class _SectionCarousel extends StatelessWidget {
     );
   }
 }
-
-class _HeroBanner extends StatelessWidget {
-  const _HeroBanner({
-    required this.image,
-    required this.overline,
-    required this.title,
-    required this.subtitle,
-    required this.buttonLabel,
-    this.darkOverlay = false,
-  });
-
-  final String image;
-  final String overline;
-  final String title;
-  final String subtitle;
-  final String buttonLabel;
-  final bool darkOverlay;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 320,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: TintNetworkImage(
-              url: image,
-              fit: BoxFit.cover,
-              overlay: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: darkOverlay
-                        ? [
-                            Colors.black.withOpacity(0.78),
-                            Colors.black.withOpacity(0.12),
-                          ]
-                        : [
-                            TintColors.charcoal.withOpacity(0.8),
-                            Colors.transparent,
-                          ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            right: 24,
-            left: 24,
-            bottom: 26,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: TintColors.sand,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    overline,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 31,
-                    fontWeight: FontWeight.w900,
-                    height: 1.15,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  subtitle,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Color(0xFFE6E8EC),
-                    fontSize: 12,
-                    height: 1.5,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                FilledButton(
-                  onPressed: () {},
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: TintColors.charcoal,
-                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                  child: Text(
-                    buttonLabel,
-                    style: const TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _WideBanner extends StatelessWidget {
   const _WideBanner({
     required this.image,
@@ -548,34 +462,6 @@ class _CategoryWorldCard extends StatelessWidget {
                 fontWeight: FontWeight.w800,
               ),
             ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _PromiseTile extends StatelessWidget {
-  const _PromiseTile({
-    required this.icon,
-    required this.label,
-  });
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Icon(icon, color: TintColors.sand),
-        const SizedBox(height: 6),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w800,
-            color: TintColors.charcoal,
           ),
         ),
       ],

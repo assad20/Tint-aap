@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/models/category_model.dart';
+import '../../../../core/models/hero_slide_model.dart';
 import '../../../../core/models/product_model.dart';
 import '../../../../core/storage/app_preferences.dart';
 import '../../domain/repositories/catalog_repository.dart';
@@ -15,7 +16,9 @@ class HomeStoreState {
     this.activeTopNav = kHomeNav,
     this.catalog = const {},
     this.topNav = const [],
+    this.heroSlides = const [],
     this.categoryProducts = const [],
+    this.categoryBanners = const [],
     this.isCategoryLoading = false,
     this.errorMessage,
   });
@@ -25,8 +28,13 @@ class HomeStoreState {
   final Map<String, List<ProductModel>> catalog;
   // تنقّل المتجر الحقيقيّ (مجموعات المتجر) — أسماء الأقسام الفعليّة.
   final List<CategoryModel> topNav;
+  // شرائح سلايدر الرئيسيّة (بنرات موضع `hero` من الأدمن).
+  final List<HeroSlideModel> heroSlides;
   // منتجات القسم المختار (فارغة على «الرئيسية»).
   final List<ProductModel> categoryProducts;
+  // بنرات القسم المختار (موضع `category:<slug>`) — تُعرض أعلى الشاشة كما في
+  // تبويب «الأقسام»، فاختيار قسم من القائمة العلويّة يُظهر سلايدره أيضاً.
+  final List<String> categoryBanners;
   final bool isCategoryLoading;
   final String? errorMessage;
 
@@ -35,7 +43,9 @@ class HomeStoreState {
     String? activeTopNav,
     Map<String, List<ProductModel>>? catalog,
     List<CategoryModel>? topNav,
+    List<HeroSlideModel>? heroSlides,
     List<ProductModel>? categoryProducts,
+    List<String>? categoryBanners,
     bool? isCategoryLoading,
     String? errorMessage,
   }) {
@@ -44,7 +54,9 @@ class HomeStoreState {
       activeTopNav: activeTopNav ?? this.activeTopNav,
       catalog: catalog ?? this.catalog,
       topNav: topNav ?? this.topNav,
+      heroSlides: heroSlides ?? this.heroSlides,
       categoryProducts: categoryProducts ?? this.categoryProducts,
+      categoryBanners: categoryBanners ?? this.categoryBanners,
       isCategoryLoading: isCategoryLoading ?? this.isCategoryLoading,
       errorMessage: errorMessage,
     );
@@ -75,6 +87,7 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
         isLoading: true, // المحتوى ظاهر؛ مؤشّر تحديث خفيف فقط
         catalog: cached.$1,
         topNav: cached.$2,
+        heroSlides: cached.$3,
       ));
     } else {
       emit(state.copyWith(isLoading: true));
@@ -84,18 +97,22 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
       final results = await Future.wait([
         _catalogRepository.fetchBootstrapCatalog(),
         _catalogRepository.fetchNavigation(),
+        _catalogRepository.fetchHomeHeroSlides(),
       ]);
       final catalog = results[0] as Map<String, List<ProductModel>>;
       final nav = results[1] as List<CategoryModel>;
+      // null = تعذّر الجلب → أبقِ المعروض؛ [] = لا بنرات معرّفة → أخفِ السلايدر.
+      final slides = results[2] as List<HeroSlideModel>? ?? state.heroSlides;
       final gotData = catalog.isNotEmpty || nav.isNotEmpty;
       if (gotData) {
         emit(state.copyWith(
           isLoading: false,
           catalog: catalog,
           topNav: nav,
+          heroSlides: slides,
           errorMessage: null,
         ));
-        await _saveSnapshot(catalog, nav);
+        await _saveSnapshot(catalog, nav, slides);
       } else {
         // لا بيانات جديدة (فشل/فارغ): أبقِ المعروض (الكاش أو الفارغ)، لا تُفرّغه.
         emit(state.copyWith(
@@ -115,8 +132,12 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
     }
   }
 
-  // قراءة لقطة الرئيسيّة المحفوظة (كتالوج + تنقّل). null إن لا لقطة/تلفت.
-  (Map<String, List<ProductModel>>, List<CategoryModel>)? _readCachedSnapshot() {
+  // قراءة لقطة الرئيسيّة المحفوظة (كتالوج + تنقّل + شرائح). null إن لا لقطة/تلفت.
+  (
+    Map<String, List<ProductModel>>,
+    List<CategoryModel>,
+    List<HeroSlideModel>,
+  )? _readCachedSnapshot() {
     final raw = _appPreferences.cachedHomeSnapshot;
     if (raw == null || raw.isEmpty) return null;
     try {
@@ -134,8 +155,13 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
           .whereType<Map<String, dynamic>>()
           .map(CategoryModel.fromJson)
           .toList();
+      // مضافة لاحقاً — لقطة قديمة بلا `slides` تُقرأ بلا كسر.
+      final slides = ((decoded['slides'] as List?) ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(HeroSlideModel.fromJson)
+          .toList();
       if (catalog.isEmpty && nav.isEmpty) return null;
-      return (catalog, nav);
+      return (catalog, nav, slides);
     } catch (_) {
       return null; // كاش تحسينيّ فقط — تجاهل أيّ تلف
     }
@@ -144,6 +170,7 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
   Future<void> _saveSnapshot(
     Map<String, List<ProductModel>> catalog,
     List<CategoryModel> nav,
+    List<HeroSlideModel> slides,
   ) async {
     try {
       final payload = {
@@ -151,6 +178,7 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
           (k, v) => MapEntry(k, v.map((p) => p.toJson()).toList()),
         ),
         'nav': nav.map((c) => c.toJson()).toList(),
+        'slides': slides.map((s) => s.toJson()).toList(),
       };
       await _appPreferences.setCachedHomeSnapshot(jsonEncode(payload));
     } catch (_) {
@@ -162,7 +190,11 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
     await _appPreferences.setActiveHomeNav(value);
     emit(state.copyWith(activeTopNav: value));
     if (value == kHomeNav) {
-      emit(state.copyWith(categoryProducts: const [], isCategoryLoading: false));
+      emit(state.copyWith(
+        categoryProducts: const [],
+        categoryBanners: const [],
+        isCategoryLoading: false,
+      ));
     } else {
       await _loadCategory(value);
     }
@@ -176,14 +208,25 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
         )
         .id;
     if (slug.isEmpty) {
-      emit(state.copyWith(categoryProducts: const [], isCategoryLoading: false));
+      emit(state.copyWith(
+        categoryProducts: const [],
+        categoryBanners: const [],
+        isCategoryLoading: false,
+      ));
       return;
     }
     emit(state.copyWith(isCategoryLoading: true));
-    final products = await _catalogRepository.fetchCategoryProducts(slug);
+    // fetchCategoryPage لا fetchCategoryProducts: الأخيرة ترمي بنرات القسم،
+    // فكان اختيار قسم من القائمة العلويّة يعرض شبكةً بلا سلايدر بينما تبويب
+    // «الأقسام» يعرضه — والبنرات نفسها مربوطة بالأقسام أصلاً من اللوحة.
+    final page = await _catalogRepository.fetchCategoryPage(slug);
     // نتجاهل النتيجة إن تغيّر التبويب أثناء الجلب.
     if (state.activeTopNav != name) return;
-    emit(state.copyWith(categoryProducts: products, isCategoryLoading: false));
+    emit(state.copyWith(
+      categoryProducts: page.products,
+      categoryBanners: page.banners,
+      isCategoryLoading: false,
+    ));
   }
 
   List<ProductModel> productsOf(String key) => state.catalog[key] ?? const [];

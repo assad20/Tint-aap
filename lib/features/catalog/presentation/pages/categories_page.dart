@@ -1,13 +1,21 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_theme.dart';
-import '../../../../core/widgets/tint_ui.dart';
+import '../../../../core/models/hero_slide_model.dart';
 import '../cubit/categories_cubit.dart';
+import '../widgets/banner_slider.dart';
 import '../widgets/product_card.dart';
+
+// بانرات القسم بمظهرها السابق نفسه: ارتفاع 108 وزوايا 18 وهامش، بلا نقاط.
+Widget _categoryBanners(List<String> images) => TintBannerSlider(
+      slides: images.map((url) => HeroSlideModel(image: url)).toList(),
+      height: 108,
+      borderRadius: BorderRadius.circular(18),
+      margin: const EdgeInsets.only(top: 8, bottom: 6),
+      pageGap: 2,
+    );
 
 // تبويب «الأقسام»: قائمة جانبيّة بمجموعات المتجر الحقيقيّة (/catalog/navigation)
 // + شبكة منتجات القسم المختار (/catalog/categories/<slug>).
@@ -143,7 +151,7 @@ class _ProductsPane extends StatelessWidget {
       return ListView(
         padding: const EdgeInsets.fromLTRB(14, 4, 14, 110),
         children: [
-          if (state.banners.isNotEmpty) _BannerSlider(images: state.banners),
+          if (state.banners.isNotEmpty) _categoryBanners(state.banners),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 40),
             child: Text(
@@ -161,7 +169,7 @@ class _ProductsPane extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 4, 14, 110),
       children: [
-        if (state.banners.isNotEmpty) _BannerSlider(images: state.banners),
+        if (state.banners.isNotEmpty) _categoryBanners(state.banners),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 10),
           child: Text(
@@ -183,77 +191,6 @@ class _ProductsPane extends StatelessWidget {
               ProductCard(product: state.products[index]),
         ),
       ],
-    );
-  }
-}
-
-// سلايدر بانرات القسم (heroSlides) — تمرير تلقائيّ + نقاط مؤشّر.
-class _BannerSlider extends StatefulWidget {
-  const _BannerSlider({required this.images});
-
-  final List<String> images;
-
-  @override
-  State<_BannerSlider> createState() => _BannerSliderState();
-}
-
-class _BannerSliderState extends State<_BannerSlider> {
-  final _controller = PageController();
-  Timer? _timer;
-  int _index = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.images.length > 1) {
-      _timer = Timer.periodic(const Duration(seconds: 4), (_) {
-        if (!mounted) return;
-        final next = (_index + 1) % widget.images.length;
-        _controller.animateToPage(
-          next,
-          duration: const Duration(milliseconds: 450),
-          curve: Curves.easeInOut,
-        );
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 6),
-      child: Column(
-        children: [
-          SizedBox(
-            // ارتفاع يناسب البانر العريض (~3:1) بلا فراغ أسفله. تمرير height
-            // صريح للصورة يجبرها على ملء المربّع (cover) فيختفي الفراغ.
-            height: 108,
-            child: PageView.builder(
-              controller: _controller,
-              itemCount: widget.images.length,
-              onPageChanged: (i) => setState(() => _index = i),
-              itemBuilder: (context, i) => Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: TintNetworkImage(
-                  url: widget.images[i],
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  height: 108,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-              ),
-            ),
-          ),
-          // نقاط المؤشّر مُخفاة عمداً (مظهر أنظف)؛ البانر يتبدّل تلقائيّاً كلّ 4ث.
-        ],
-      ),
     );
   }
 }

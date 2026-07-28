@@ -46,9 +46,12 @@ class ProductCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
+                  // contain لا cover: صور المنتجات لقطات كتالوج بخلفيّة بيضاء
+                  // وهوامش، فكان القصّ يُزيح المنتج عن مركز البطاقة ويقتطع
+                  // أطرافه. الآن تظهر الصورة كاملةً متوسّطة البطاقة.
                   TintNetworkImage(
                     url: product.image,
-                    fit: BoxFit.cover,
+                    fit: BoxFit.contain,
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(18),
                     ),

@@ -7,6 +7,10 @@ import '../../../cart/presentation/cubit/cart_cubit.dart';
 import '../../../shell/presentation/cubit/shell_cubit.dart';
 import '../cubit/home_store_cubit.dart';
 
+// لون القسم النشط في القائمة العلويّة وخطّه السفليّ. شي إن تستعمل الأسود؛
+// بدّله إلى TintColors.sand (لون الهويّة) بسطرٍ واحد إن أُريد.
+const _activeNavColor = TintColors.charcoal;
+
 class TopHeader extends StatelessWidget {
   const TopHeader({super.key});
 
@@ -101,39 +105,55 @@ class TopHeader extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               SizedBox(
-                height: 34,
+                height: 42,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: state.navLabels.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 18),
+                  separatorBuilder: (_, __) => const SizedBox(width: 20),
                   itemBuilder: (context, index) {
                     final item = state.navLabels[index];
                     final isActive = item == state.activeTopNav;
                     return InkWell(
                       onTap: () => context.read<HomeStoreCubit>().setActiveTopNav(item),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            item,
-                            style: TextStyle(
-                              color: isActive
-                                  ? TintColors.sand
-                                  : TintColors.textMuted,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                            ),
+                      // IntrinsicWidth ليمتدّ الخطّ السفليّ بعرض الكلمة تماماً
+                      // (نمط شي إن) بدل عرضٍ ثابت لا يناسب «كل» و«مجوهرات
+                      // وإكسسوارات» معاً.
+                      child: IntrinsicWidth(
+                        child: Center(
+                          child: Column(
+                            // mainAxisSize.min + Center: الكلمة وخطّها كتلة
+                            // واحدة متلاصقة تتوسّط الشريط، بدل spaceBetween
+                            // الذي كان يدفع الخطّ لقاع الشريط فتتّسع الفجوة.
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text(
+                                item,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: isActive
+                                      ? _activeNavColor
+                                      : TintColors.textMuted,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 5),
+                              // شفّاف لا بارتفاع صفر حين لا يكون نشطاً، فلا
+                              // يقفز النصّ رأسيّاً بين قسمٍ وآخر.
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                height: 2.5,
+                                decoration: BoxDecoration(
+                                  color: isActive
+                                      ? _activeNavColor
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                              ),
+                            ],
                           ),
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 180),
-                            width: isActive ? 28 : 0,
-                            height: 2.5,
-                            decoration: BoxDecoration(
-                              color: TintColors.sand,
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     );
                   },

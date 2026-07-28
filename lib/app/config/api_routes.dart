@@ -1,5 +1,7 @@
 abstract final class ApiRoutes {
   static const catalogBootstrap = '/catalog/bootstrap';
+  // رئيسيّة المتجر — منها بنرات السلايدر (hero.slides) المُدارة من استوديو البنرات.
+  static const catalogHome = '/catalog/home';
   static const catalogTrends = '/catalog/trends';
   static const catalogSearch = '/catalog/search';
   static const catalogNavigation = '/catalog/navigation';
