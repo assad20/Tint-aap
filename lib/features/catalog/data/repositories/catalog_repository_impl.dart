@@ -83,12 +83,17 @@ class CatalogRepositoryImpl implements CatalogRepository {
         }
         return e;
       }).map(ProductModel.fromJson).toList();
-      // بانرات السلايدر (heroSlides[].image)، وإلا heroImage كبانر واحد.
+      // بانرات السلايدر. نُفضّل `mobileImage` — الصورة التي يرفعها الأدمن
+      // بمقاس التطبيق — ونسقط على `image` (مقاس سطح المكتب) إن لم تُرفع.
       final banners = <String>[];
       for (final s in (data['heroSlides'] as List<dynamic>?) ?? const []) {
-        if (s is Map && s['image'] is String && (s['image'] as String).isNotEmpty) {
-          banners.add(s['image'] as String);
-        }
+        if (s is! Map) continue;
+        final mobile = s['mobileImage'];
+        final wide = s['image'];
+        final chosen = (mobile is String && mobile.isNotEmpty)
+            ? mobile
+            : (wide is String && wide.isNotEmpty ? wide : null);
+        if (chosen != null) banners.add(chosen);
       }
       if (banners.isEmpty &&
           data['heroImage'] is String &&
