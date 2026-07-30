@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -256,10 +258,18 @@ class _HomeGatewayStorefront extends StatelessWidget {
                 childAspectRatio: 1.15,
                 children: quickLinks
                     .take(4)
-                    .map((c) => GestureDetector(
-                          onTap: () =>
-                              context.read<HomeStoreCubit>().setActiveTopNav(c.name),
-                          child: _CategoryWorldCard(image: c.image, title: c.name),
+                    .toList()
+                    .asMap()
+                    .entries
+                    .map((e) => GestureDetector(
+                          onTap: () => context
+                              .read<HomeStoreCubit>()
+                              .setActiveTopNav(e.value.name),
+                          child: _CategoryWorldCard(
+                            images: e.value.displayImages,
+                            title: e.value.name,
+                            index: e.key,
+                          ),
                         ))
                     .toList(),
               ),
@@ -500,29 +510,88 @@ class _WideBanner extends StatelessWidget {
   }
 }
 
-class _CategoryWorldCard extends StatelessWidget {
+/// بطاقة القسم: تتبدّل صورها تلقائيّاً حين تُرفع أكثر من واحدة من اللوحة،
+/// وتبقى ثابتة بصورةٍ واحدة. الصور مرصوفة فوق بعضها ويتبدّل ظهورها فلا
+/// تحميل عند كلّ تبدّل ولا وميض.
+class _CategoryWorldCard extends StatefulWidget {
   const _CategoryWorldCard({
-    required this.image,
+    required this.images,
     required this.title,
+    required this.index,
   });
 
-  final String image;
+  final List<String> images;
   final String title;
+
+  /// موضع البطاقة في الشبكة — يُؤخّر بدايتها فلا يتبدّل الصفّ كلّه دفعةً
+  /// واحدة (وهو ما يبدو آليّاً مزعجاً بدل حركةٍ هادئة).
+  final int index;
+
+  @override
+  State<_CategoryWorldCard> createState() => _CategoryWorldCardState();
+}
+
+class _CategoryWorldCardState extends State<_CategoryWorldCard> {
+  int _active = 0;
+  Timer? _timer;
+  Timer? _stagger;
+
+  @override
+  void initState() {
+    super.initState();
+    _start();
+  }
+
+  @override
+  void didUpdateWidget(covariant _CategoryWorldCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.images.length != widget.images.length) {
+      if (_active >= widget.images.length) _active = 0;
+      _start();
+    }
+  }
+
+  void _start() {
+    _timer?.cancel();
+    _stagger?.cancel();
+    if (widget.images.length <= 1) return;
+    _stagger = Timer(Duration(milliseconds: widget.index * 450), () {
+      if (!mounted) return;
+      _timer = Timer.periodic(const Duration(seconds: 4), (_) {
+        if (!mounted) return;
+        setState(() => _active = (_active + 1) % widget.images.length);
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _stagger?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        Positioned.fill(
-          child: TintNetworkImage(
-            url: image,
-            fit: BoxFit.cover,
-            borderRadius: BorderRadius.circular(22),
-            overlay: Container(
-              decoration: BoxDecoration(
+        for (var i = 0; i < widget.images.length; i++)
+          Positioned.fill(
+            child: AnimatedOpacity(
+              opacity: i == _active ? 1 : 0,
+              duration: const Duration(milliseconds: 600),
+              child: TintNetworkImage(
+                url: widget.images[i],
+                fit: BoxFit.cover,
                 borderRadius: BorderRadius.circular(22),
-                color: Colors.black.withOpacity(0.36),
               ),
+            ),
+          ),
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              color: Colors.black.withOpacity(0.36),
             ),
           ),
         ),
@@ -535,7 +604,7 @@ class _CategoryWorldCard extends StatelessWidget {
               border: Border.all(color: Colors.white30),
             ),
             child: Text(
-              title,
+              widget.title,
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w800,
