@@ -449,6 +449,10 @@ class _WideBanner extends StatelessWidget {
             child: TintNetworkImage(
               url: image,
               fit: BoxFit.cover,
+              // كبطاقة القسم: بلا مقاسٍ صريح تنكمش الصورة إلى نسبتها ويظهر
+              // الرماديّ على جانبَي الشريط.
+              width: double.infinity,
+              height: double.infinity,
               borderRadius: BorderRadius.circular(24),
               overlay: Container(
                 decoration: BoxDecoration(
@@ -583,6 +587,11 @@ class _CategoryWorldCardState extends State<_CategoryWorldCard> {
               child: TintNetworkImage(
                 url: widget.images[i],
                 fit: BoxFit.cover,
+                // بلا مقاسٍ صريح تُعطي Stack قيوداً مرنة، فتنكمش الصورة إلى
+                // نسبتها الأصليّة وتتوسّط ويظهر الرماديّ حولها — و`cover` لا
+                // يقصّ شيئاً لأنّ الصندوق صار بمقاس الصورة أصلاً.
+                width: double.infinity,
+                height: double.infinity,
                 borderRadius: BorderRadius.circular(22),
               ),
             ),
