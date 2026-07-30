@@ -255,7 +255,10 @@ class _HomeGatewayStorefront extends StatelessWidget {
                 crossAxisCount: 2,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
-                childAspectRatio: 1.15,
+                // مربّعة عمداً: اللوحة تطلب رفع صور الأقسام 600×600، وهي
+                // النسبة نفسها التي تحتاجها دائرة الموقع. أيّ نسبةٍ أخرى هنا
+                // تعني قصّاً من كلّ صورةٍ مرفوعة على المقاس الصحيح.
+                childAspectRatio: 1.0,
                 children: quickLinks
                     .take(4)
                     .toList()
