@@ -9,6 +9,7 @@ import '../../../../core/models/discover_model.dart';
 import '../../../../core/models/product_model.dart';
 import '../../domain/repositories/catalog_repository.dart';
 import '../../../../core/widgets/tint_ui.dart';
+import '../../../account/presentation/cubit/favorites_cubit.dart';
 import '../../../cart/presentation/cubit/cart_cubit.dart';
 
 class ProductCard extends StatelessWidget {
@@ -60,6 +61,11 @@ class ProductCard extends StatelessWidget {
                       top: Radius.circular(18),
                     ),
                   ),
+                Positioned(
+                  top: 6,
+                  left: 6,
+                  child: _FavoriteButton(product: product),
+                ),
                 if (product.tag != null)
                   Positioned(
                     top: 8,
@@ -185,6 +191,56 @@ class ProductCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// قلب المفضّلة. يقرأ حالته من `FavoritesCubit` وحده — فمهما تكرّرت بطاقة
+/// المنتج في أرففٍ عدّة تتبدّل قلوبها كلّها معاً بلا مزامنةٍ يدويّة.
+class _FavoriteButton extends StatelessWidget {
+  const _FavoriteButton({required this.product});
+
+  final ProductModel product;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<FavoritesCubit, FavoritesState>(
+      buildWhen: (a, b) =>
+          a.contains(product.id) != b.contains(product.id) ||
+          a.pending.contains(product.id) != b.pending.contains(product.id),
+      builder: (context, state) {
+        final on = state.contains(product.id);
+        return GestureDetector(
+          onTap: () async {
+            final added = await context.read<FavoritesCubit>().toggle(product);
+            if (!context.mounted) return;
+            if (added) {
+              unawaited(context
+                  .read<CatalogRepository>()
+                  .recordSignal(product.id, ProductSignalType.wishlist));
+            }
+            showTintToast(
+              context,
+              added ? 'أُضيف إلى المفضّلة' : 'أُزيل من المفضّلة',
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.92),
+              shape: BoxShape.circle,
+              boxShadow: const [
+                BoxShadow(color: Color(0x14000000), blurRadius: 6, offset: Offset(0, 2)),
+              ],
+            ),
+            child: Icon(
+              on ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+              size: 16,
+              color: on ? TintColors.danger : TintColors.charcoal,
+            ),
+          ),
+        );
+      },
     );
   }
 }

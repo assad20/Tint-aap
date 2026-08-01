@@ -79,8 +79,33 @@ class AccountRepositoryImpl implements AccountRepository {
 
   @override
   Future<List<ProductModel>> fetchFavorites() async {
-    // لا خادم للمفضّلة بعد.
-    return const <ProductModel>[];
+    try {
+      final data = await _remoteDataSource.fetchFavorites();
+      return data.whereType<Map<String, dynamic>>().map(ProductModel.fromJson).toList();
+    } catch (_) {
+      // غير مسجّل دخولٍ أو شبكةٌ منقطعة — قائمةٌ فارغة لا شاشة خطأ.
+      return const <ProductModel>[];
+    }
+  }
+
+  @override
+  Future<List<ProductModel>?> addFavorite(String productId) async {
+    try {
+      final data = await _remoteDataSource.addFavorite(productId);
+      return data.whereType<Map<String, dynamic>>().map(ProductModel.fromJson).toList();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<List<ProductModel>?> removeFavorite(String productId) async {
+    try {
+      final data = await _remoteDataSource.removeFavorite(productId);
+      return data.whereType<Map<String, dynamic>>().map(ProductModel.fromJson).toList();
+    } catch (_) {
+      return null;
+    }
   }
 
   @override

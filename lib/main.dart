@@ -132,7 +132,10 @@ Future<void> main() async {
           BlocProvider(
             create: (context) => FavoritesCubit(
               repository: context.read<AccountRepository>(),
-            ), // تحميل كسول: عند فتح تبويب حسابي
+              // يُجلب عند الإقلاع لا عند فتح «حسابي»: القلوب صارت على كلّ
+              // بطاقة في المتجر، وقلبٌ فارغ لمنتجٍ مُفضَّل كذبٌ لا تأخير.
+              // والنداء صغير، ويعود فارغاً بصمتٍ لغير المسجّلين.
+            )..load(),
           ),
           BlocProvider(
             create: (context) => AddressesCubit(

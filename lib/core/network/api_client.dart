@@ -72,6 +72,28 @@ class ApiClient {
     }
   }
 
+  // نقاطٌ تُعيد مصفوفةً بعد تعديل (المفضّلة تُعيد القائمة المحدَّثة).
+  Future<List<dynamic>> postList(
+    String path, {
+    Object? data,
+  }) async {
+    try {
+      final response = await _dio.post<List<dynamic>>(path, data: data);
+      return response.data ?? <dynamic>[];
+    } on DioException catch (error) {
+      throw _toApiException(error);
+    }
+  }
+
+  Future<List<dynamic>> deleteList(String path) async {
+    try {
+      final response = await _dio.delete<List<dynamic>>(path);
+      return response.data ?? <dynamic>[];
+    } on DioException catch (error) {
+      throw _toApiException(error);
+    }
+  }
+
   Future<Map<String, dynamic>> postMap(
     String path, {
     Object? data,

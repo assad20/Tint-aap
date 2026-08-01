@@ -121,31 +121,11 @@ class _FavoritesPageState extends State<FavoritesPage> {
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
                   ),
-                  itemBuilder: (context, index) {
-                    final product = items[index];
-                    return Stack(
-                      children: [
-                        Positioned.fill(
-                          child: ProductCard(
-                            product: product,
-                            showViews: true,
-                          ),
-                        ),
-                        Positioned(
-                          top: 10,
-                          left: 10,
-                          child: CircleAvatar(
-                            backgroundColor: Colors.white.withOpacity(0.9),
-                            child: IconButton(
-                              onPressed: () =>
-                                  context.read<FavoritesCubit>().remove(product.id),
-                              icon: const Icon(Icons.favorite, color: Colors.red),
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
+                  // بلا زرّ إزالةٍ فوق البطاقة: البطاقة نفسها صار فيها قلبٌ
+                  // يحفظ على الخادم، بينما كان زرّ هذه الشاشة يُزيل من القائمة
+                  // المعروضة فقط — فيعود المنتج عند أوّل تحديث.
+                  itemBuilder: (context, index) =>
+                      ProductCard(product: items[index], showViews: true),
                 ),
             ],
           );

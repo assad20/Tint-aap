@@ -19,7 +19,9 @@ abstract final class ApiRoutes {
   static const rewards = '/me/rewards';
   // مسارات العميل الحقيقيّة على الوسيط (محميّة بتوكن Bearer).
   static const orders = '/customer/orders';
-  static const favorites = '/me/favorites';
+  // المفضّلة تحت مظلّة العميل المحميّة كالعناوين — `/me/favorites` لم يكن
+  // مُعرَّفاً على الوسيط أصلاً فكان النداء يعود 404 صامتاً.
+  static const favorites = '/customer/favorites';
   static const addresses = '/customer/addresses';
 
   static const checkout = '/orders/checkout';

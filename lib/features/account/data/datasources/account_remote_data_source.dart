@@ -22,6 +22,15 @@ class AccountRemoteDataSource {
     return _apiClient.getList(ApiRoutes.favorites);
   }
 
+  // النقطتان تُعيدان القائمة كاملةً بعد التعديل، فلا نداء ثانٍ للمزامنة.
+  Future<List<dynamic>> addFavorite(String productId) {
+    return _apiClient.postList(ApiRoutes.favorites, data: {'productId': productId});
+  }
+
+  Future<List<dynamic>> removeFavorite(String productId) {
+    return _apiClient.deleteList('${ApiRoutes.favorites}/$productId');
+  }
+
   Future<List<dynamic>> fetchAddresses() {
     return _apiClient.getList(ApiRoutes.addresses);
   }

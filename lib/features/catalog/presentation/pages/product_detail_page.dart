@@ -10,6 +10,7 @@ import '../../../../core/models/product_model.dart';
 import '../../../../core/storage/app_preferences.dart';
 import '../../domain/repositories/catalog_repository.dart';
 import '../../../../core/widgets/tint_ui.dart';
+import '../../../account/presentation/cubit/favorites_cubit.dart';
 import '../../../cart/presentation/cubit/cart_cubit.dart';
 import '../../../shell/presentation/cubit/shell_cubit.dart';
 
@@ -81,9 +82,30 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
         actions: [
           // أيقونة السلة بعدّاد حيّ — يرى العميل أين ذهب المنتج ويفتح السلة بنقرة.
           _CartAction(onOpen: _openCart),
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.favorite_border_rounded),
+          // كانت أيقونةً بلا فعل — الآن تحفظ على الخادم وتتبدّل مع القلوب
+          // في البطاقات كلّها لأنّها تقرأ الحالة من المصدر نفسه.
+          BlocBuilder<FavoritesCubit, FavoritesState>(
+            buildWhen: (a, b) => a.contains(p.id) != b.contains(p.id),
+            builder: (context, fav) {
+              final on = fav.contains(p.id);
+              return IconButton(
+                onPressed: () async {
+                  final added = await context.read<FavoritesCubit>().toggle(p);
+                  if (!context.mounted) return;
+                  if (added) {
+                    unawaited(context
+                        .read<CatalogRepository>()
+                        .recordSignal(p.id, ProductSignalType.wishlist));
+                  }
+                  showTintToast(context,
+                      added ? 'أُضيف إلى المفضّلة' : 'أُزيل من المفضّلة');
+                },
+                icon: Icon(
+                  on ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                  color: on ? TintColors.danger : null,
+                ),
+              );
+            },
           ),
         ],
       ),

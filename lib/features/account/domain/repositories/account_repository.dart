@@ -10,5 +10,9 @@ abstract class AccountRepository {
 
   Future<List<ProductModel>> fetchFavorites();
 
+  // تُعيدان القائمة المحدَّثة، و`null` عند الفشل (أبقِ المعروض).
+  Future<List<ProductModel>?> addFavorite(String productId);
+  Future<List<ProductModel>?> removeFavorite(String productId);
+
   Future<List<AddressModel>> fetchAddresses();
 }
