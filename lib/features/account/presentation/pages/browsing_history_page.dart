@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../app/theme/app_theme.dart';
 import '../../../../core/storage/app_preferences.dart';
 import '../../../../core/widgets/tint_ui.dart';
 import '../../../catalog/presentation/widgets/product_card.dart';
