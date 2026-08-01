@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/models/discover_model.dart';
 import '../../../../core/models/product_model.dart';
+import '../../domain/repositories/catalog_repository.dart';
 import '../../../../core/widgets/tint_ui.dart';
 import '../../../cart/presentation/cubit/cart_cubit.dart';
 
@@ -76,6 +80,19 @@ class ProductCard extends StatelessWidget {
                       foregroundColor: Colors.white,
                     ),
                   ),
+                // «بقي N» — إلحاحٌ صادق من المخزون الحقيقيّ. كميّة 0 تعني «لم
+                // يُزامَن المخزون» لا «نفد»، فلا تُعرض. والسقف 5 كي لا تفقد
+                // الشارة معناها على منتجٍ متوفّرٍ بكثرة.
+                if (product.quantity > 0 && product.quantity <= 5)
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: _Badge(
+                      label: 'بقي ${product.quantity}',
+                      backgroundColor: const Color(0xFFFFF3E0),
+                      foregroundColor: const Color(0xFFB45309),
+                    ),
+                  ),
                 if (showViews && product.views != null)
                   Positioned(
                     bottom: 8,
@@ -90,7 +107,9 @@ class ProductCard extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+              padding: dense
+                  ? const EdgeInsets.fromLTRB(10, 8, 10, 10)
+                  : const EdgeInsets.fromLTRB(12, 10, 12, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -107,14 +126,14 @@ class ProductCard extends StatelessWidget {
                     product.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: TintColors.charcoal,
-                      fontSize: 12,
+                      fontSize: dense ? 11.5 : 12,
                       fontWeight: FontWeight.w700,
-                      height: 1.35,
+                      height: 1.3,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: dense ? 8 : 10),
                   Row(
                     children: [
                       Expanded(
@@ -144,6 +163,12 @@ class ProductCard extends StatelessWidget {
                       IconButton.filledTonal(
                         onPressed: () {
                           context.read<CartCubit>().addProduct(product);
+                          // الإضافة السريعة تُسجَّل كما تُسجَّل من صفحة المنتج:
+                          // إشارةٌ واحدة تُحتسب في مكانٍ دون آخر تُشوّه ترتيب
+                          // الرواج لصالح المنتجات التي تُفتح صفحتها.
+                          unawaited(context
+                              .read<CatalogRepository>()
+                              .recordSignal(product.id, ProductSignalType.cart));
                           showTintToast(context, 'تمت إضافة المنتج إلى السلة');
                         },
                         style: IconButton.styleFrom(
