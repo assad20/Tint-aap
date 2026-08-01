@@ -1,3 +1,4 @@
+import 'hero_slide_model.dart';
 import 'product_model.dart';
 
 /// تبويب قسمٍ في أعلى شاشة الترندات. `slug` = 'all' للتبويب الجامع.
@@ -51,11 +52,17 @@ class DiscoverFeed {
   const DiscoverFeed({
     this.tabs = const [],
     this.sections = const [],
+    this.banners = const [],
     this.activeCategory = 'all',
   });
 
   final List<DiscoverTab> tabs;
   final List<DiscoverSection> sections;
+
+  /// شرائح أعلى الشاشة (موضع بنر `trends` في الاستوديو). فارغة = لم يُنشئ
+  /// المالك شيئاً بعد، فلا يُعرض بديل.
+  final List<HeroSlideModel> banners;
+
   final String activeCategory;
 
   bool get isEmpty => sections.isEmpty;
@@ -66,6 +73,9 @@ class DiscoverFeed {
     return DiscoverFeed(
       tabs: listOf(json['tabs'], DiscoverTab.fromJson),
       sections: listOf(json['sections'], DiscoverSection.fromJson),
+      banners: listOf(json['banners'], HeroSlideModel.fromJson)
+          .where((b) => b.image.isNotEmpty)
+          .toList(),
       activeCategory: json['activeCategory']?.toString() ?? 'all',
     );
   }

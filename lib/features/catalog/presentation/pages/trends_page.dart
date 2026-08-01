@@ -6,6 +6,7 @@ import '../../../../app/theme/app_theme.dart';
 import '../../../../core/models/discover_model.dart';
 import '../../../../core/widgets/tint_ui.dart';
 import '../cubit/discover_cubit.dart';
+import '../widgets/banner_slider.dart';
 import '../widgets/product_card.dart';
 
 /// تبويب «الترندات» — أرفف اكتشافٍ تُصفّى بتبويب القسم.
@@ -26,6 +27,18 @@ class TrendsPage extends StatelessWidget {
             child: CustomScrollView(
               slivers: [
                 const _TrendsAppBar(),
+                // بانر الشاشة من استوديو البنرات (موضع `trends`). يمرّ مع
+                // المحتوى بينما تبقى التبويبات لاصقة تحته — البانر للاكتشاف
+                // العابر، والتبويبات أداةٌ تُستعمل في كلّ لحظة.
+                if (state.feed.banners.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: TintBannerSlider(
+                      slides: state.feed.banners,
+                      aspectRatio: 2.5,
+                      showDots: true,
+                      onSlideTap: (href) => _openSlideTarget(context, state, href),
+                    ),
+                  ),
                 if (state.feed.tabs.isNotEmpty)
                   SliverPersistentHeader(
                     pinned: true,
@@ -76,6 +89,18 @@ class TrendsPage extends StatelessWidget {
       ),
     );
   }
+}
+
+/// نقر الشريحة: `/category/<slug>` يُبدّل التبويب إن كان القسم معروضاً هنا.
+/// أيّ رابطٍ آخر لا فعل له — لا تعطّل ولا شاشة بيضاء.
+void _openSlideTarget(BuildContext context, DiscoverState state, String href) {
+  const prefix = '/category/';
+  final i = href.indexOf(prefix);
+  if (i < 0) return;
+  final slug = href.substring(i + prefix.length).split('?').first.split('/').first;
+  if (slug.isEmpty) return;
+  if (!state.feed.tabs.any((t) => t.slug == slug)) return;
+  context.read<DiscoverCubit>().selectCategory(slug);
 }
 
 class _TrendsAppBar extends StatelessWidget {
