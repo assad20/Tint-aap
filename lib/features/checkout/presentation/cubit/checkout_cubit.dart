@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/models/account_models.dart';
 import '../../../../core/models/cart_item_model.dart';
 import '../../../../core/models/payment_method_model.dart';
+import '../../../../core/models/shipping_method_model.dart';
 import '../../domain/models/tabby_payment_result.dart';
 import '../../domain/repositories/checkout_repository.dart';
 
@@ -13,6 +14,7 @@ class CheckoutState {
     this.paymentMethod = 'cod',
     this.methods = const [],
     this.methodsLoading = true,
+    this.shippingMethods = const [],
     this.lastOrderId,
     this.errorMessage,
   });
@@ -23,6 +25,21 @@ class CheckoutState {
   // وسائل الدفع المفعّلة من الخادم (المصدر الوحيد للرسوم).
   final List<PaymentMethodModel> methods;
   final bool methodsLoading;
+
+  // طرق الشحن من الخادم — لا تُكتب في التطبيق. كانت مثبَّتةً بأسعارٍ تخالف
+  // إعدادات المتجر، فيرفض الخادم كلّ طلبٍ اختير فيه الخيار الأرخص.
+  final List<ShippingMethodModel> shippingMethods;
+
+  ShippingMethodModel? get selectedShipping {
+    for (final m in shippingMethods) {
+      if (m.id == shippingMethod) return m;
+    }
+    return shippingMethods.isNotEmpty ? shippingMethods.first : null;
+  }
+
+  /// كلفة الشحن لهذه السلّة — بنفس قاعدة الخادم (عتبة الشحن المجّانيّ).
+  double shippingCostFor(double subtotal) =>
+      selectedShipping?.costFor(subtotal) ?? 0;
   final String? lastOrderId;
   final String? errorMessage;
 
@@ -37,6 +54,7 @@ class CheckoutState {
     String? paymentMethod,
     List<PaymentMethodModel>? methods,
     bool? methodsLoading,
+    List<ShippingMethodModel>? shippingMethods,
     String? lastOrderId,
     String? errorMessage,
   }) {
@@ -46,6 +64,7 @@ class CheckoutState {
       paymentMethod: paymentMethod ?? this.paymentMethod,
       methods: methods ?? this.methods,
       methodsLoading: methodsLoading ?? this.methodsLoading,
+      shippingMethods: shippingMethods ?? this.shippingMethods,
       lastOrderId: lastOrderId ?? this.lastOrderId,
       errorMessage: errorMessage,
     );
@@ -75,6 +94,22 @@ class CheckoutCubit extends Cubit<CheckoutState> {
     } catch (_) {
       emit(state.copyWith(methods: const [], methodsLoading: false));
     }
+    await loadShippingMethods();
+  }
+
+  // تُستدعى مع وسائل الدفع: الطريقة المختارة تُصحَّح إلى أوّل طريقةٍ يعرفها
+  // الخادم إن كانت المحفوظة مجهولةً عنده — وإلّا حسب شحناً غير الذي عرضناه.
+  Future<void> loadShippingMethods() async {
+    try {
+      final methods = await _repository.fetchShippingMethods();
+      if (methods.isEmpty) return;
+      final selected = methods.any((m) => m.id == state.shippingMethod)
+          ? state.shippingMethod
+          : methods.first.id;
+      emit(state.copyWith(shippingMethods: methods, shippingMethod: selected));
+    } catch (_) {
+      // تُترك القائمة فارغة؛ الواجهة تعرض حالتها الخاصّة بدل أسعارٍ مخترعة.
+    }
   }
 
   // نون: إنشاء الطلب (يعيد {checkoutUrl, noonOrderId}).
@@ -87,6 +122,8 @@ class CheckoutCubit extends Cubit<CheckoutState> {
       items: items,
       address: address,
       shippingMethod: state.shippingMethod,
+      shippingCost: state.shippingCostFor(
+          items.fold<double>(0, (sum, i) => sum + i.lineTotal)),
       buyerEmail: buyerEmail,
     );
   }
@@ -114,6 +151,8 @@ class CheckoutCubit extends Cubit<CheckoutState> {
         items: items,
         address: address,
         shippingMethod: state.shippingMethod,
+        shippingCost: state.shippingCostFor(
+            items.fold<double>(0, (sum, i) => sum + i.lineTotal)),
         paymentMethod: state.paymentMethod,
         codFee: state.selectedFee,
       );
@@ -153,6 +192,8 @@ class CheckoutCubit extends Cubit<CheckoutState> {
       items: items,
       address: address,
       shippingMethod: state.shippingMethod,
+      shippingCost: state.shippingCostFor(
+          items.fold<double>(0, (sum, i) => sum + i.lineTotal)),
       buyerEmail: buyerEmail,
       buyerDob: buyerDob,
     );
@@ -178,6 +219,8 @@ class CheckoutCubit extends Cubit<CheckoutState> {
         items: items,
         address: address,
         shippingMethod: state.shippingMethod,
+        shippingCost: state.shippingCostFor(
+            items.fold<double>(0, (sum, i) => sum + i.lineTotal)),
         buyerEmail: buyerEmail,
         buyerDob: buyerDob,
       );

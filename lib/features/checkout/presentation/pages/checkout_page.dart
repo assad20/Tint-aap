@@ -463,22 +463,38 @@ class _ShippingMethodsCard extends StatelessWidget {
             children: [
               const TintSectionHeader(title: 'طريقة التوصيل'),
               const SizedBox(height: 12),
-              _SelectableTile(
-                selected: state.shippingMethod == 'aramex',
-                title: 'توصيل سريع (Aramex)',
-                subtitle: 'التوصيل خلال 2-3 أيام عمل',
-                trailing: '25 ﷼',
-                onTap: () => context.read<CheckoutCubit>().setShippingMethod('aramex'),
-              ),
-              const SizedBox(height: 10),
-              _SelectableTile(
-                selected: state.shippingMethod == 'smsa',
-                title: 'توصيل عادي (SMSA)',
-                subtitle: 'التوصيل خلال 4-5 أيام عمل',
-                trailing: 'مجاني',
-                trailingColor: TintColors.success,
-                onTap: () => context.read<CheckoutCubit>().setShippingMethod('smsa'),
-              ),
+              // الطرق من الخادم لا من الشيفرة: كانت مثبَّتةً بأسعارٍ تخالف
+              // إعدادات المتجر، فيرفض الخادم كلّ طلبٍ اختير فيه الخيار الأرخص.
+              if (state.shippingMethods.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'تعذّر جلب طرق التوصيل. تحقّق من اتّصالك وأعد المحاولة.',
+                    style: TextStyle(
+                        color: TintColors.textMuted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600),
+                  ),
+                )
+              else
+                ...state.shippingMethods.map((m) {
+                  final subtotal = context.read<CartCubit>().state.total;
+                  final cost = m.costFor(subtotal);
+                  final free = cost == 0;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _SelectableTile(
+                      selected: state.shippingMethod == m.id,
+                      title: m.label,
+                      subtitle: m.etaLabel,
+                      // «مجّاني» حين تتجاوز السلّة العتبة فعلاً — لا كوعدٍ ثابت.
+                      trailing: free ? 'مجاني' : '${m.price.toStringAsFixed(0)} ﷼',
+                      trailingColor: free ? TintColors.success : TintColors.sand,
+                      onTap: () =>
+                          context.read<CheckoutCubit>().setShippingMethod(m.id),
+                    ),
+                  );
+                }),
             ],
           ),
         );
@@ -620,7 +636,10 @@ class _CheckoutTotalCard extends StatefulWidget {
 class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
   Future<void> _submit(BuildContext context, CheckoutState state) async {
     final cartState = context.read<CartCubit>().state;
-    if (cartState.items.isEmpty) return;
+    if (cartState.items.isEmpty) {
+      _showSnackBar(context, 'سلّتك فارغة — أضف منتجاً قبل إتمام الطلب.');
+      return;
+    }
 
     // تحقّق من اكتمال بيانات الشحن المطلوبة قبل الإرسال.
     final a = widget.address;
@@ -642,10 +661,30 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
       return;
     }
 
-    await context.read<CheckoutCubit>().submitOrder(
-          items: cartState.items,
-          address: widget.address,
-        );
+    try {
+      await context.read<CheckoutCubit>().submitOrder(
+            items: cartState.items,
+            address: widget.address,
+          );
+    } catch (_) {
+      // الرسالة يعرضها المستمع من `errorMessage`. المُلتقِط هنا يمنع الاستثناء
+      // من الهروب إلى `onPressed` حيث يبتلعه الإطار بصمت.
+    }
+  }
+
+  /// يستخرج رسالة الخادم العربيّة من نصّ الاستثناء الخام.
+  ///
+  /// `ApiException.toString()` قد يسبقها بنوع الاستثناء ورمز الحالة، وعرض ذلك
+  /// على المتسوّق يُخفي السبب الحقيقيّ خلف ضجيجٍ تقنيّ.
+  String _friendlyError(String raw) {
+    final cleaned = raw
+        .replaceFirst(RegExp(r'^[A-Za-z_]*Exception:?\s*'), '')
+        .replaceFirst(RegExp(r'^\[\d{3}\]\s*'), '')
+        .trim();
+    if (cleaned.isEmpty) {
+      return 'تعذّر إنشاء الطلب. حاول مجدداً أو تواصل معنا.';
+    }
+    return cleaned;
   }
 
   // حالة «لم تُحسم بعد» من الخادم: العمليّة أُنشئت ولم تُؤكَّد ولم تفشل.
@@ -837,6 +876,11 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
       listener: (context, state) {
         if (state.paymentMethod != 'tabby' && state.lastOrderId != null) {
           _showSuccessDialog(context, state.lastOrderId!);
+        }
+        // سبب الرفض كان يُحفظ في الحالة ولا يُعرض قطّ، فيبدو الزرّ كأنّه لا
+        // يعمل بينما الخادم يشرح سببه بالعربيّة (مخزون، سعر، وسيلة دفع…).
+        if (state.errorMessage != null && state.errorMessage!.isNotEmpty) {
+          _showSnackBar(context, _friendlyError(state.errorMessage!));
         }
       },
       builder: (context, state) {

@@ -1,17 +1,21 @@
 import '../../../../core/models/account_models.dart';
 import '../../../../core/models/cart_item_model.dart';
 import '../../../../core/models/payment_method_model.dart';
+import '../../../../core/models/shipping_method_model.dart';
 import '../models/tabby_payment_result.dart';
 
 abstract class CheckoutRepository {
   /// وسائل الدفع المفعّلة (+ رسومها) من الخادم.
   Future<List<PaymentMethodModel>> fetchPaymentMethods();
 
+  Future<List<ShippingMethodModel>> fetchShippingMethods();
+
   /// نون: إنشاء الطلب → {checkoutUrl, noonOrderId}.
   Future<Map<String, dynamic>> initiateNoon({
     required List<CartItemModel> items,
     required AddressModel address,
     required String shippingMethod,
+    required double shippingCost,
     String? buyerEmail,
   });
 
@@ -22,6 +26,7 @@ abstract class CheckoutRepository {
     required List<CartItemModel> items,
     required AddressModel address,
     required String shippingMethod,
+    required double shippingCost,
     required String paymentMethod,
     double codFee,
   });
@@ -34,6 +39,7 @@ abstract class CheckoutRepository {
     required List<CartItemModel> items,
     required AddressModel address,
     required String shippingMethod,
+    required double shippingCost,
     required String buyerEmail,
     required String buyerDob,
   });
@@ -46,6 +52,7 @@ abstract class CheckoutRepository {
     required List<CartItemModel> items,
     required AddressModel address,
     required String shippingMethod,
+    required double shippingCost,
     required String buyerEmail,
     required String buyerDob,
   });

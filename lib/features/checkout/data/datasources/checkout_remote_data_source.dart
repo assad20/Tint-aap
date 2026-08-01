@@ -12,6 +12,8 @@ class CheckoutRemoteDataSource {
     required List<CartItemModel> items,
     required AddressModel address,
     required String shippingMethod,
+    // كلفة الشحن كما يحسبها الخادم لهذه الطريقة ولهذا المجموع.
+    required double shippingCost,
     required String paymentMethod,
     required String orderReference,
     String? paymentId,
@@ -22,7 +24,9 @@ class CheckoutRemoteDataSource {
     double codFee = 0,
   }) {
     final subtotal = items.fold<double>(0, (sum, item) => sum + item.lineTotal);
-    final shippingAmount = shippingMethod == 'smsa' ? 0.0 : 25.0;
+    // ‼️ لا تُخمَّن هنا: الخادم يحسب الشحن من إعداداته ويرفض الطلب إن كان
+    // حسابه أعلى. المبلغ يأتي من الطريقة التي جلبها التطبيق من الخادم نفسه.
+    final shippingAmount = shippingCost;
     // ‼️ رسوم الدفع عند الاستلام تُضاف للإجماليّ المُرسَل. الخادم يعيد الحساب
     // ويرفض الطلب إن كان حسابه أعلى من حساب العميل — فإغفالها يعني رفض كلّ طلب COD.
     final total = subtotal + shippingAmount + codFee;
@@ -86,10 +90,16 @@ class CheckoutRemoteDataSource {
     return (res['methods'] as List<dynamic>?) ?? const [];
   }
 
+  Future<List<dynamic>> fetchShippingMethods() async {
+    final res = await _apiClient.getMap(ApiRoutes.catalogShippingMethods);
+    return (res['methods'] as List<dynamic>?) ?? const [];
+  }
+
   Future<Map<String, dynamic>> submitOrder({
     required List<CartItemModel> items,
     required AddressModel address,
     required String shippingMethod,
+    required double shippingCost,
     required String paymentMethod,
     double codFee = 0,
   }) {
@@ -101,6 +111,7 @@ class CheckoutRemoteDataSource {
         items: items,
         address: address,
         shippingMethod: shippingMethod,
+        shippingCost: shippingCost,
         paymentMethod: paymentMethod,
         orderReference: orderReference,
         codFee: codFee,
@@ -113,6 +124,7 @@ class CheckoutRemoteDataSource {
     required List<CartItemModel> items,
     required AddressModel address,
     required String shippingMethod,
+    required double shippingCost,
     String? buyerEmail,
   }) {
     final orderReference = 'NOON-${DateTime.now().millisecondsSinceEpoch}';
@@ -122,6 +134,7 @@ class CheckoutRemoteDataSource {
         items: items,
         address: address,
         shippingMethod: shippingMethod,
+        shippingCost: shippingCost,
         paymentMethod: 'noon',
         orderReference: orderReference,
         buyerEmail: buyerEmail,
@@ -142,6 +155,7 @@ class CheckoutRemoteDataSource {
     required List<CartItemModel> items,
     required AddressModel address,
     required String shippingMethod,
+    required double shippingCost,
     required String buyerEmail,
     required String buyerDob,
   }) {
@@ -155,6 +169,7 @@ class CheckoutRemoteDataSource {
           items: items,
           address: address,
           shippingMethod: shippingMethod,
+          shippingCost: shippingCost,
           paymentMethod: 'Tabby',
           orderReference: orderReference,
           paymentId: paymentId,
@@ -175,6 +190,7 @@ class CheckoutRemoteDataSource {
     required List<CartItemModel> items,
     required AddressModel address,
     required String shippingMethod,
+    required double shippingCost,
     required String buyerEmail,
     required String buyerDob,
   }) {
@@ -188,6 +204,7 @@ class CheckoutRemoteDataSource {
           items: items,
           address: address,
           shippingMethod: shippingMethod,
+          shippingCost: shippingCost,
           paymentMethod: 'Tabby',
           orderReference: orderReference,
           paymentId: paymentId,

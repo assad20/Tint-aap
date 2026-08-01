@@ -11,6 +11,8 @@ abstract final class ApiRoutes {
   static const catalogNavigation = '/catalog/navigation';
   static const catalogCategories = '/catalog/categories'; // + /<slug>
   static const catalogPaymentMethods = '/catalog/payment-methods';
+  // طرق الشحن وأسعارها — المصدر الموثوق الذي يعيد الخادم حسابه عند الطلب.
+  static const catalogShippingMethods = '/catalog/shipping-methods';
 
   static const authRequestOtp = '/customer/auth/request-otp';
   static const authVerifyOtp = '/customer/auth/verify-otp';

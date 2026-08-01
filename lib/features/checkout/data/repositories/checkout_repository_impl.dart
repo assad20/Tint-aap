@@ -1,6 +1,7 @@
 import '../../../../core/models/account_models.dart';
 import '../../../../core/models/cart_item_model.dart';
 import '../../../../core/models/payment_method_model.dart';
+import '../../../../core/models/shipping_method_model.dart';
 import '../../domain/models/tabby_payment_result.dart';
 import '../../domain/repositories/checkout_repository.dart';
 import '../datasources/checkout_remote_data_source.dart';
@@ -22,16 +23,28 @@ class CheckoutRepositoryImpl implements CheckoutRepository {
   }
 
   @override
+  Future<List<ShippingMethodModel>> fetchShippingMethods() async {
+    final raw = await _remoteDataSource.fetchShippingMethods();
+    return raw
+        .whereType<Map<String, dynamic>>()
+        .map(ShippingMethodModel.fromJson)
+        .where((m) => m.id.isNotEmpty)
+        .toList();
+  }
+
+  @override
   Future<Map<String, dynamic>> initiateNoon({
     required List<CartItemModel> items,
     required AddressModel address,
     required String shippingMethod,
+    required double shippingCost,
     String? buyerEmail,
   }) {
     return _remoteDataSource.initiateNoon(
       items: items,
       address: address,
       shippingMethod: shippingMethod,
+      shippingCost: shippingCost,
       buyerEmail: buyerEmail,
     );
   }
@@ -46,6 +59,7 @@ class CheckoutRepositoryImpl implements CheckoutRepository {
     required List<CartItemModel> items,
     required AddressModel address,
     required String shippingMethod,
+    required double shippingCost,
     required String paymentMethod,
     double codFee = 0,
   }) async {
@@ -53,6 +67,7 @@ class CheckoutRepositoryImpl implements CheckoutRepository {
       items: items,
       address: address,
       shippingMethod: shippingMethod,
+      shippingCost: shippingCost,
       paymentMethod: paymentMethod,
       codFee: codFee,
     );
@@ -71,6 +86,7 @@ class CheckoutRepositoryImpl implements CheckoutRepository {
     required List<CartItemModel> items,
     required AddressModel address,
     required String shippingMethod,
+    required double shippingCost,
     required String buyerEmail,
     required String buyerDob,
   }) async {
@@ -82,6 +98,7 @@ class CheckoutRepositoryImpl implements CheckoutRepository {
       items: items,
       address: address,
       shippingMethod: shippingMethod,
+      shippingCost: shippingCost,
       buyerEmail: buyerEmail,
       buyerDob: buyerDob,
     );
@@ -96,6 +113,7 @@ class CheckoutRepositoryImpl implements CheckoutRepository {
     required List<CartItemModel> items,
     required AddressModel address,
     required String shippingMethod,
+    required double shippingCost,
     required String buyerEmail,
     required String buyerDob,
   }) async {
@@ -107,6 +125,7 @@ class CheckoutRepositoryImpl implements CheckoutRepository {
       items: items,
       address: address,
       shippingMethod: shippingMethod,
+      shippingCost: shippingCost,
       buyerEmail: buyerEmail,
       buyerDob: buyerDob,
     );
