@@ -19,6 +19,30 @@ class CatalogRemoteDataSource {
     return _apiClient.getList(ApiRoutes.catalogTrends);
   }
 
+  // أرفف الاكتشاف مُصفّاةً بتبويب القسم: { tabs, activeCategory, sections }
+  Future<Map<String, dynamic>> fetchDiscover(String category) {
+    return _apiClient.getMap(
+      ApiRoutes.catalogDiscover,
+      queryParameters: {'category': category},
+    );
+  }
+
+  // صفحةٌ من رفٍّ واحد («عرض الكل»).
+  Future<Map<String, dynamic>> fetchDiscoverSection(
+    String key, {
+    required String category,
+    required int page,
+  }) {
+    return _apiClient.getMap(
+      '${ApiRoutes.catalogDiscover}/$key',
+      queryParameters: {'category': category, 'page': '$page'},
+    );
+  }
+
+  Future<void> sendProductEvents(List<Map<String, String>> events) {
+    return _apiClient.postMap(ApiRoutes.catalogEvents, data: {'events': events});
+  }
+
   // تنقّل المتجر الحقيقيّ (مجموعات المتجر المُدارة): [{id,name,image,href,children}]
   Future<List<dynamic>> fetchNavigation() {
     return _apiClient.getList(ApiRoutes.catalogNavigation);

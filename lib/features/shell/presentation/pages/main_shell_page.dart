@@ -7,7 +7,7 @@ import '../../../../core/widgets/tint_ui.dart';
 import '../../../cart/presentation/pages/cart_page.dart';
 import '../../../catalog/presentation/pages/categories_page.dart';
 import '../../../catalog/presentation/cubit/categories_cubit.dart';
-import '../../../catalog/presentation/cubit/trends_cubit.dart';
+import '../../../catalog/presentation/cubit/discover_cubit.dart';
 import '../../../catalog/presentation/pages/home_page.dart';
 import '../../../catalog/presentation/pages/trends_page.dart';
 import '../../../account/presentation/cubit/addresses_cubit.dart';
@@ -42,7 +42,7 @@ class _MainShellPageState extends State<MainShellPage> {
   void _ensureLoaded(BuildContext context, int index) {
     switch (index) {
       case 1: // الترندات: يُعاد جلبها عند كلّ فتح (تعافٍ رخيص من فشل سابق).
-        context.read<TrendsCubit>().load();
+        context.read<DiscoverCubit>().load();
         break;
       case 2:
         if (_loaded.add(2)) context.read<CategoriesCubit>().load();

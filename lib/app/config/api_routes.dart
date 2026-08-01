@@ -3,6 +3,10 @@ abstract final class ApiRoutes {
   // رئيسيّة المتجر — منها بنرات السلايدر (hero.slides) المُدارة من استوديو البنرات.
   static const catalogHome = '/catalog/home';
   static const catalogTrends = '/catalog/trends';
+  // الاكتشاف: أرفف مُهيكلة تُصفّى بتبويب القسم، ومسار «عرض الكل» لكلّ رفّ.
+  static const catalogDiscover = '/catalog/discover'; // + /<key>
+  // تسجيل تفاعل المتسوّق — منه يُبنى رفّ «الأكثر رواجاً».
+  static const catalogEvents = '/catalog/events';
   static const catalogSearch = '/catalog/search';
   static const catalogNavigation = '/catalog/navigation';
   static const catalogCategories = '/catalog/categories'; // + /<slug>

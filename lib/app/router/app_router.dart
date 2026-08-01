@@ -19,6 +19,7 @@ import '../../features/assistant/presentation/pages/assistant_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../core/models/product_model.dart';
 import '../../features/catalog/presentation/pages/product_detail_page.dart';
+import '../../features/catalog/presentation/pages/discover_section_page.dart';
 import '../../features/catalog/presentation/pages/search_page.dart';
 import '../../features/checkout/presentation/pages/checkout_page.dart';
 import '../../features/shell/presentation/pages/main_shell_page.dart';
@@ -42,6 +43,15 @@ class AppRouter {
                 : const Scaffold(
                     body: Center(child: Text('المنتج غير متاح')),
                   ),
+          ),
+          // «عرض الكل» لرفّ اكتشاف. `extra` = slug القسم النشط كي تُفتح الشاشة
+          // على القسم نفسه الذي كان المستخدم يتصفّحه.
+          GoRoute(
+            path: 'discover/:key',
+            builder: (context, state) => DiscoverSectionPageView(
+              sectionKey: state.pathParameters['key'] ?? '',
+              category: state.extra is String ? state.extra as String : 'all',
+            ),
           ),
           GoRoute(
             path: 'assistant',

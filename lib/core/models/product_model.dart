@@ -12,6 +12,7 @@ class ProductModel {
     this.isAvailable = true,
     this.sku,
     this.barcode,
+    this.quantity = 0,
   });
 
   final String id;
@@ -27,6 +28,9 @@ class ProductModel {
   // السكيو والباركود (يُستخدمان في توصيات المستشار لعرض رمز المنتج).
   final String? sku;
   final String? barcode;
+
+  /// الكميّة المتاحة. 0 تعني «لم يُزامَن المخزون» لا «نفد» — فلا تُعرض كنفاد.
+  final int quantity;
 
   double? get discountPercent {
     if (oldPrice == null || oldPrice == 0) {
@@ -48,6 +52,7 @@ class ProductModel {
     bool? isAvailable,
     String? sku,
     String? barcode,
+    int? quantity,
   }) {
     return ProductModel(
       id: id ?? this.id,
@@ -62,6 +67,7 @@ class ProductModel {
       isAvailable: isAvailable ?? this.isAvailable,
       sku: sku ?? this.sku,
       barcode: barcode ?? this.barcode,
+      quantity: quantity ?? this.quantity,
     );
   }
 
@@ -84,6 +90,7 @@ class ProductModel {
       isAvailable: json['isAvailable'] as bool? ?? true,
       sku: json['sku']?.toString(),
       barcode: json['barcode']?.toString(),
+      quantity: int.tryParse(json['quantity']?.toString() ?? '') ?? 0,
     );
   }
 
@@ -101,6 +108,7 @@ class ProductModel {
       'isAvailable': isAvailable,
       'sku': sku,
       'barcode': barcode,
+      'quantity': quantity,
     };
   }
 }

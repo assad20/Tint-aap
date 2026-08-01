@@ -1,4 +1,5 @@
 import '../../../../core/models/category_model.dart';
+import '../../../../core/models/discover_model.dart';
 import '../../../../core/models/hero_slide_model.dart';
 import '../../../../core/models/product_model.dart';
 
@@ -30,4 +31,18 @@ abstract class CatalogRepository {
   // `null` = تعذّر الجلب (أبقِ المعروض)، بينما `[]` = لا بنرات مُعرَّفة فعلاً
   // (أخفِ السلايدر). التفريق ضروريّ وإلّا بقيت بنراتٌ حُذفت من اللوحة ظاهرةً.
   Future<List<HeroSlideModel>?> fetchHomeHeroSlides();
+
+  // أرفف الاكتشاف لقسمٍ بعينه ('all' = الكلّ).
+  // `null` = تعذّر الجلب (أبقِ المعروض)، بينما خلاصةٌ بلا أرفف = لا إشارات بعد.
+  Future<DiscoverFeed?> fetchDiscover(String category);
+
+  // صفحةٌ من رفٍّ واحد للتمرير اللانهائيّ في «عرض الكل».
+  Future<DiscoverSectionPage?> fetchDiscoverSection(
+    String key, {
+    required String category,
+    required int page,
+  });
+
+  // تسجيل تفاعل. لا يرمي أبداً: فشل قياسٍ لا يجوز أن يُفسد فعل المستخدم.
+  Future<void> recordSignal(String productId, ProductSignalType type);
 }

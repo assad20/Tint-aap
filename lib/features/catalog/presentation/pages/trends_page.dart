@@ -3,12 +3,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_theme.dart';
-import '../../../../core/models/product_model.dart';
+import '../../../../core/models/discover_model.dart';
 import '../../../../core/widgets/tint_ui.dart';
-import '../cubit/trends_cubit.dart';
+import '../cubit/discover_cubit.dart';
 import '../widgets/product_card.dart';
 
-// تبويب «الترندات»: يعرض المنتجات الرائجة الحقيقيّة من /catalog/trends.
+/// تبويب «الترندات» — أرفف اكتشافٍ تُصفّى بتبويب القسم.
+///
+/// كلّ رفٍّ هنا خلفه إشارةٌ حقيقيّة: الخادم لا يرسل رفّاً دون أربعة عناصر،
+/// فما تراه الشاشة موجودٌ فعلاً. لذلك لا حالة «فارغ» داخل رفّ.
 class TrendsPage extends StatelessWidget {
   const TrendsPage({super.key});
 
@@ -16,302 +19,334 @@ class TrendsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
-      body: SafeArea(
-        child: BlocBuilder<TrendsCubit, TrendsState>(
-          builder: (context, state) {
-            if (state.isLoading && state.products.isEmpty) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            final products = state.products;
-            return ListView(
-              padding: const EdgeInsets.only(bottom: 110),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFF3E0),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Icon(
-                          Icons.local_fire_department_rounded,
-                          color: Colors.deepOrange,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('الترندات',
-                                style: TextStyle(
-                                    fontSize: 22, fontWeight: FontWeight.w900)),
-                            Text('اكتشف المنتجات الرائجة الآن',
-                                style: TextStyle(
-                                    color: TintColors.textMuted,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600)),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () {},
-                        icon: const Icon(Icons.search_rounded),
-                      ),
-                    ],
+      body: BlocBuilder<DiscoverCubit, DiscoverState>(
+        builder: (context, state) {
+          return RefreshIndicator(
+            onRefresh: () => context.read<DiscoverCubit>().refresh(),
+            child: CustomScrollView(
+              slivers: [
+                const _TrendsAppBar(),
+                if (state.feed.tabs.isNotEmpty)
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _TabsHeader(
+                      tabs: state.feed.tabs,
+                      active: state.category,
+                      onSelect: (slug) =>
+                          context.read<DiscoverCubit>().selectCategory(slug),
+                    ),
                   ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: _TrendsHero(),
-                ),
-                if (products.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 70, horizontal: 24),
-                    child: Center(
-                      child: Text(
-                        'لا توجد منتجات رائجة حالياً',
-                        style: TextStyle(
-                            color: TintColors.textMuted,
-                            fontWeight: FontWeight.w700),
-                      ),
+                if (state.isLoading)
+                  const SliverToBoxAdapter(child: _RailsSkeleton())
+                else if (state.failed)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _Notice(
+                      icon: Icons.wifi_off_rounded,
+                      text: 'تعذّر تحميل الترندات',
+                      actionLabel: 'إعادة المحاولة',
+                      onAction: () => context.read<DiscoverCubit>().refresh(),
                     ),
                   )
-                else ...[
-                  _HorizontalFeature(
-                    title: 'الأبرز الآن',
-                    items: products.take(8).toList(),
+                else if (!state.hasContent)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _Notice(
+                      icon: Icons.insights_rounded,
+                      // لا نخترع رفوفاً لملء الفراغ. القسم الفارغ فارغٌ بحقّ.
+                      text: 'لا توجد ترندات في هذا القسم بعد',
+                    ),
+                  )
+                else
+                  SliverList.builder(
+                    itemCount: state.feed.sections.length,
+                    itemBuilder: (context, i) => _Rail(
+                      section: state.feed.sections[i],
+                      category: state.category,
+                      // تعتيمٌ خفيف أثناء تبديل التبويب بدل استبدال المحتوى
+                      // بهيكلٍ فارغ — القفزة البيضاء تُقرأ كعطل.
+                      dimmed: state.isSwitchingTab,
+                    ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: TintSurfaceCard(
-                      child: Column(
+                const SliverToBoxAdapter(child: SizedBox(height: 110)),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _TrendsAppBar extends StatelessWidget {
+  const _TrendsAppBar();
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverAppBar(
+      pinned: true,
+      elevation: 0,
+      scrolledUnderElevation: 0.5,
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      titleSpacing: 16,
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF3E0),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.local_fire_department_rounded,
+                color: Colors.deepOrange, size: 20),
+          ),
+          const SizedBox(width: 10),
+          const Text('الترندات',
+              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+        ],
+      ),
+      actions: [
+        IconButton(
+          onPressed: () => context.push('/search'),
+          icon: const Icon(Icons.search_rounded),
+        ),
+        const SizedBox(width: 4),
+      ],
+    );
+  }
+}
+
+/// شريط تبويبات الأقسام — يبقى ظاهراً أثناء التمرير كي يبقى تبديل القسم
+/// في متناول الإبهام مهما نزل المستخدم.
+class _TabsHeader extends SliverPersistentHeaderDelegate {
+  _TabsHeader({required this.tabs, required this.active, required this.onSelect});
+
+  final List<DiscoverTab> tabs;
+  final String active;
+  final void Function(String slug) onSelect;
+
+  static const _height = 54.0;
+
+  @override
+  double get minExtent => _height;
+  @override
+  double get maxExtent => _height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      height: _height,
+      color: Colors.white,
+      alignment: Alignment.centerRight,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        itemCount: tabs.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final tab = tabs[i];
+          final on = tab.slug == active;
+          return Center(
+            child: GestureDetector(
+              onTap: () => onSelect(tab.slug),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                decoration: BoxDecoration(
+                  color: on ? TintColors.charcoal : const Color(0xFFF1F2F4),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  tab.name,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: on ? FontWeight.w800 : FontWeight.w600,
+                    color: on ? Colors.white : TintColors.textMuted,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _TabsHeader old) =>
+      old.active != active || old.tabs.length != tabs.length;
+}
+
+class _Rail extends StatelessWidget {
+  const _Rail({
+    required this.section,
+    required this.category,
+    this.dimmed = false,
+  });
+
+  final DiscoverSection section;
+  final String category;
+  final bool dimmed;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedOpacity(
+      opacity: dimmed ? 0.45 : 1,
+      duration: const Duration(milliseconds: 200),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(0, 18, 0, 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(section.title,
+                            style: const TextStyle(
+                                fontSize: 17, fontWeight: FontWeight.w900)),
+                        if (section.subtitle != null &&
+                            section.subtitle!.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              section.subtitle!,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: TintColors.textMuted,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (section.hasMore)
+                    TextButton(
+                      onPressed: () => context.push(
+                        '/discover/${section.key}',
+                        extra: category,
+                      ),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          const TintSectionHeader(
-                            title: 'الأكثر رواجاً هذا الأسبوع',
-                            subtitle: 'مشاهدات مرتفعة وتفاعل قويّ',
-                          ),
-                          const SizedBox(height: 12),
-                          GridView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: products.length,
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              mainAxisExtent: 260,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                            ),
-                            itemBuilder: (context, index) => ProductCard(
-                              product: products[index],
-                              showViews: true,
-                            ),
-                          ),
+                          Text('عرض الكل',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: TintColors.charcoal)),
+                          Icon(Icons.chevron_left_rounded, size: 18),
                         ],
                       ),
                     ),
-                  ),
                 ],
-              ],
-            );
-          },
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 268,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: section.items.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                itemBuilder: (context, i) => SizedBox(
+                  width: 164,
+                  child: ProductCard(product: section.items[i], dense: true),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _TrendsHero extends StatelessWidget {
-  const _TrendsHero();
+/// هيكلٌ يحاكي رفّين أثناء أوّل تحميل — أهدأ من دوّامةٍ في وسط شاشةٍ بيضاء.
+class _RailsSkeleton extends StatelessWidget {
+  const _RailsSkeleton();
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 200,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: TintNetworkImage(
-              url:
-                  'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=800&q=80',
-              fit: BoxFit.cover,
-              borderRadius: BorderRadius.circular(28),
-              overlay: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(28),
-                  gradient: const LinearGradient(
-                    begin: Alignment.centerRight,
-                    end: Alignment.centerLeft,
-                    colors: [Color(0xCC000000), Color(0x33000000)],
-                  ),
-                ),
+    Widget box(double w, double h, [double r = 12]) => Container(
+          width: w,
+          height: h,
+          decoration: BoxDecoration(
+            color: const Color(0xFFEDEFF2),
+            borderRadius: BorderRadius.circular(r),
+          ),
+        );
+
+    return Column(
+      children: List.generate(
+        2,
+        (_) => Padding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              box(150, 17),
+              const SizedBox(height: 8),
+              box(200, 11),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  box(164, 240, 18),
+                  const SizedBox(width: 12),
+                  box(164, 240, 18),
+                ],
               ),
-            ),
+            ],
           ),
-          const Positioned(
-            right: 24,
-            left: 24,
-            top: 26,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TintStatusPill(
-                  label: 'Hot Right Now',
-                  backgroundColor: TintColors.sand,
-                  foregroundColor: Colors.white,
-                ),
-                SizedBox(height: 14),
-                Text(
-                  'الأكثر رواجاً\nالآن',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 30,
-                    fontWeight: FontWeight.w900,
-                    height: 1.15,
-                  ),
-                ),
-                SizedBox(height: 10),
-                Text(
-                  'أكثر المنتجات لفتاً للأنظار — تسوّقها قبل النفاذ!',
-                  style: TextStyle(
-                    color: Color(0xFFE5E7EB),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _HorizontalFeature extends StatelessWidget {
-  const _HorizontalFeature({
-    required this.title,
-    required this.items,
+class _Notice extends StatelessWidget {
+  const _Notice({
+    required this.icon,
+    required this.text,
+    this.actionLabel,
+    this.onAction,
   });
 
-  final String title;
-  final List<ProductModel> items;
+  final IconData icon;
+  final String text;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+      padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 24),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          TintSectionHeader(
-            title: title,
-            icon: const Icon(Icons.local_fire_department_rounded,
-                color: Colors.red),
-          ),
+          Icon(icon, size: 42, color: TintColors.textMuted),
           const SizedBox(height: 12),
-          SizedBox(
-            height: 300,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemBuilder: (context, index) {
-                final product = items[index];
-                return GestureDetector(
-                  onTap: () => context.push('/product', extra: product),
-                  child: SizedBox(
-                  width: 240,
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: TintNetworkImage(
-                          url: product.image,
-                          fit: BoxFit.cover,
-                          borderRadius: BorderRadius.circular(24),
-                          overlay: Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(24),
-                              gradient: LinearGradient(
-                                begin: Alignment.bottomCenter,
-                                end: Alignment.topCenter,
-                                colors: [
-                                  Colors.black.withOpacity(0.78),
-                                  Colors.transparent,
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        top: 14,
-                        right: 14,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: const Text(
-                            'رائج جدًا 🔥',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        right: 16,
-                        left: 16,
-                        bottom: 16,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              product.brand,
-                              style: const TextStyle(
-                                color: TintColors.sand,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 11,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              product.title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '${product.price.toStringAsFixed(0)} ﷼',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 22,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  ),
-                );
-              },
-            ),
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+                color: TintColors.textMuted, fontWeight: FontWeight.w700),
           ),
+          if (actionLabel != null) ...[
+            const SizedBox(height: 14),
+            OutlinedButton(onPressed: onAction, child: Text(actionLabel!)),
+          ],
         ],
       ),
     );

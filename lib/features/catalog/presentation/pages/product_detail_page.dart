@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/models/discover_model.dart';
 import '../../../../core/models/product_model.dart';
+import '../../domain/repositories/catalog_repository.dart';
 import '../../../../core/widgets/tint_ui.dart';
 import '../../../cart/presentation/cubit/cart_cubit.dart';
 import '../../../shell/presentation/cubit/shell_cubit.dart';
@@ -21,11 +25,25 @@ class ProductDetailPage extends StatefulWidget {
 class _ProductDetailPageState extends State<ProductDetailPage> {
   int _qty = 1;
 
+  @override
+  void initState() {
+    super.initState();
+    // إشارة مشاهدة — منها يُبنى رفّ «الأكثر رواجاً». صامتة ولا تُنتظَر: القياس
+    // لا يجوز أن يؤخّر ظهور الصفحة ولا أن يُظهر خطأً إن فشل.
+    unawaited(context
+        .read<CatalogRepository>()
+        .recordSignal(widget.product.id, ProductSignalType.view));
+  }
+
   void _addToCart() {
     final cart = context.read<CartCubit>();
     for (var i = 0; i < _qty; i++) {
       cart.addProduct(widget.product);
     }
+    // الإضافة للسلّة تزن خمسة أضعاف المشاهدة في ترتيب الرواج: النيّة أصدق.
+    unawaited(context
+        .read<CatalogRepository>()
+        .recordSignal(widget.product.id, ProductSignalType.cart));
     // رسالة لطيفة مدمجة تختفي تلقائيّاً + زرّ خفيف للسلة (نمط شي إن).
     showTintToast(
       context,

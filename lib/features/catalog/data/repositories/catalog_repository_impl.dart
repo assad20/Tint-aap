@@ -1,4 +1,5 @@
 import '../../../../core/models/category_model.dart';
+import '../../../../core/models/discover_model.dart';
 import '../../../../core/models/hero_slide_model.dart';
 import '../../../../core/models/product_model.dart';
 import '../../../../core/utils/fake_seed_data.dart';
@@ -123,6 +124,48 @@ class CatalogRepositoryImpl implements CatalogRepository {
       // فشل الجلب — لا نُفرّغ السلايدر المعروض. ولا بيانات تجريبيّة في بانر
       // المتجر: صورة أجنبيّة في متجر المالك أسوأ من فراغ.
       return null;
+    }
+  }
+
+  @override
+  Future<DiscoverFeed?> fetchDiscover(String category) async {
+    try {
+      return DiscoverFeed.fromJson(await _remoteDataSource.fetchDiscover(category));
+    } catch (_) {
+      // فشل الجلب — لا نُفرّغ الأرفف المعروضة. والفراغ الحقيقيّ يصل كخلاصةٍ
+      // بلا أرفف، وهو ما يميّزه المستدعي عن `null`.
+      return null;
+    }
+  }
+
+  @override
+  Future<DiscoverSectionPage?> fetchDiscoverSection(
+    String key, {
+    required String category,
+    required int page,
+  }) async {
+    try {
+      final data = await _remoteDataSource.fetchDiscoverSection(
+        key,
+        category: category,
+        page: page,
+      );
+      return DiscoverSectionPage.fromJson(data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> recordSignal(String productId, ProductSignalType type) async {
+    if (productId.isEmpty) return;
+    try {
+      await _remoteDataSource.sendProductEvents([
+        {'productId': productId, 'type': type.wire},
+      ]);
+    } catch (_) {
+      // القياس صامت عمداً: لا رسالة خطأ ولا إعادة محاولة. فشلُه يُفقدنا نقطةً
+      // في رفٍّ، بينما إظهاره يُفسد على المستخدم فعلاً نجح فعلاً.
     }
   }
 

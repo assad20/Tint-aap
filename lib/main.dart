@@ -31,7 +31,7 @@ import 'features/catalog/domain/repositories/catalog_repository.dart';
 import 'features/catalog/presentation/cubit/categories_cubit.dart';
 import 'features/catalog/presentation/cubit/home_store_cubit.dart';
 import 'features/catalog/presentation/cubit/search_cubit.dart';
-import 'features/catalog/presentation/cubit/trends_cubit.dart';
+import 'features/catalog/presentation/cubit/discover_cubit.dart';
 import 'features/checkout/data/datasources/checkout_remote_data_source.dart';
 import 'features/checkout/data/repositories/checkout_repository_impl.dart';
 import 'features/checkout/domain/repositories/checkout_repository.dart';
@@ -99,7 +99,7 @@ Future<void> main() async {
             )..bootstrap(),
           ),
           BlocProvider(
-            create: (context) => TrendsCubit(
+            create: (context) => DiscoverCubit(
               repository: context.read<CatalogRepository>(),
             ), // تحميل كسول: يُجلب عند فتح تبويب الترندات (يقلّل زحام الإقلاع)
           ),
