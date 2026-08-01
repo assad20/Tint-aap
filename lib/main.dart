@@ -101,6 +101,7 @@ Future<void> main() async {
           BlocProvider(
             create: (context) => DiscoverCubit(
               repository: context.read<CatalogRepository>(),
+              appPreferences: context.read<AppPreferences>(),
             ), // تحميل كسول: يُجلب عند فتح تبويب الترندات (يقلّل زحام الإقلاع)
           ),
           BlocProvider(

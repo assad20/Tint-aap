@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/models/discover_model.dart';
 import '../../../../core/models/product_model.dart';
+import '../../../../core/storage/app_preferences.dart';
 import '../../domain/repositories/catalog_repository.dart';
 import '../../../../core/widgets/tint_ui.dart';
 import '../../../cart/presentation/cubit/cart_cubit.dart';
@@ -33,6 +34,9 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     unawaited(context
         .read<CatalogRepository>()
         .recordSignal(widget.product.id, ProductSignalType.view));
+    // وسجلّ محلّيّ يُغذّي رفّ «شوهدت مؤخّراً» وشاشة سجلّ التصفّح — الجهاز
+    // يعرف ما شاهده صاحبه بلا أن نربط سلوكاً بهويّة على الخادم.
+    unawaited(context.read<AppPreferences>().pushRecentlyViewed(widget.product));
   }
 
   void _addToCart() {

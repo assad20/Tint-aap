@@ -1,4 +1,8 @@
+import 'dart:convert';
+
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../models/product_model.dart';
 
 class AppPreferences {
   late SharedPreferencesWithCache _prefs;
@@ -27,6 +31,45 @@ class AppPreferences {
       searches.removeRange(8, searches.length);
     }
     await _prefs.setStringList('recent_searches', searches);
+  }
+
+  // ── المنتجات المُشاهَدة مؤخّراً ──
+  //
+  // محلّيّة عمداً: سجلّ تصفّحٍ على الخادم يعني ربط سلوكٍ بهويّة، وهذه الشاشة
+  // لا تحتاجه — الجهاز يعرف ما شاهده صاحبه. وتُخزَّن البطاقة كاملةً لا
+  // مُعرّفها كي تُعرَض فوراً بلا نداء شبكة.
+  static const _recentlyViewedKey = 'recently_viewed_v1';
+  static const _recentlyViewedMax = 20;
+
+  List<ProductModel> get recentlyViewed {
+    final raw = _prefs.getStringList(_recentlyViewedKey) ?? const <String>[];
+    final out = <ProductModel>[];
+    for (final line in raw) {
+      try {
+        final map = jsonDecode(line);
+        if (map is Map<String, dynamic>) out.add(ProductModel.fromJson(map));
+      } catch (_) {
+        // سطرٌ تالف من نسخةٍ أقدم — يُتخطّى ولا يُسقط البقيّة.
+      }
+    }
+    return out;
+  }
+
+  Future<void> pushRecentlyViewed(ProductModel product) async {
+    if (product.id.isEmpty) return;
+    final items = recentlyViewed.where((p) => p.id != product.id).toList();
+    items.insert(0, product);
+    if (items.length > _recentlyViewedMax) {
+      items.removeRange(_recentlyViewedMax, items.length);
+    }
+    await _prefs.setStringList(
+      _recentlyViewedKey,
+      items.map((p) => jsonEncode(p.toJson())).toList(),
+    );
+  }
+
+  Future<void> clearRecentlyViewed() async {
+    await _prefs.remove(_recentlyViewedKey);
   }
 
   Future<void> clearRecentSearches() async {

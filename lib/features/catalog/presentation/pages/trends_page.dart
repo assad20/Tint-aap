@@ -70,7 +70,22 @@ class TrendsPage extends StatelessWidget {
                       text: 'لا توجد ترندات في هذا القسم بعد',
                     ),
                   )
-                else
+                else ...[
+                  // «شوهدت مؤخّراً» أوّلاً: أقرب ما يستأنفه المستخدم. ومحلّيّ
+                  // بالكامل — لا يتأثّر بتبويب القسم لأنّه سجلّه هو لا فهرس
+                  // متجر. ويظهر من عنصرين: هنا الندرة دليل حداثة لا فقر بيانات.
+                  if (state.recentlyViewed.length >= 2)
+                    SliverToBoxAdapter(
+                      child: _Rail(
+                        section: DiscoverSection(
+                          key: 'recent',
+                          title: 'شوهدت مؤخّراً',
+                          subtitle: 'أكمل من حيث توقّفت',
+                          items: state.recentlyViewed,
+                        ),
+                        category: state.category,
+                      ),
+                    ),
                   SliverList.builder(
                     itemCount: state.feed.sections.length,
                     itemBuilder: (context, i) => _Rail(
@@ -81,6 +96,7 @@ class TrendsPage extends StatelessWidget {
                       dimmed: state.isSwitchingTab,
                     ),
                   ),
+                ],
                 const SliverToBoxAdapter(child: SizedBox(height: 110)),
               ],
             ),

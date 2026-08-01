@@ -1,6 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/models/discover_model.dart';
+import '../../../../core/models/product_model.dart';
+import '../../../../core/storage/app_preferences.dart';
 import '../../domain/repositories/catalog_repository.dart';
 
 class DiscoverState {
@@ -10,6 +12,7 @@ class DiscoverState {
     this.feed = const DiscoverFeed(),
     this.category = 'all',
     this.failed = false,
+    this.recentlyViewed = const [],
   });
 
   final bool isLoading;
@@ -24,6 +27,9 @@ class DiscoverState {
   /// تعذّر الجلب ولا محتوى سابق — الحالة الوحيدة التي تستحقّ رسالة خطأ.
   final bool failed;
 
+  /// منتجاتٌ شاهدها صاحب الجهاز — محلّيّة بالكامل، لا تعبر الشبكة.
+  final List<ProductModel> recentlyViewed;
+
   bool get hasContent => feed.sections.isNotEmpty;
 
   DiscoverState copyWith({
@@ -32,6 +38,7 @@ class DiscoverState {
     DiscoverFeed? feed,
     String? category,
     bool? failed,
+    List<ProductModel>? recentlyViewed,
   }) {
     return DiscoverState(
       isLoading: isLoading ?? this.isLoading,
@@ -39,16 +46,21 @@ class DiscoverState {
       feed: feed ?? this.feed,
       category: category ?? this.category,
       failed: failed ?? this.failed,
+      recentlyViewed: recentlyViewed ?? this.recentlyViewed,
     );
   }
 }
 
 class DiscoverCubit extends Cubit<DiscoverState> {
-  DiscoverCubit({required CatalogRepository repository})
-      : _repository = repository,
+  DiscoverCubit({
+    required CatalogRepository repository,
+    required AppPreferences appPreferences,
+  })  : _repository = repository,
+        _prefs = appPreferences,
         super(const DiscoverState());
 
   final CatalogRepository _repository;
+  final AppPreferences _prefs;
 
   /// يُبطل نتيجة نداءٍ سبقه المستخدم بنقرةٍ أُخرى: من ينقر ثلاثة تبويبات
   /// بسرعة قد تصل استجابة الأوّل أخيراً فتعرض قسماً لم يعد مُختاراً.
@@ -82,6 +94,8 @@ class DiscoverCubit extends Cubit<DiscoverState> {
       isLoading: false,
       isSwitchingTab: false,
       feed: feed ?? state.feed,
+      // يُقرأ عند كلّ جلب: المستخدم قد يكون تصفّح منتجاتٍ منذ آخر فتحة.
+      recentlyViewed: _prefs.recentlyViewed,
       // الفشل يُعلَن فقط حين لا يوجد ما يُعرض؛ وإلّا أبقِ المعروض صامتاً.
       failed: feed == null && !state.hasContent,
     ));
