@@ -12,6 +12,7 @@ import '../../../../app/config/app_config.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/models/account_models.dart';
 import '../../../../core/models/payment_method_model.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/widgets/tint_ui.dart';
 import '../../../account/presentation/cubit/addresses_cubit.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
@@ -774,13 +775,24 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
     }
 
     final appConfig = context.read<AppConfig>();
-    if (!appConfig.hasTabbyConfig) {
-      _showSnackBar(context, 'إعدادات Tabby غير مكتملة في التطبيق.');
+    // الاعتمادات من الخادم أوّلاً — تُبدَّل من اللوحة فتسري على كلّ الأجهزة بلا
+    // نسخةٍ جديدة. وتسقط على قيم البناء إن لم يُرسلها الخادم، فلا تنكسر النسخ
+    // القديمة ولا البيئات التي تُضبط بـ`dart-define`.
+    final tabbyMethod = state.tabbyMethod;
+    final service = TabbyCheckoutService(
+      appConfig,
+      publicKeyOverride: tabbyMethod?.publicKey,
+      merchantCodeOverride: tabbyMethod?.merchantCode,
+    );
+    if (!service.isConfigured) {
+      _showSnackBar(
+        context,
+        'الدفع عبر Tabby غير مُهيّأ بعد. اضبط مفتاح Tabby ورمز المتجر من لوحة الإدارة.',
+      );
       return;
     }
 
     final cartState = context.read<CartCubit>().state;
-    final service = TabbyCheckoutService(appConfig);
     final orderReference = 'TN-TABBY-${DateTime.now().millisecondsSinceEpoch}';
 
     try {
@@ -839,8 +851,18 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
       }
     } catch (error) {
       if (!mounted) return;
-      _showSnackBar(context, error.toString().replaceFirst('Exception: ', ''));
+      _showSnackBar(context, _readableError(error));
     }
+  }
+
+  /// رسالة الخادم كما هي، لا غلافها.
+  ///
+  /// `ApiException.toString()` يُخرج «ApiException(statusCode: 400, message: …)»
+  /// — فكان المشتري يقرأ اسم صنفٍ برمجيّ قبل سبب الرفض. والخادم يرسل رسالةً
+  /// عربيّةً مكتوبةً له، فتُعرَض وحدها.
+  String _readableError(Object error) {
+    if (error is ApiException) return error.message;
+    return error.toString().replaceFirst('Exception: ', '');
   }
 
   void _showSnackBar(BuildContext context, String message) {
