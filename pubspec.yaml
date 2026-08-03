@@ -10,6 +10,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # ترجمات Material/Cupertino الرسميّة — يلزمها كلّ ودجت يطلب نصوصاً مترجمة،
+  # وأوّلها منتقي التاريخ. بدونها تتجمّد تلك الشاشات رماديّةً بلا رسالة.
+  flutter_localizations:
+    sdk: flutter
   cupertino_icons: ^1.0.8
   dio: ^5.7.0
   flutter_bloc: ">=8.1.6 <10.0.0"
