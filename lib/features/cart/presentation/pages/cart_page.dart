@@ -8,8 +8,24 @@ import '../../../../core/widgets/tint_ui.dart';
 import '../cubit/cart_cubit.dart';
 import '../../../catalog/presentation/widgets/product_card.dart';
 
-class CartPage extends StatelessWidget {
+class CartPage extends StatefulWidget {
   const CartPage({super.key});
+
+  @override
+  State<CartPage> createState() => _CartPageState();
+}
+
+class _CartPageState extends State<CartPage> {
+  @override
+  void initState() {
+    super.initState();
+    // مراجعة التوفّر عند فتح السلّة: الكمّيّة التي وصلت مع بطاقة المنتج قد
+    // تكون قديمة، والصنف قد ينفد بعد إضافته. اكتشافه هنا أرحم من اكتشافه
+    // بعد إدخال العنوان واختيار الشحن.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<CartCubit>().revalidateStock();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +87,12 @@ class CartPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
                 ...state.items.map(
-                  (item) => Padding(
+                  (item) {
+                    final soldOut =
+                        state.stock[item.cartId]?.sellable == false;
+                    final cap = state.availableFor(item.cartId);
+                    final atCap = cap != null && item.quantity >= cap;
+                    return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: TintSurfaceCard(
                       child: Row(
@@ -114,6 +135,27 @@ class CartPage extends StatelessWidget {
                                     ),
                                   ),
                                 ),
+                                if (soldOut) ...[
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color: TintColors.danger,
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    child: Text(
+                                      cap != null && cap > 0
+                                          ? 'المتاح $cap فقط'
+                                          : 'نفدت الكمية',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                                 const SizedBox(height: 14),
                                 Row(
                                   children: [
@@ -149,9 +191,13 @@ class CartPage extends StatelessWidget {
                                             ),
                                           ),
                                           IconButton(
-                                            onPressed: () => context
-                                                .read<CartCubit>()
-                                                .increment(item.cartId),
+                                            // يقف عند المتاح: الزيادة فوقه
+                                            // تُرفض عند الدفع على أيّ حال.
+                                            onPressed: atCap
+                                                ? null
+                                                : () => context
+                                                    .read<CartCubit>()
+                                                    .increment(item.cartId),
                                             icon: const Icon(Icons.add, size: 18),
                                           ),
                                         ],
@@ -171,7 +217,8 @@ class CartPage extends StatelessWidget {
                         ],
                       ),
                     ),
-                  ),
+                  );
+                  },
                 ),
                 TintSurfaceCard(
                   child: Column(
@@ -235,10 +282,62 @@ class CartPage extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 12),
+                      // ‼️ الحجب هنا لا عند آخر زرّ: يصحّح المشتري سلّته قبل
+                      // أن يُدخل عنوانه ويختار الشحن — لا بعد أن يدفع.
+                      if (state.hasUnavailable) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF1F2),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: const Color(0xFFFECDD3)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'أصناف لم تعد متاحة (${state.unavailable.length})',
+                                style: const TextStyle(
+                                  color: Color(0xFFBE123C),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                'أزيليها لتتمكّني من إتمام الطلب.',
+                                style: TextStyle(
+                                  color: Color(0xFFBE123C),
+                                  fontSize: 11,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              SizedBox(
+                                width: double.infinity,
+                                child: FilledButton(
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: const Color(0xFFE11D48),
+                                  ),
+                                  onPressed: () => context
+                                      .read<CartCubit>()
+                                      .removeUnavailable(),
+                                  child: const Text('إزالة غير المتاح'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       TintPrimaryButton(
-                        label: 'إتمام الطلب الآن',
+                        label: state.hasUnavailable
+                            ? 'أزيلي الأصناف غير المتاحة أوّلاً'
+                            : 'إتمام الطلب الآن',
                         expanded: true,
-                        onPressed: () => context.push('/checkout'),
+                        onPressed: state.hasUnavailable
+                            ? null
+                            : () => context.push('/checkout'),
                         icon: const Icon(Icons.chevron_left_rounded),
                       ),
                     ],

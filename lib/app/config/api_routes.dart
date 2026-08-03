@@ -10,6 +10,9 @@ abstract final class ApiRoutes {
   static const catalogSearch = '/catalog/search';
   static const catalogNavigation = '/catalog/navigation';
   static const catalogCategories = '/catalog/categories'; // + /<slug>
+  // توفّر بنود السلّة — تُراجَع عند فتح السلّة وقبل الدفع، فلا يُكتشف النفاد
+  // بعد إدخال العنوان. نفس المطابقة التي يستعملها الخادم عند التسعير.
+  static const catalogAvailability = '/catalog/availability';
   static const catalogPaymentMethods = '/catalog/payment-methods';
   // طرق الشحن وأسعارها — المصدر الموثوق الذي يعيد الخادم حسابه عند الطلب.
   static const catalogShippingMethods = '/catalog/shipping-methods';
@@ -27,6 +30,10 @@ abstract final class ApiRoutes {
   static const addresses = '/customer/addresses';
 
   static const checkout = '/orders/checkout';
+  // ‼️ إنشاء جلسة تابي من الخادم لا من الجهاز. حزمة تابي لا ترسل
+  // `merchant_urls` إطلاقاً، فتنتهي شاشتها عند «سنعيدك الآن» بلا عنوانٍ تعود
+  // إليه. وخادمنا يرسلها كما يفعل في الموقع.
+  static const tabbySession = '/payments/tabby/sessions';
   static const tabbyRegisterPending = '/payments/tabby/register-pending';
   static const tabbyConfirm = '/payments/tabby/confirm';
   static const noonInitiate = '/payments/noon/initiate';

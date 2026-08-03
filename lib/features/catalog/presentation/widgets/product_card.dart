@@ -86,10 +86,10 @@ class ProductCard extends StatelessWidget {
                       foregroundColor: Colors.white,
                     ),
                   ),
-                // «بقي N» — إلحاحٌ صادق من المخزون الحقيقيّ. كميّة 0 تعني «لم
-                // يُزامَن المخزون» لا «نفد»، فلا تُعرض. والسقف 5 كي لا تفقد
-                // الشارة معناها على منتجٍ متوفّرٍ بكثرة.
-                if (product.quantity > 0 && product.quantity <= 5)
+                // «بقي N» — إلحاحٌ صادق من المخزون الحقيقيّ. السقف 5 كي لا تفقد
+                // الشارة معناها على منتجٍ متوفّرٍ بكثرة. والصنف غير المتتبَّع
+                // (كميّة `null`) لا شارة له ولا حجب.
+                if (product.isLowStock)
                   Positioned(
                     top: 8,
                     left: 8,
@@ -97,6 +97,26 @@ class ProductCard extends StatelessWidget {
                       label: 'بقي ${product.quantity}',
                       backgroundColor: const Color(0xFFFFF3E0),
                       foregroundColor: const Color(0xFFB45309),
+                    ),
+                  ),
+                // نفدت الكمية — طبقةٌ فوق الصورة تُعرِّف الصنف من الشبكة نفسها،
+                // فلا يُكتشف نفاده عند الدفع بعد إدخال العنوان.
+                if (product.isSoldOut)
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.62),
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(18),
+                        ),
+                      ),
+                      child: Center(
+                        child: _Badge(
+                          label: 'نفدت الكمية',
+                          backgroundColor: TintColors.charcoal.withOpacity(0.88),
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
                     ),
                   ),
                 if (showViews && product.views != null)
@@ -166,20 +186,34 @@ class ProductCard extends StatelessWidget {
                           ],
                         ),
                       ),
+                      // زرّ إضافةٍ فوق صنفٍ نافد وعدٌ لا يُوفى — يُعطَّل ويُقال
+                      // السبب عند اللمس بدل أن يُكتشف عند الدفع.
                       IconButton.filledTonal(
-                        onPressed: () {
-                          context.read<CartCubit>().addProduct(product);
-                          // الإضافة السريعة تُسجَّل كما تُسجَّل من صفحة المنتج:
-                          // إشارةٌ واحدة تُحتسب في مكانٍ دون آخر تُشوّه ترتيب
-                          // الرواج لصالح المنتجات التي تُفتح صفحتها.
-                          unawaited(context
-                              .read<CatalogRepository>()
-                              .recordSignal(product.id, ProductSignalType.cart));
-                          showTintToast(context, 'تمت إضافة المنتج إلى السلة');
-                        },
+                        onPressed: product.isSoldOut
+                            ? () => showTintToast(
+                                  context,
+                                  'نفدت كمية هذا المنتج حاليّاً',
+                                  isError: true,
+                                )
+                            : () {
+                                context.read<CartCubit>().addProduct(product);
+                                // الإضافة السريعة تُسجَّل كما تُسجَّل من صفحة المنتج:
+                                // إشارةٌ واحدة تُحتسب في مكانٍ دون آخر تُشوّه ترتيب
+                                // الرواج لصالح المنتجات التي تُفتح صفحتها.
+                                unawaited(context
+                                    .read<CatalogRepository>()
+                                    .recordSignal(
+                                        product.id, ProductSignalType.cart));
+                                showTintToast(
+                                    context, 'تمت إضافة المنتج إلى السلة');
+                              },
                         style: IconButton.styleFrom(
-                          backgroundColor: const Color(0xFFF7F8FA),
-                          foregroundColor: TintColors.charcoal,
+                          backgroundColor: product.isSoldOut
+                              ? const Color(0xFFECEDEF)
+                              : const Color(0xFFF7F8FA),
+                          foregroundColor: product.isSoldOut
+                              ? Colors.black38
+                              : TintColors.charcoal,
                         ),
                         icon: const Icon(Icons.shopping_cart_outlined, size: 18),
                       ),

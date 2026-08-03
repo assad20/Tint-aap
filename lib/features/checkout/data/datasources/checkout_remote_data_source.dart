@@ -119,6 +119,39 @@ class CheckoutRemoteDataSource {
     );
   }
 
+  /// تابي: إنشاء الجلسة **من الخادم** والحصول على رابط الدفع.
+  ///
+  /// ‼️ لا من الجهاز عبر حزمة تابي: حمولة الحزمة لا تحمل `merchant_urls`
+  /// إطلاقاً، فتقف شاشتها عند «سنعيدك الآن» بلا عنوانٍ تعود إليه بينما المال
+  /// مُصرَّحٌ به. وخادمنا يرسلها كما يفعل في الموقع، ويُطبّق التسعير الموثوق
+  /// وفحص المخزون قبل أن يرى المشتري تابي.
+  Future<Map<String, dynamic>> createTabbySession({
+    required List<CartItemModel> items,
+    required AddressModel address,
+    required String shippingMethod,
+    required double shippingCost,
+    required String orderReference,
+    String? buyerEmail,
+    String? buyerDob,
+  }) {
+    return _apiClient.postMap(
+      ApiRoutes.tabbySession,
+      data: {
+        'lang': 'ar',
+        'order': _buildOrderPayload(
+          items: items,
+          address: address,
+          shippingMethod: shippingMethod,
+          shippingCost: shippingCost,
+          paymentMethod: 'Tabby',
+          orderReference: orderReference,
+          buyerEmail: buyerEmail,
+          buyerDob: buyerDob,
+        ),
+      },
+    );
+  }
+
   // نون: إنشاء الطلب والحصول على رابط الدفع المستضاف (يُفتح في webview).
   Future<Map<String, dynamic>> initiateNoon({
     required List<CartItemModel> items,

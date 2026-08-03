@@ -138,21 +138,34 @@ class TabbyCheckoutService {
       ),
     );
 
-    final dynamic sessionData = session;
-
-    if (sessionData.status == SessionStatus.rejected) {
+    /**
+     * ‼️ تُقرأ الحقول من النوع مباشرةً لا عبر `dynamic`.
+     *
+     * كانت الاستجابة تُقرأ كـ`dynamic` بأسماء حقولٍ من نسخةٍ أقدم (`id`,
+     * `payment.id`, `token`) لا وجود لها في 1.11 — فيمرّ التحويل البرمجيّ
+     * صامتاً ويسقط على الجهاز بـ`NoSuchMethodError`. أسماء 1.11 هي:
+     * `sessionId` و`paymentId` و`availableProducts.installments?.webUrl`،
+     * ولا يوجد `token` أصلاً.
+     */
+    if (session.status == SessionStatus.rejected) {
       throw Exception(
-        _lang == Lang.ar
-            ? TabbySDK.rejectionTextAr
-            : TabbySDK.rejectionTextEn,
+        _lang == Lang.ar ? TabbySDK.rejectionTextAr : TabbySDK.rejectionTextEn,
+      );
+    }
+
+    final installments = session.availableProducts.installments;
+    if (installments == null || installments.webUrl.trim().isEmpty) {
+      // الجلسة قُبلت بلا منتج تقسيطٍ متاح — لا رابط يُفتَح. يُقال صراحةً بدل
+      // فتح شاشةٍ فارغة.
+      throw Exception(
+        'تابي لا يتيح التقسيط لهذا الطلب حاليّاً. جرّبي وسيلة دفعٍ أخرى.',
       );
     }
 
     return TabbyCheckoutSession(
-      sessionId: sessionData.id.toString(),
-      paymentId: sessionData.payment.id.toString(),
-      checkoutUrl: sessionData.availableProducts.installments.webUrl.toString(),
-      paymentToken: sessionData.token?.toString(),
+      sessionId: session.sessionId,
+      paymentId: session.paymentId,
+      checkoutUrl: installments.webUrl,
     );
   }
 

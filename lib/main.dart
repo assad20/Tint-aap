@@ -91,7 +91,8 @@ Future<void> main() async {
       child: MultiBlocProvider(
         providers: [
           BlocProvider(create: (_) => ShellCubit()),
-          BlocProvider(create: (_) => CartCubit()),
+          // السلّة تحمل عميل الشبكة كي تراجع توفّر بنودها من الخادم.
+          BlocProvider(create: (_) => CartCubit(apiClient: apiClient)),
           BlocProvider(
             create: (context) => HomeStoreCubit(
               catalogRepository: context.read<CatalogRepository>(),

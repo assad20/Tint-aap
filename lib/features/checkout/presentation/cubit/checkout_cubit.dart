@@ -48,6 +48,14 @@ class CheckoutState {
       .where((m) => m.id == paymentMethod)
       .fold<double>(0, (_, m) => m.fee);
 
+  /// وسيلة تابي كما أرسلها الخادم — منها مفتاحها ورمز متجرها.
+  PaymentMethodModel? get tabbyMethod {
+    for (final m in methods) {
+      if (m.id == 'tabby') return m;
+    }
+    return null;
+  }
+
   CheckoutState copyWith({
     bool? isSubmitting,
     String? shippingMethod,
@@ -110,6 +118,26 @@ class CheckoutCubit extends Cubit<CheckoutState> {
     } catch (_) {
       // تُترك القائمة فارغة؛ الواجهة تعرض حالتها الخاصّة بدل أسعارٍ مخترعة.
     }
+  }
+
+  // تابي: إنشاء الجلسة من الخادم (يعيد {paymentId, sessionId, webUrl, returnUrls}).
+  Future<Map<String, dynamic>> createTabbySession({
+    required List<CartItemModel> items,
+    required AddressModel address,
+    required String orderReference,
+    String? buyerEmail,
+    String? buyerDob,
+  }) {
+    return _repository.createTabbySession(
+      items: items,
+      address: address,
+      shippingMethod: state.shippingMethod,
+      shippingCost: state.shippingCostFor(
+          items.fold<double>(0, (sum, i) => sum + i.lineTotal)),
+      orderReference: orderReference,
+      buyerEmail: buyerEmail,
+      buyerDob: buyerDob,
+    );
   }
 
   // نون: إنشاء الطلب (يعيد {checkoutUrl, noonOrderId}).

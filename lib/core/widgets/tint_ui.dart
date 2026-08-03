@@ -6,11 +6,17 @@ import '../../app/theme/app_theme.dart';
 
 // رسالة تأكيد لطيفة عائمة مدوّرة بأيقونة، تختفي تلقائيّاً خلال ثانيتين.
 // موحّدة لكلّ إشعارات النجاح (إضافة للسلة…) بدل الأشرطة العريضة الثابتة.
+/// رسالة عابرة.
+///
+/// ‼️ `isError` ليست زينة: الودجة كانت خضراء بعلامة صحّ **دائماً**، فرفضٌ
+/// مثل «نفدت كمية هذا المنتج» يظهر بلون النجاح وأيقونته — يقرأ المتسوّق
+/// شكلاً يناقض نصّه، فيظنّ الإضافة تمّت.
 void showTintToast(
   BuildContext context,
   String message, {
   String? actionLabel,
   VoidCallback? onAction,
+  bool isError = false,
 }) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
@@ -18,8 +24,12 @@ void showTintToast(
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.check_circle_rounded,
-                color: Colors.white, size: 20),
+            Icon(
+                isError
+                    ? Icons.error_outline_rounded
+                    : Icons.check_circle_rounded,
+                color: Colors.white,
+                size: 20),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -41,7 +51,7 @@ void showTintToast(
               ),
           ],
         ),
-        backgroundColor: TintColors.success,
+        backgroundColor: isError ? TintColors.danger : TintColors.success,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),

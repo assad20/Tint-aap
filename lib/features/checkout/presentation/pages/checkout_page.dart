@@ -4,10 +4,10 @@ import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:tabby_flutter_inapp_sdk/tabby_flutter_inapp_sdk.dart';
 
 import 'location_picker_page.dart';
 import 'noon_webview_page.dart';
+import 'tabby_webview_page.dart';
 import '../../../../app/config/app_config.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/models/account_models.dart';
@@ -18,7 +18,6 @@ import '../../../account/presentation/cubit/addresses_cubit.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../cart/presentation/cubit/cart_cubit.dart';
 import '../cubit/checkout_cubit.dart';
-import '../services/tabby_checkout_service.dart';
 import '../widgets/tabby_promo_snippet.dart';
 
 class CheckoutPage extends StatefulWidget {
@@ -123,6 +122,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
   @override
   void initState() {
     super.initState();
+    // منفذٌ ثانٍ للسلّة: من يصل هنا مباشرةً لا يمرّ ببانرها. المراجعة تُظهر
+    // النفاد قبل إدخال العنوان لا بعد الدفع.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<CartCubit>().revalidateStock();
+    });
     final customer = context.read<AuthCubit>().state.customer;
     if (customer != null) {
       _name.text = customer.name ?? '';
@@ -636,9 +640,22 @@ class _CheckoutTotalCard extends StatefulWidget {
 
 class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
   Future<void> _submit(BuildContext context, CheckoutState state) async {
-    final cartState = context.read<CartCubit>().state;
+    final cart = context.read<CartCubit>();
+    final cartState = cart.state;
     if (cartState.items.isEmpty) {
       _showSnackBar(context, 'سلّتك فارغة — أضف منتجاً قبل إتمام الطلب.');
+      return;
+    }
+
+    // ‼️ مراجعةٌ لحظةَ الضغط لا عند فتح الشاشة: المخزون يتغيّر بينهما، وكلّ
+    // ثانيةٍ هنا أرخص من تصريحٍ ماليّ يُلغى بعده.
+    await cart.revalidateStock();
+    if (!context.mounted) return;
+    final blocked = cart.state.unavailable;
+    if (blocked.isNotEmpty) {
+      // تُذكر كلّ الأصناف دفعةً واحدة: يصحّح المشتري سلّته مرّةً لا مرّةً لكلّ صنف.
+      final names = blocked.map((item) => '«${item.product.title}»').join('، ');
+      _showSnackBar(context, 'تعذّر إتمام الطلب: $names لم تعد متاحة. أزِلها من السلّة.');
       return;
     }
 
@@ -774,81 +791,95 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
       return;
     }
 
-    final appConfig = context.read<AppConfig>();
-    // الاعتمادات من الخادم أوّلاً — تُبدَّل من اللوحة فتسري على كلّ الأجهزة بلا
-    // نسخةٍ جديدة. وتسقط على قيم البناء إن لم يُرسلها الخادم، فلا تنكسر النسخ
-    // القديمة ولا البيئات التي تُضبط بـ`dart-define`.
-    final tabbyMethod = state.tabbyMethod;
-    final service = TabbyCheckoutService(
-      appConfig,
-      publicKeyOverride: tabbyMethod?.publicKey,
-      merchantCodeOverride: tabbyMethod?.merchantCode,
-    );
-    if (!service.isConfigured) {
-      _showSnackBar(
-        context,
-        'الدفع عبر Tabby غير مُهيّأ بعد. اضبط مفتاح Tabby ورمز المتجر من لوحة الإدارة.',
-      );
-      return;
-    }
-
     final cartState = context.read<CartCubit>().state;
     final orderReference = 'TN-TABBY-${DateTime.now().millisecondsSinceEpoch}';
+    final cubit = context.read<CheckoutCubit>();
 
     try {
-      final session = await service.createSession(
+      /**
+       * ‼️ الجلسة يُنشئها **الخادم** لا حزمة تابي على الجهاز.
+       *
+       * حمولة الحزمة لا تحمل `merchant_urls` إطلاقاً، فكانت تابي تُنهي الدفع
+       * وتقول «سنعيدك الآن» ثمّ لا تجد عنواناً تعود إليه — فتقف الشاشة إلى
+       * الأبد بينما المال مُصرَّحٌ به عندها ولا طلب عندنا. وخادمنا يرسلها كما
+       * يفعل في الموقع الذي أثبت نجاحه.
+       *
+       * ويكسب المسار بذلك التسعير الموثوق وفحص المخزون **قبل** أن يرى المشتري
+       * تابي، ويبقى مفتاح تابي على الخادم لا على الجهاز.
+       */
+      final session = await cubit.createTabbySession(
         items: cartState.items,
         address: widget.address,
-        totalAmount: cartState.total,
-        buyerName: widget.address.recipient,
+        orderReference: orderReference,
         buyerEmail: buyerEmail,
         buyerDob: buyerDob,
-        orderReference: orderReference,
       );
 
-      await context.read<CheckoutCubit>().registerPendingTabbyOrder(
-            paymentId: session.paymentId,
-            paymentToken: session.paymentToken,
-            sessionId: session.sessionId,
-            orderReference: orderReference,
-            items: cartState.items,
-            address: widget.address,
-            buyerEmail: buyerEmail,
-            buyerDob: buyerDob,
-          );
+      final paymentId = session['paymentId']?.toString() ?? '';
+      final sessionId = session['sessionId']?.toString();
+      final checkoutUrl = session['webUrl']?.toString() ?? '';
+      final returnUrls = (session['returnUrls'] as Map?) ?? const {};
 
-      final result = await service.openCheckout(
-        context: context,
-        checkoutUrl: session.checkoutUrl,
+      if (session['status']?.toString() == 'rejected') {
+        if (!mounted) return;
+        _showSnackBar(
+          context,
+          session['rejectionReason']?.toString() ??
+              'نأسف، تابي غير قادرة على الموافقة على هذه العملية. جرّبي وسيلة دفعٍ أخرى.',
+        );
+        return;
+      }
+      if (paymentId.isEmpty || checkoutUrl.isEmpty) {
+        if (!mounted) return;
+        _showSnackBar(context, 'تعذّر فتح صفحة تابي. حاولي مجدداً.');
+        return;
+      }
+
+      if (!mounted) return;
+      final outcome = await Navigator.of(context).push<TabbyWebviewOutcome>(
+        MaterialPageRoute(
+          builder: (_) => TabbyWebviewPage(
+            checkoutUrl: checkoutUrl,
+            successUrl: returnUrls['success']?.toString() ?? '',
+            cancelUrl: returnUrls['cancel']?.toString() ?? '',
+            failureUrl: returnUrls['failure']?.toString() ?? '',
+          ),
+        ),
       );
 
       if (!mounted) return;
 
-      switch (result) {
-        case WebViewResult.authorized:
-          final confirmation = await context.read<CheckoutCubit>().confirmTabbyPayment(
-                paymentId: session.paymentId,
-                paymentToken: session.paymentToken,
-                sessionId: session.sessionId,
-                orderReference: orderReference,
-                items: cartState.items,
-                address: widget.address,
-                buyerEmail: buyerEmail,
-                buyerDob: buyerDob,
-              );
-          if (!mounted) return;
-          _showSuccessDialog(context, confirmation.orderId.isEmpty ? orderReference : confirmation.orderId);
-          break;
-        case WebViewResult.rejected:
-          _showSnackBar(context, 'تم رفض طلب Tabby من جهة المزود.');
-          break;
-        case WebViewResult.expired:
-          _showSnackBar(context, 'انتهت جلسة Tabby. أعيدي المحاولة من جديد.');
-          break;
-        case WebViewResult.close:
-          _showSnackBar(context, 'تم إغلاق شاشة Tabby. إذا اكتمل التفويض سيصل التأكيد من الخادم خلال لحظات.');
-          break;
+      if (outcome == TabbyWebviewOutcome.cancelled) {
+        _showSnackBar(context, 'أُلغي الدفع عبر Tabby.');
+        return;
       }
+
+      /**
+       * ‼️ يُسأل الخادم في حالتَي النجاح **والإغلاق اليدويّ**.
+       *
+       * الخروج من الشاشة ليس حكماً على الدفع: قد يُتمّه المشتري ثمّ يُغلق قبل
+       * أن يقع التحويل. والخادم يسأل تابي مباشرةً فيعرف الحقيقة. وكانت الشيفرة
+       * السابقة تكتفي برسالة «سيصل التأكيد من الخادم» — ولا يصل، لأنّ الـwebhook
+       * غير مضبوط.
+       */
+      final confirmation = await cubit.confirmTabbyPayment(
+        paymentId: paymentId,
+        sessionId: sessionId,
+        orderReference: orderReference,
+        items: cartState.items,
+        address: widget.address,
+        buyerEmail: buyerEmail,
+        buyerDob: buyerDob,
+      );
+      if (!mounted) return;
+      if (confirmation.orderId.isEmpty && outcome != TabbyWebviewOutcome.success) {
+        _showSnackBar(context, 'لم يكتمل الدفع عبر Tabby. يمكنك المحاولة مجدداً.');
+        return;
+      }
+      _showSuccessDialog(
+        context,
+        confirmation.orderId.isEmpty ? orderReference : confirmation.orderId,
+      );
     } catch (error) {
       if (!mounted) return;
       _showSnackBar(context, _readableError(error));

@@ -12,7 +12,7 @@ class ProductModel {
     this.isAvailable = true,
     this.sku,
     this.barcode,
-    this.quantity = 0,
+    this.quantity,
   });
 
   final String id;
@@ -29,8 +29,22 @@ class ProductModel {
   final String? sku;
   final String? barcode;
 
-  /// الكميّة المتاحة. 0 تعني «لم يُزامَن المخزون» لا «نفد» — فلا تُعرض كنفاد.
-  final int quantity;
+  /// الكميّة المتاحة كما يقولها الخادم.
+  ///
+  /// ‼️ `null` = **صنف غير متتبَّع** (الحقل غائب من الاستجابة) ⇒ لا يُحجب.
+  /// و`0` = **نفد فعلاً** ⇒ يُحجب. كان النوع `int` بافتراضيّ `0`، فيمتزج
+  /// المعنيان ويصير النفاد غير قابلٍ للتمييز — ولذلك كان مكتوباً أنّ «0 تعني
+  /// لم يُزامَن المخزون فلا تُعرض كنفاد». ذاك صحّ حين كان حارس المخزون مُطفأً؛
+  /// وهو مُفعَّل الآن ويرفض الطلب، فصار الصمت يعني مشترياً يدفع ثمّ يُرفض.
+  ///
+  /// هذه هي قاعدة الخادم نفسها (`typeof doc.quantity === 'number'`).
+  final int? quantity;
+
+  /// نفد فعلاً — لا «غير متتبَّع».
+  bool get isSoldOut => quantity != null && quantity! <= 0;
+
+  /// يقارب النفاد: تُعرض «بقي N» عند 1..5 فقط.
+  bool get isLowStock => quantity != null && quantity! > 0 && quantity! <= 5;
 
   double? get discountPercent {
     if (oldPrice == null || oldPrice == 0) {
@@ -90,7 +104,10 @@ class ProductModel {
       isAvailable: json['isAvailable'] as bool? ?? true,
       sku: json['sku']?.toString(),
       barcode: json['barcode']?.toString(),
-      quantity: int.tryParse(json['quantity']?.toString() ?? '') ?? 0,
+      // بلا `?? 0`: غياب الحقل يبقى `null` (غير متتبَّع) ولا يُقرأ نفاداً.
+      quantity: json['quantity'] == null
+          ? null
+          : int.tryParse(json['quantity'].toString()),
     );
   }
 

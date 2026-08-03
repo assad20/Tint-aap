@@ -33,6 +33,27 @@ class CheckoutRepositoryImpl implements CheckoutRepository {
   }
 
   @override
+  Future<Map<String, dynamic>> createTabbySession({
+    required List<CartItemModel> items,
+    required AddressModel address,
+    required String shippingMethod,
+    required double shippingCost,
+    required String orderReference,
+    String? buyerEmail,
+    String? buyerDob,
+  }) {
+    return _remoteDataSource.createTabbySession(
+      items: items,
+      address: address,
+      shippingMethod: shippingMethod,
+      shippingCost: shippingCost,
+      orderReference: orderReference,
+      buyerEmail: buyerEmail,
+      buyerDob: buyerDob,
+    );
+  }
+
+  @override
   Future<Map<String, dynamic>> initiateNoon({
     required List<CartItemModel> items,
     required AddressModel address,

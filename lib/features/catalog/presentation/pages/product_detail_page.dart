@@ -42,8 +42,24 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
 
   void _addToCart() {
     final cart = context.read<CartCubit>();
+    var added = 0;
     for (var i = 0; i < _qty; i++) {
-      cart.addProduct(widget.product);
+      // `addProduct` يرفض ويُعيد false عند تجاوز المتاح — نتوقّف عند أوّل رفض
+      // بدل أن نُظهر «أُضيف $_qty» عن كمّيّةٍ لم تُضَف كلّها.
+      if (!cart.addProduct(widget.product)) break;
+      added++;
+    }
+    if (added == 0) {
+      showTintToast(context, 'نفدت كمية هذا المنتج حاليّاً', isError: true);
+      return;
+    }
+    if (added < _qty) {
+      showTintToast(
+        context,
+        'أُضيف $added فقط — هذا كلّ المتاح حاليّاً',
+        isError: true,
+      );
+      return;
     }
     // الإضافة للسلّة تزن خمسة أضعاف المشاهدة في ترتيب الرواج: النيّة أصدق.
     unawaited(context
@@ -254,7 +270,10 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           fontWeight: FontWeight.w900, fontSize: 15),
                     ),
                     IconButton(
-                      onPressed: () => setState(() => _qty++),
+                      // السقف = المتاح لدى الخادم؛ والصنف غير المتتبَّع بلا سقف.
+                      onPressed: (p.quantity != null && _qty >= p.quantity!)
+                          ? null
+                          : () => setState(() => _qty++),
                       icon: const Icon(Icons.add, size: 18),
                     ),
                   ],
@@ -271,12 +290,20 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    onPressed: p.isAvailable ? _addToCart : null,
-                    icon: const Icon(Icons.shopping_cart_outlined, size: 20),
-                    label: const Text(
-                      'أضف إلى السلة',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+                    // ‼️ النفاد يمنع الإضافة هنا كما يمنعها الخادم عند الدفع.
+                    // تعطيلٌ صامت لا يكفي — الزرّ يقول «نفدت الكمية» بنفسه.
+                    onPressed:
+                        (p.isAvailable && !p.isSoldOut) ? _addToCart : null,
+                    icon: Icon(
+                      p.isSoldOut
+                          ? Icons.remove_shopping_cart_outlined
+                          : Icons.shopping_cart_outlined,
+                      size: 20,
+                    ),
+                    label: Text(
+                      p.isSoldOut ? 'نفدت الكمية' : 'أضف إلى السلة',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w900, fontSize: 15),
                     ),
                   ),
                 ),

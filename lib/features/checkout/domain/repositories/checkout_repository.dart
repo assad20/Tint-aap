@@ -10,6 +10,17 @@ abstract class CheckoutRepository {
 
   Future<List<ShippingMethodModel>> fetchShippingMethods();
 
+  /// تابي: إنشاء الجلسة **من الخادم** → {paymentId, sessionId, webUrl, returnUrls}.
+  Future<Map<String, dynamic>> createTabbySession({
+    required List<CartItemModel> items,
+    required AddressModel address,
+    required String shippingMethod,
+    required double shippingCost,
+    required String orderReference,
+    String? buyerEmail,
+    String? buyerDob,
+  });
+
   /// نون: إنشاء الطلب → {checkoutUrl, noonOrderId}.
   Future<Map<String, dynamic>> initiateNoon({
     required List<CartItemModel> items,

@@ -8,13 +8,21 @@ class PaymentMethodModel {
     this.description,
     this.fee = 0,
     this.publicKey,
+    this.merchantCode,
   });
 
   final String id;
   final String label;
   final String? description;
   final double fee;
+
+  /// اعتمادات تابي العامّة — من الخادم لا من `dart-define`.
+  ///
+  /// تثبيتها لحظة البناء يعني نسخةً جديدة على المتجر عند كلّ تبديل مفتاح،
+  /// وانتقالاً من الرمل إلى الإنتاج ببناءٍ ومراجعة. وكلاهما عامّ بطبيعته:
+  /// المفتاح يُستعمل في ودجت تابي، ورمز المتجر يظهر في رابط الدفع نفسه.
   final String? publicKey;
+  final String? merchantCode;
 
   bool get isCod => id == 'cod';
   bool get hasFee => fee > 0;
@@ -26,6 +34,7 @@ class PaymentMethodModel {
       description: json['description']?.toString(),
       fee: double.tryParse(json['fee']?.toString() ?? '') ?? 0,
       publicKey: json['publicKey']?.toString(),
+      merchantCode: json['merchantCode']?.toString(),
     );
   }
 }
