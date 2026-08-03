@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:tabby_flutter_inapp_sdk/tabby_flutter_inapp_sdk.dart';
 
 import 'app/config/app_config.dart';
 import 'app/tint_app.dart';
@@ -44,9 +43,10 @@ Future<void> main() async {
   final appConfig = AppConfig.fromEnvironment();
   // روابط الصور المحلّيّة (localhost) تُعاد كتابتها لمضيف الـAPI لتظهر على المحاكي/الجهاز.
   TintNetworkImage.apiOrigin = appConfig.origin;
-  if (appConfig.hasTabbyConfig) {
-    TabbySDK().setup(withApiKey: appConfig.tabbyPublicKey);
-  }
+  // ‼️ لا تُهيَّأ حزمة تابي هنا. `setup` يُقبَل مرّةً واحدة لكلّ تشغيل (حقل
+  // `late final`)، وتهيئتها بمفتاح البناء تستهلك تلك المرّة — فيبقى المفتاح
+  // القادم من اللوحة بلا أثر. التهيئة صارت في `TabbyCheckoutService` عند أوّل
+  // جلسة، بالمفتاح الذي يقوله الخادم. (وودجت الترويج تمرّر مفتاحها بنفسها.)
 
   final appPreferences = AppPreferences();
   await appPreferences.initialize();

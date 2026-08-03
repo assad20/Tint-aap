@@ -22,9 +22,58 @@ class TabbyCheckoutSession {
 }
 
 class TabbyCheckoutService {
-  const TabbyCheckoutService(this._config);
+  /// [merchantCodeOverride] و[publicKeyOverride] يأتيان من الخادم
+  /// (`/catalog/payment-methods`)، ويسقطان على قيم البناء إن غابا.
+  ///
+  /// الأصل أنّهما من الخادم: مفتاحٌ مثبَّتٌ لحظة البناء يعني نسخةً جديدة على
+  /// المتجر عند كلّ تبديل، وانتقالاً من الرمل إلى الإنتاج ببناءٍ ومراجعة —
+  /// بينما الخادم يُبدّلهما من اللوحة فيسريان على كلّ الأجهزة فوراً.
+  const TabbyCheckoutService(
+    this._config, {
+    String? merchantCodeOverride,
+    String? publicKeyOverride,
+  })  : _merchantCodeOverride = merchantCodeOverride,
+        _publicKeyOverride = publicKeyOverride;
 
   final AppConfig _config;
+  final String? _merchantCodeOverride;
+  final String? _publicKeyOverride;
+
+  /// المفتاح الذي هُيّئ به الـSDK في هذا التشغيل — `null` قبل أوّل تهيئة.
+  static String? _configuredKey;
+
+  /// تهيئة الـSDK مرّةً واحدة لكلّ تشغيل.
+  ///
+  /// ‼️ `TabbySDK().setup` يكتب في حقلٍ `late final`، فاستدعاؤه مرّتين يرمي
+  /// `LateInitializationError: Field '_apiKey' has already been initialized`.
+  /// كنتُ كتبتُ في التعليق السابق أنّ «الاستدعاء رخيصٌ ويقبل التكرار» — وهذا
+  /// خطأ: أوّل محاولة دفعٍ كانت تسقط به.
+  void _ensureSdkConfigured() {
+    if (_configuredKey == publicKey) return;
+
+    if (_configuredKey != null) {
+      // المفتاح تبدّل من اللوحة بعد أن هُيّئ الـSDK. لا سبيل إلى تبديله في
+      // نفس التشغيل، والمضيّ بالقديم يُنشئ جلسةً تحت حسابٍ خاطئ — فيُقال
+      // صراحةً بدل أن يفشل عند تابي برسالةٍ غامضة.
+      throw Exception(
+        'تغيّرت إعدادات تابي. أغلقي التطبيق وأعيدي فتحه ثمّ حاولي مجدّداً.',
+      );
+    }
+
+    TabbySDK().setup(withApiKey: publicKey);
+    _configuredKey = publicKey;
+  }
+
+  String get merchantCode =>
+      (_merchantCodeOverride?.trim().isNotEmpty ?? false)
+          ? _merchantCodeOverride!.trim()
+          : _config.tabbyMerchantCode;
+
+  String get publicKey => (_publicKeyOverride?.trim().isNotEmpty ?? false)
+      ? _publicKeyOverride!.trim()
+      : _config.tabbyPublicKey;
+
+  bool get isConfigured => publicKey.isNotEmpty && merchantCode.isNotEmpty;
 
   Currency get _currency => Currency.sar;
 
@@ -78,9 +127,12 @@ class TabbyCheckoutService {
       orderHistory: const [],
     );
 
+    // التهيئة بمفتاح الخادم — مرّةً واحدة لكلّ تشغيل (انظر `_ensureSdkConfigured`).
+    _ensureSdkConfigured();
+
     final session = await TabbySDK().createSession(
       TabbyCheckoutPayload(
-        merchantCode: _config.tabbyMerchantCode,
+        merchantCode: merchantCode,
         lang: _lang,
         payment: payment,
       ),
