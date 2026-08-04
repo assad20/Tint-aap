@@ -1,8 +1,20 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/models/chat_message_model.dart';
-import '../../../../core/utils/fake_seed_data.dart';
 import '../../domain/repositories/assistant_repository.dart';
+
+/// رسالة ترحيب المستشار — نصّ واجهةٍ لا بضاعة.
+///
+/// كانت تسكن `FakeSeedData` مع ٢٣ منتجاً مخترعاً، فبقي الملفّ حيّاً لأجلها
+/// وحدها بعد فصل تلك المنتجات عن الواجهة. نُقلت إلى ميزتها وحُذف الملفّ.
+List<ChatMessageModel> assistantGreeting() => [
+      ChatMessageModel(
+        role: ChatRole.assistant,
+        content:
+            'أهلاً بك في تنت (Tint)! أنا مستشار الموضة والجمال ✨. أي قسم تتصفحين اليوم لأساعدك في الاختيار؟',
+        createdAt: DateTime.now(),
+      ),
+    ];
 
 class AssistantState {
   const AssistantState({
@@ -27,7 +39,7 @@ class AssistantState {
 class AssistantCubit extends Cubit<AssistantState> {
   AssistantCubit({required AssistantRepository repository})
       : _repository = repository,
-        super(AssistantState(messages: FakeSeedData.defaultAssistantMessages));
+        super(AssistantState(messages: assistantGreeting()));
 
   final AssistantRepository _repository;
 
@@ -71,6 +83,6 @@ class AssistantCubit extends Cubit<AssistantState> {
   }
 
   void reset() {
-    emit(AssistantState(messages: FakeSeedData.defaultAssistantMessages));
+    emit(AssistantState(messages: assistantGreeting()));
   }
 }
