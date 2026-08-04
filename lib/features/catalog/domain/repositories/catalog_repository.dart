@@ -13,9 +13,9 @@ class CategoryPageResult {
 abstract class CatalogRepository {
   Future<Map<String, List<ProductModel>>> fetchBootstrapCatalog();
 
-  Future<List<CategoryModel>> fetchQuickLinks();
-
-  Future<List<String>> fetchSidebarCategories();
+  // ‼️ أُزيلت `fetchQuickLinks` و`fetchSidebarCategories`: لم يكن لهما مُستدعٍ
+  // واحد، وكانتا تُعيدان `FakeSeedData` — بابٌ مفتوحٌ لتسرّب بياناتٍ مخترعة
+  // إلى الواجهة متى استُعملتا. التنقّل الحقيقيّ يأتي من `/catalog/navigation`.
 
   Future<List<ProductModel>> fetchTrendingProducts();
 

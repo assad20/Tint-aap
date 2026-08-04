@@ -2,7 +2,6 @@ import '../../../../core/models/category_model.dart';
 import '../../../../core/models/discover_model.dart';
 import '../../../../core/models/hero_slide_model.dart';
 import '../../../../core/models/product_model.dart';
-import '../../../../core/utils/fake_seed_data.dart';
 import '../../domain/repositories/catalog_repository.dart';
 import '../datasources/catalog_remote_data_source.dart';
 
@@ -34,16 +33,6 @@ class CatalogRepositoryImpl implements CatalogRepository {
     } catch (_) {
       return const {}; // بلا وهم عند فشل الشبكة
     }
-  }
-
-  @override
-  Future<List<CategoryModel>> fetchQuickLinks() async {
-    return FakeSeedData.quickLinks;
-  }
-
-  @override
-  Future<List<String>> fetchSidebarCategories() async {
-    return FakeSeedData.sidebarCategories;
   }
 
   @override
@@ -169,19 +158,21 @@ class CatalogRepositoryImpl implements CatalogRepository {
     }
   }
 
+  /// ‼️ بلا تراجُعٍ إلى بيانات تجريبيّة.
+  ///
+  /// كان البحث يخترع نتائج حين لا يجد الخادم شيئاً أو حين يفشل النداء — فيُقدَّم
+  /// للمتسوّق منتجٌ لا وجود له في الكتالوج، **لا يستطيع شراءه أبداً** (الخادم
+  /// لا يعرف معرّفه فيرفض الطلب). و«لا نتائج» أصدق من نتيجةٍ مختلَقة.
   @override
   Future<List<ProductModel>> searchProducts(String query) async {
     try {
       final items = await _remoteDataSource.searchProducts(query);
-      if (items.isEmpty) {
-        return FakeSeedData.searchProducts(query);
-      }
       return items
           .whereType<Map<String, dynamic>>()
           .map(ProductModel.fromJson)
           .toList();
     } catch (_) {
-      return FakeSeedData.searchProducts(query);
+      return const <ProductModel>[];
     }
   }
 }

@@ -7,7 +7,6 @@ import '../../../../app/theme/app_theme.dart';
 import '../../../../core/models/category_model.dart';
 import '../../../../core/models/hero_slide_model.dart';
 import '../../../../core/models/product_model.dart';
-import '../../../../core/utils/fake_seed_data.dart';
 import '../../../../core/widgets/tint_ui.dart';
 import '../cubit/home_store_cubit.dart';
 import '../widgets/banner_slider.dart';
@@ -126,24 +125,28 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildStorefront(BuildContext context, HomeStoreState state) {
-    // الأقسام التحريريّة الحقيقيّة من الوسيط (/catalog/bootstrap)؛ التراجُع
-    // للبيانات التجريبيّة يحدث فقط إن كان القسم فارغاً (فشل الجلب / بلا اتّصال).
+    /**
+     * الأقسام التحريريّة الحقيقيّة من الوسيط (/catalog/bootstrap).
+     *
+     * ‼️ ولا تراجُع إلى بيانات تجريبيّة عند فراغ القسم. كانت الأقسام الفارغة
+     * تُملأ بمنتجات `FakeSeedData` بصور Unsplash — ومن يضيفها **لا يستطيع
+     * شراءها أبداً**: الخادم لا يعرف معرّفها فيرفض الطلب. وقسمٌ لا يُعرَض أصدق
+     * من قسمٍ يعرض ما لا يُباع.
+     */
     final newArrivals = state.productsOf('وصل حديثاً');
     final offers = state.productsOf('عروض وخصومات');
     final bestSellers = state.productsOf('الأكثر مبيعاً');
     final picks = state.productsOf('مختارات لك');
-    List<ProductModel> or(List<ProductModel> real, List<ProductModel> fallback) =>
-        real.isNotEmpty ? real : fallback;
 
     // «الرئيسية» = البوّابة بالأقسام التحريريّة الحقيقيّة من /catalog/bootstrap.
     if (state.activeTopNav == kHomeNav) {
       return _HomeGatewayStorefront(
         heroSlides: state.heroSlides,
-        quickLinks: state.topNav.isNotEmpty ? state.topNav : FakeSeedData.quickLinks,
-        bestSellers: or(bestSellers, FakeSeedData.bestSellers),
-        newArrivals: or(newArrivals, FakeSeedData.newArrivals),
-        offers: or(offers, FakeSeedData.offers),
-        gifts: or(picks, FakeSeedData.productsByCategory['gifts']!),
+        quickLinks: state.topNav,
+        bestSellers: bestSellers,
+        newArrivals: newArrivals,
+        offers: offers,
+        gifts: picks,
       );
     }
 
@@ -216,7 +219,8 @@ class _HomeGatewayStorefront extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final safeGifts = gifts.isNotEmpty ? gifts : FakeSeedData.productsByCategory['gifts']!;
+    // قسمٌ فارغ يبقى فارغاً — لا يُملأ بمنتجاتٍ لا تُشترى (انظر `_buildStorefront`).
+    final safeGifts = gifts;
     return Column(
       children: [
         // سلايدر البنرات (نمط شي إن): مُلاصق للحواف بلا زوايا ولا فجوة عن

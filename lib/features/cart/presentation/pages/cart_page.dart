@@ -3,10 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_theme.dart';
-import '../../../../core/utils/fake_seed_data.dart';
 import '../../../../core/widgets/tint_ui.dart';
 import '../cubit/cart_cubit.dart';
-import '../../../catalog/presentation/widgets/product_card.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -353,23 +351,9 @@ class _CartPageState extends State<CartPage> {
                     Expanded(child: _TrustTile(icon: Icons.restart_alt_rounded, title: 'استرجاع سهل')),
                   ],
                 ),
-                const SizedBox(height: 16),
-                const TintSectionHeader(title: 'أضيفي لمستك الأخيرة'),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 258,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: 3,
-                    separatorBuilder: (_, __) => const SizedBox(width: 12),
-                    itemBuilder: (context, index) => SizedBox(
-                      width: 150,
-                      child: ProductCard(
-                        product: FakeSeedData.productsByCategory['accessories']![index],
-                      ),
-                    ),
-                  ),
-                ),
+                // ‼️ أُزيل رفّ «أضيفي لمستك الأخيرة»: كان يعرض ثلاثة منتجات من
+                // `FakeSeedData` — لا وجود لها في الكتالوج، فمن يضيفها لا
+                // يستطيع شراءها. ويعود حين يوجد مصدرٌ حقيقيّ للتوصيات.
               ],
             );
           },
