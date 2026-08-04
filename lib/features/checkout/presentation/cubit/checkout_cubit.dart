@@ -140,6 +140,28 @@ class CheckoutCubit extends Cubit<CheckoutState> {
     );
   }
 
+  // تمارا: إنشاء الجلسة من الخادم.
+  Future<Map<String, dynamic>> createTamaraSession({
+    required List<CartItemModel> items,
+    required AddressModel address,
+    required String orderReference,
+    String? buyerEmail,
+  }) {
+    return _repository.createTamaraSession(
+      items: items,
+      address: address,
+      shippingMethod: state.shippingMethod,
+      shippingCost: state.shippingCostFor(
+          items.fold<double>(0, (sum, i) => sum + i.lineTotal)),
+      orderReference: orderReference,
+      buyerEmail: buyerEmail,
+    );
+  }
+
+  Future<Map<String, dynamic>> confirmTamaraPayment(String orderId) {
+    return _repository.confirmTamaraPayment(orderId);
+  }
+
   // نون: إنشاء الطلب (يعيد {checkoutUrl, noonOrderId}).
   Future<Map<String, dynamic>> initiateNoon({
     required List<CartItemModel> items,

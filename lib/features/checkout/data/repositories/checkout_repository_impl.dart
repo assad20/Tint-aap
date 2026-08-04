@@ -54,6 +54,30 @@ class CheckoutRepositoryImpl implements CheckoutRepository {
   }
 
   @override
+  Future<Map<String, dynamic>> createTamaraSession({
+    required List<CartItemModel> items,
+    required AddressModel address,
+    required String shippingMethod,
+    required double shippingCost,
+    required String orderReference,
+    String? buyerEmail,
+  }) {
+    return _remoteDataSource.createTamaraSession(
+      items: items,
+      address: address,
+      shippingMethod: shippingMethod,
+      shippingCost: shippingCost,
+      orderReference: orderReference,
+      buyerEmail: buyerEmail,
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> confirmTamaraPayment(String orderId) {
+    return _remoteDataSource.confirmTamaraPayment(orderId);
+  }
+
+  @override
   Future<Map<String, dynamic>> initiateNoon({
     required List<CartItemModel> items,
     required AddressModel address,

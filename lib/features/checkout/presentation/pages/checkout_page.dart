@@ -7,7 +7,7 @@ import 'package:latlong2/latlong.dart';
 
 import 'location_picker_page.dart';
 import 'noon_webview_page.dart';
-import 'tabby_webview_page.dart';
+import 'payment_webview_page.dart';
 import '../../../../app/config/app_config.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/models/account_models.dart';
@@ -674,6 +674,11 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
       return;
     }
 
+    if (state.paymentMethod == 'tamara') {
+      await _handleTamaraPayment(context);
+      return;
+    }
+
     if (state.paymentMethod == 'noon') {
       await _handleNoonPayment(context);
       return;
@@ -775,6 +780,71 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
     }
   }
 
+  /// تمارا — نفس هيكل تابي بعد إصلاحه: جلسةٌ من الخادم، وشاشةٌ تراقب الرابط،
+  /// وسؤال الخادم عن النتيجة **حتّى عند الإغلاق اليدويّ**.
+  ///
+  /// ولا تحتاج بريداً ولا تاريخ ميلاد كتابي: تمارا تجمعهما في صفحتها.
+  Future<void> _handleTamaraPayment(BuildContext context) async {
+    final cart = context.read<CartCubit>();
+    final cartState = cart.state;
+    final cubit = context.read<CheckoutCubit>();
+    final orderReference = 'TN-TAMARA-${DateTime.now().millisecondsSinceEpoch}';
+
+    try {
+      final session = await cubit.createTamaraSession(
+        items: cartState.items,
+        address: widget.address,
+        orderReference: orderReference,
+        buyerEmail: widget.tabbyEmailController.text.trim().isEmpty
+            ? null
+            : widget.tabbyEmailController.text.trim(),
+      );
+
+      final orderId = session['orderId']?.toString() ?? '';
+      final checkoutUrl = session['checkoutUrl']?.toString() ?? '';
+      final returnUrls = (session['returnUrls'] as Map?) ?? const {};
+
+      if (orderId.isEmpty || checkoutUrl.isEmpty) {
+        if (!mounted) return;
+        _showSnackBar(context, 'تعذّر فتح صفحة تمارا. حاولي مجدداً.');
+        return;
+      }
+
+      if (!mounted) return;
+      final outcome = await Navigator.of(context).push<PaymentWebviewOutcome>(
+        MaterialPageRoute(
+          builder: (_) => PaymentWebviewPage(
+            title: 'الدفع عبر تمارا',
+            checkoutUrl: checkoutUrl,
+            successUrl: returnUrls['success']?.toString() ?? '',
+            cancelUrl: returnUrls['cancel']?.toString() ?? '',
+            failureUrl: returnUrls['failure']?.toString() ?? '',
+          ),
+        ),
+      );
+
+      if (!mounted) return;
+      if (outcome == PaymentWebviewOutcome.cancelled) {
+        _showSnackBar(context, 'أُلغي الدفع عبر تمارا.');
+        return;
+      }
+
+      // ‼️ يُسأل الخادم في النجاح والإغلاق معاً: الخروج ليس حكماً على الدفع.
+      final result = await cubit.confirmTamaraPayment(orderId);
+      if (!mounted) return;
+
+      final createdId = result['orderId']?.toString() ?? '';
+      if (createdId.isEmpty && outcome != PaymentWebviewOutcome.success) {
+        _showSnackBar(context, 'لم يكتمل الدفع عبر تمارا. يمكنك المحاولة مجدداً.');
+        return;
+      }
+      _showSuccessDialog(context, createdId.isEmpty ? orderReference : createdId);
+    } catch (error) {
+      if (!mounted) return;
+      _showSnackBar(context, _readableError(error));
+    }
+  }
+
   Future<void> _handleTabbyPayment(
     BuildContext context,
     CheckoutState state,
@@ -836,9 +906,11 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
       }
 
       if (!mounted) return;
-      final outcome = await Navigator.of(context).push<TabbyWebviewOutcome>(
+      final outcome = await Navigator.of(context).push<PaymentWebviewOutcome>(
         MaterialPageRoute(
-          builder: (_) => TabbyWebviewPage(
+          builder: (_) => PaymentWebviewPage(
+            title: 'الدفع عبر Tabby',
+            jsBridgeName: 'tabbyMobileSDK',
             checkoutUrl: checkoutUrl,
             successUrl: returnUrls['success']?.toString() ?? '',
             cancelUrl: returnUrls['cancel']?.toString() ?? '',
@@ -849,7 +921,7 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
 
       if (!mounted) return;
 
-      if (outcome == TabbyWebviewOutcome.cancelled) {
+      if (outcome == PaymentWebviewOutcome.cancelled) {
         _showSnackBar(context, 'أُلغي الدفع عبر Tabby.');
         return;
       }
@@ -872,7 +944,7 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
         buyerDob: buyerDob,
       );
       if (!mounted) return;
-      if (confirmation.orderId.isEmpty && outcome != TabbyWebviewOutcome.success) {
+      if (confirmation.orderId.isEmpty && outcome != PaymentWebviewOutcome.success) {
         _showSnackBar(context, 'لم يكتمل الدفع عبر Tabby. يمكنك المحاولة مجدداً.');
         return;
       }

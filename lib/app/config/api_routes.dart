@@ -36,6 +36,10 @@ abstract final class ApiRoutes {
   static const tabbySession = '/payments/tabby/sessions';
   static const tabbyRegisterPending = '/payments/tabby/register-pending';
   static const tabbyConfirm = '/payments/tabby/confirm';
+  // تمارا — الجلسة من الخادم كتابي: تصلها عناوين العودة، ويُطبَّق التسعير
+  // الموثوق وفحص المخزون قبل صفحة الدفع، ولا يبقى سرٌّ على الجهاز.
+  static const tamaraSession = '/payments/tamara/sessions';
+  static const tamaraConfirm = '/payments/tamara/confirm';
   static const noonInitiate = '/payments/noon/initiate';
   static const noonVerify = '/payments/noon/order'; // + /<noonOrderId>
   static const assistantChat = '/assistant/chat';

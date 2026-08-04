@@ -152,6 +152,37 @@ class CheckoutRemoteDataSource {
     );
   }
 
+  /// تمارا: إنشاء الجلسة من الخادم → {orderId, checkoutUrl, returnUrls}.
+  Future<Map<String, dynamic>> createTamaraSession({
+    required List<CartItemModel> items,
+    required AddressModel address,
+    required String shippingMethod,
+    required double shippingCost,
+    required String orderReference,
+    String? buyerEmail,
+  }) {
+    return _apiClient.postMap(
+      ApiRoutes.tamaraSession,
+      data: {
+        'lang': 'ar',
+        'order': _buildOrderPayload(
+          items: items,
+          address: address,
+          shippingMethod: shippingMethod,
+          shippingCost: shippingCost,
+          paymentMethod: 'Tamara',
+          orderReference: orderReference,
+          buyerEmail: buyerEmail,
+        ),
+      },
+    );
+  }
+
+  /// تمارا: التأكيد — الخادم يسأل تمارا ثمّ يُصرّح ويقبض ويُنشئ الطلب.
+  Future<Map<String, dynamic>> confirmTamaraPayment(String orderId) {
+    return _apiClient.postMap(ApiRoutes.tamaraConfirm, data: {'orderId': orderId});
+  }
+
   // نون: إنشاء الطلب والحصول على رابط الدفع المستضاف (يُفتح في webview).
   Future<Map<String, dynamic>> initiateNoon({
     required List<CartItemModel> items,

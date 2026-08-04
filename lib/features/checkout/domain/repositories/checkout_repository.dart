@@ -21,6 +21,19 @@ abstract class CheckoutRepository {
     String? buyerDob,
   });
 
+  /// تمارا: إنشاء الجلسة من الخادم → {orderId, checkoutUrl, returnUrls}.
+  Future<Map<String, dynamic>> createTamaraSession({
+    required List<CartItemModel> items,
+    required AddressModel address,
+    required String shippingMethod,
+    required double shippingCost,
+    required String orderReference,
+    String? buyerEmail,
+  });
+
+  /// تمارا: التأكيد — يُنادى عند العودة وعند الإغلاق اليدويّ معاً.
+  Future<Map<String, dynamic>> confirmTamaraPayment(String orderId);
+
   /// نون: إنشاء الطلب → {checkoutUrl, noonOrderId}.
   Future<Map<String, dynamic>> initiateNoon({
     required List<CartItemModel> items,
