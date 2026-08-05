@@ -78,6 +78,30 @@ class CheckoutRepositoryImpl implements CheckoutRepository {
   }
 
   @override
+  Future<Map<String, dynamic>> createPayTabsSession({
+    required List<CartItemModel> items,
+    required AddressModel address,
+    required String shippingMethod,
+    required double shippingCost,
+    required String orderReference,
+    String? buyerEmail,
+  }) {
+    return _remoteDataSource.createPayTabsSession(
+      items: items,
+      address: address,
+      shippingMethod: shippingMethod,
+      shippingCost: shippingCost,
+      orderReference: orderReference,
+      buyerEmail: buyerEmail,
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> confirmPayTabsPayment(String cartId, {String? tranRef}) {
+    return _remoteDataSource.confirmPayTabsPayment(cartId, tranRef: tranRef);
+  }
+
+  @override
   Future<Map<String, dynamic>> initiateNoon({
     required List<CartItemModel> items,
     required AddressModel address,

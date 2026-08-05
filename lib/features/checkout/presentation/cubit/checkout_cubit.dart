@@ -162,6 +162,28 @@ class CheckoutCubit extends Cubit<CheckoutState> {
     return _repository.confirmTamaraPayment(orderId);
   }
 
+  // PayTabs: إنشاء صفحة الدفع.
+  Future<Map<String, dynamic>> createPayTabsSession({
+    required List<CartItemModel> items,
+    required AddressModel address,
+    required String orderReference,
+    String? buyerEmail,
+  }) {
+    return _repository.createPayTabsSession(
+      items: items,
+      address: address,
+      shippingMethod: state.shippingMethod,
+      shippingCost: state.shippingCostFor(
+          items.fold<double>(0, (sum, i) => sum + i.lineTotal)),
+      orderReference: orderReference,
+      buyerEmail: buyerEmail,
+    );
+  }
+
+  Future<Map<String, dynamic>> confirmPayTabsPayment(String cartId, {String? tranRef}) {
+    return _repository.confirmPayTabsPayment(cartId, tranRef: tranRef);
+  }
+
   // نون: إنشاء الطلب (يعيد {checkoutUrl, noonOrderId}).
   Future<Map<String, dynamic>> initiateNoon({
     required List<CartItemModel> items,

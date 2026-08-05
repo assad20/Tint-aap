@@ -679,6 +679,11 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
       return;
     }
 
+    if (state.paymentMethod == 'paytabs') {
+      await _handlePayTabsPayment(context);
+      return;
+    }
+
     if (state.paymentMethod == 'noon') {
       await _handleNoonPayment(context);
       return;
@@ -780,6 +785,81 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
     }
   }
 
+  /// PayTabs — بطاقة.
+  ///
+  /// ‼️ تختلف عن تابي وتمارا في العودة: PayTabs تُرسل **POST بنموذج** إلى
+  /// خادمنا، وهو يتحقّق من التوقيع ثمّ **يُحوّل بـ303** إلى صفحة النتيجة.
+  /// فالشاشة تراقب **صفحة النتيجة** (`/checkout/paytabs/result`) لا عنوان
+  /// عودةٍ مباشر — ولو راقبت عنوان العودة لالتقطت نقطة POST التي لا يصلها
+  /// المتصفّح بـGET أصلاً.
+  Future<void> _handlePayTabsPayment(BuildContext context) async {
+    final cart = context.read<CartCubit>();
+    final cartState = cart.state;
+    final cubit = context.read<CheckoutCubit>();
+    final orderReference = 'TN-PT-${DateTime.now().millisecondsSinceEpoch}';
+
+    try {
+      final session = await cubit.createPayTabsSession(
+        items: cartState.items,
+        address: widget.address,
+        orderReference: orderReference,
+        buyerEmail: widget.tabbyEmailController.text.trim().isEmpty
+            ? null
+            : widget.tabbyEmailController.text.trim(),
+      );
+
+      final cartId = session['cartId']?.toString() ?? '';
+      final tranRef = session['tranRef']?.toString();
+      final redirectUrl = session['redirectUrl']?.toString() ?? '';
+      if (cartId.isEmpty || redirectUrl.isEmpty) {
+        if (!mounted) return;
+        _showSnackBar(context, 'تعذّر فتح صفحة الدفع بالبطاقة. حاولي مجدداً.');
+        return;
+      }
+
+      // صفحة النتيجة تُشتقّ من عنوان الخادم نفسه — فلا تُثبَّت في الشيفرة.
+      final resultUrl = context.read<AppConfig>().origin + '/checkout/paytabs/result';
+
+      if (!mounted) return;
+      final outcome = await Navigator.of(context).push<PaymentWebviewOutcome>(
+        MaterialPageRoute(
+          builder: (_) => PaymentWebviewPage(
+            title: 'الدفع بالبطاقة',
+            checkoutUrl: redirectUrl,
+            // النجاح والفشل يمرّان بنفس الصفحة، والخادم هو من يفصل — فنُغلق
+            // عندها ثمّ نسأل.
+            successUrl: resultUrl,
+            cancelUrl: '',
+            failureUrl: '',
+          ),
+        ),
+      );
+
+      if (!mounted) return;
+      if (outcome == PaymentWebviewOutcome.cancelled) {
+        _showSnackBar(context, 'أُلغي الدفع.');
+        return;
+      }
+
+      // ‼️ يُسأل الخادم في كلّ الحالات — حتّى الإغلاق اليدويّ.
+      final result = await cubit.confirmPayTabsPayment(cartId, tranRef: tranRef);
+      if (!mounted) return;
+
+      final createdId = result['orderId']?.toString() ?? '';
+      if (createdId.isEmpty) {
+        _showSnackBar(
+          context,
+          result['message']?.toString() ?? 'لم يكتمل الدفع بالبطاقة. يمكنك المحاولة مجدداً.',
+        );
+        return;
+      }
+      _showSuccessDialog(context, createdId);
+    } catch (error) {
+      if (!mounted) return;
+      _showSnackBar(context, _readableError(error));
+    }
+  }
+
   /// تمارا — نفس هيكل تابي بعد إصلاحه: جلسةٌ من الخادم، وشاشةٌ تراقب الرابط،
   /// وسؤال الخادم عن النتيجة **حتّى عند الإغلاق اليدويّ**.
   ///
@@ -833,12 +913,33 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
       final result = await cubit.confirmTamaraPayment(orderId);
       if (!mounted) return;
 
-      final createdId = result['orderId']?.toString() ?? '';
-      if (createdId.isEmpty && outcome != PaymentWebviewOutcome.success) {
-        _showSnackBar(context, 'لم يكتمل الدفع عبر تمارا. يمكنك المحاولة مجدداً.');
+      var createdId = result['orderId']?.toString() ?? '';
+
+      /// ‼️ لا نجاح بلا رقم طلبٍ من الخادم.
+      ///
+      /// كان يُعرَض نجاحٌ بـ`orderReference` — وهو رقمٌ **ولّدَه الجهاز** ولا
+      /// وجود له في النظام. فيخرج المشتري مطمئنّاً إلى طلبٍ لا يعرفه أحد.
+      ///
+      /// وتمارا قد تتأخّر لحظاتٍ بين `approved` و`authorised`، فنُعيد السؤال
+      /// مرّتين قبل أن نحكم — ثمّ نقول الحقيقة كما هي.
+      for (var attempt = 0; attempt < 2 && createdId.isEmpty; attempt++) {
+        await Future<void>.delayed(const Duration(seconds: 3));
+        if (!mounted) return;
+        final retry = await cubit.confirmTamaraPayment(orderId);
+        if (!mounted) return;
+        createdId = retry['orderId']?.toString() ?? '';
+      }
+
+      if (createdId.isEmpty) {
+        _showSnackBar(
+          context,
+          outcome == PaymentWebviewOutcome.success
+              ? 'دفعتك مسجَّلة لدى تمارا ونُتمّ تأكيد طلبك الآن — لا تُعِد الدفع، وستصلك رسالة التأكيد.'
+              : 'لم يكتمل الدفع عبر تمارا. يمكنك المحاولة مجدداً.',
+        );
         return;
       }
-      _showSuccessDialog(context, createdId.isEmpty ? orderReference : createdId);
+      _showSuccessDialog(context, createdId);
     } catch (error) {
       if (!mounted) return;
       _showSnackBar(context, _readableError(error));

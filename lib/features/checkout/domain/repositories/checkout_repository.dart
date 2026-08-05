@@ -34,6 +34,19 @@ abstract class CheckoutRepository {
   /// تمارا: التأكيد — يُنادى عند العودة وعند الإغلاق اليدويّ معاً.
   Future<Map<String, dynamic>> confirmTamaraPayment(String orderId);
 
+  /// PayTabs: إنشاء صفحة الدفع → {cartId, tranRef, redirectUrl}.
+  Future<Map<String, dynamic>> createPayTabsSession({
+    required List<CartItemModel> items,
+    required AddressModel address,
+    required String shippingMethod,
+    required double shippingCost,
+    required String orderReference,
+    String? buyerEmail,
+  });
+
+  /// PayTabs: التأكيد — يُنادى عند العودة وعند الإغلاق اليدويّ معاً.
+  Future<Map<String, dynamic>> confirmPayTabsPayment(String cartId, {String? tranRef});
+
   /// نون: إنشاء الطلب → {checkoutUrl, noonOrderId}.
   Future<Map<String, dynamic>> initiateNoon({
     required List<CartItemModel> items,

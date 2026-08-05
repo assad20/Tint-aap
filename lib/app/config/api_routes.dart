@@ -40,6 +40,10 @@ abstract final class ApiRoutes {
   // الموثوق وفحص المخزون قبل صفحة الدفع، ولا يبقى سرٌّ على الجهاز.
   static const tamaraSession = '/payments/tamara/sessions';
   static const tamaraConfirm = '/payments/tamara/confirm';
+  // PayTabs — بطاقات. ‼️ عودتها POST بنموذج إلى خادمنا، وهو يُحوّل بـ303 إلى
+  // صفحة النتيجة — فالشاشة تراقب **صفحة النتيجة** لا عنوان عودةٍ مباشر.
+  static const paytabsSession = '/payments/paytabs/sessions';
+  static const paytabsConfirm = '/payments/paytabs/confirm';
   static const noonInitiate = '/payments/noon/initiate';
   static const noonVerify = '/payments/noon/order'; // + /<noonOrderId>
   static const assistantChat = '/assistant/chat';

@@ -183,6 +183,40 @@ class CheckoutRemoteDataSource {
     return _apiClient.postMap(ApiRoutes.tamaraConfirm, data: {'orderId': orderId});
   }
 
+  /// PayTabs: إنشاء صفحة الدفع → {cartId, tranRef, redirectUrl}.
+  Future<Map<String, dynamic>> createPayTabsSession({
+    required List<CartItemModel> items,
+    required AddressModel address,
+    required String shippingMethod,
+    required double shippingCost,
+    required String orderReference,
+    String? buyerEmail,
+  }) {
+    return _apiClient.postMap(
+      ApiRoutes.paytabsSession,
+      data: {
+        'lang': 'ar',
+        'order': _buildOrderPayload(
+          items: items,
+          address: address,
+          shippingMethod: shippingMethod,
+          shippingCost: shippingCost,
+          paymentMethod: 'PayTabs',
+          orderReference: orderReference,
+          buyerEmail: buyerEmail,
+        ),
+      },
+    );
+  }
+
+  /// PayTabs: التأكيد — الخادم يسأل PayTabs ولا يُصدّق ما يقوله الجهاز.
+  Future<Map<String, dynamic>> confirmPayTabsPayment(String cartId, {String? tranRef}) {
+    return _apiClient.postMap(
+      ApiRoutes.paytabsConfirm,
+      data: {'cartId': cartId, if (tranRef != null) 'tranRef': tranRef},
+    );
+  }
+
   // نون: إنشاء الطلب والحصول على رابط الدفع المستضاف (يُفتح في webview).
   Future<Map<String, dynamic>> initiateNoon({
     required List<CartItemModel> items,
