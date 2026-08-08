@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/models/category_model.dart';
+import '../../../../core/models/cms_page_model.dart';
 import '../../../../core/models/hero_slide_model.dart';
 import '../../../../core/models/product_model.dart';
 import '../../../../core/storage/app_preferences.dart';
@@ -20,6 +21,7 @@ class HomeStoreState {
     this.categoryProducts = const [],
     this.categoryBanners = const [],
     this.isCategoryLoading = false,
+    this.homeLayout,
     this.errorMessage,
   });
 
@@ -36,6 +38,11 @@ class HomeStoreState {
   // تبويب «الأقسام»، فاختيار قسم من القائمة العلويّة يُظهر سلايدره أيضاً.
   final List<String> categoryBanners;
   final bool isCategoryLoading;
+
+  /// تخطيط الرئيسيّة من اللوحة (SDUI). `null` = لا تخطيط منشورٌ لقناة `app`
+  /// أو تعذّر جلبه ⇒ تُعرَض الرئيسيّة المكتوبة في الشيفرة.
+  final CmsPageModel? homeLayout;
+
   final String? errorMessage;
 
   HomeStoreState copyWith({
@@ -47,6 +54,7 @@ class HomeStoreState {
     List<ProductModel>? categoryProducts,
     List<String>? categoryBanners,
     bool? isCategoryLoading,
+    CmsPageModel? homeLayout,
     String? errorMessage,
   }) {
     return HomeStoreState(
@@ -58,6 +66,7 @@ class HomeStoreState {
       categoryProducts: categoryProducts ?? this.categoryProducts,
       categoryBanners: categoryBanners ?? this.categoryBanners,
       isCategoryLoading: isCategoryLoading ?? this.isCategoryLoading,
+      homeLayout: homeLayout ?? this.homeLayout,
       errorMessage: errorMessage,
     );
   }
@@ -98,11 +107,18 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
         _catalogRepository.fetchBootstrapCatalog(),
         _catalogRepository.fetchNavigation(),
         _catalogRepository.fetchHomeHeroSlides(),
+        // ‼️ **بالتوازي لا بالتسلسل**: التخطيط نداءٌ رابع في نفس الرحلة، وجعلُه
+        //    متسلسلاً يُضيف رحلةً كاملة إلى زمن الإقلاع — والخدمة والقاعدة في
+        //    منطقتين (~70ms للرحلة الواحدة).
+        _catalogRepository.fetchAppHomeLayout(),
       ]);
       final catalog = results[0] as Map<String, List<ProductModel>>;
       final nav = results[1] as List<CategoryModel>;
       // null = تعذّر الجلب → أبقِ المعروض؛ [] = لا بنرات معرّفة → أخفِ السلايدر.
       final slides = results[2] as List<HeroSlideModel>? ?? state.heroSlides;
+      // `null` ⇒ أبقِ ما هو معروض (`copyWith` تتجاهل الفراغ) — فانقطاعُ شبكةٍ
+      // لا يُعيد المستخدم إلى التخطيط القديم بعد أن رأى الجديد.
+      final layout = results[3] as CmsPageModel?;
       final gotData = catalog.isNotEmpty || nav.isNotEmpty;
       if (gotData) {
         emit(state.copyWith(
@@ -110,6 +126,7 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
           catalog: catalog,
           topNav: nav,
           heroSlides: slides,
+          homeLayout: layout,
           errorMessage: null,
         ));
         await _saveSnapshot(catalog, nav, slides);

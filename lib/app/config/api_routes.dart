@@ -14,6 +14,13 @@ abstract final class ApiRoutes {
   // بعد إدخال العنوان. نفس المطابقة التي يستعملها الخادم عند التسعير.
   static const catalogAvailability = '/catalog/availability';
   static const catalogPaymentMethods = '/catalog/payment-methods';
+
+  /// تخطيط الرئيسيّة من لوحة التحكّم (SDUI).
+  ///
+  /// ‼️ **`?channel=app` إلزاميّة.** النطاق ثلاثيّ (متجر + قناة + لغة)، وبلا
+  /// القناة يسقط الطلب على `web` فيستقبل التطبيق **تخطيط الموقع** — وهو ما كان
+  /// يحدث فعلاً قبل توصيل المُعامِل في الكنترولر.
+  static const cmsHome = '/cms/public/home?channel=app';
   // طرق الشحن وأسعارها — المصدر الموثوق الذي يعيد الخادم حسابه عند الطلب.
   static const catalogShippingMethods = '/catalog/shipping-methods';
 

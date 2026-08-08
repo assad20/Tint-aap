@@ -1,4 +1,5 @@
 import '../../../../core/models/category_model.dart';
+import '../../../../core/models/cms_page_model.dart';
 import '../../../../core/models/discover_model.dart';
 import '../../../../core/models/hero_slide_model.dart';
 import '../../../../core/models/product_model.dart';
@@ -93,6 +94,20 @@ class CatalogRepositoryImpl implements CatalogRepository {
       return CategoryPageResult(products: products, banners: banners);
     } catch (_) {
       return const CategoryPageResult(products: [], banners: []);
+    }
+  }
+
+  @override
+  Future<CmsPageModel?> fetchAppHomeLayout() async {
+    try {
+      final page = CmsPageModel.fromJson(await _remoteDataSource.fetchAppHomeLayout());
+      // ‼️ صفحةٌ بلا أقسامٍ مفهومة = `null` لا «تخطيطٌ فارغ». قد تكون كلّ أقسامها
+      //    أحدث من هذه النسخة (`minAppVersion`)، والعرض حينها شاشةٌ بيضاء بينما
+      //    الرئيسيّة القديمة تعمل.
+      return page.sections.isEmpty ? null : page;
+    } catch (_) {
+      // 404 (لا رئيسيّة لقناة `app`) أو انقطاع — وكلاهما «أبقِ ما يعمل».
+      return null;
     }
   }
 

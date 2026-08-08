@@ -1,4 +1,5 @@
 import '../../../../core/models/category_model.dart';
+import '../../../../core/models/cms_page_model.dart';
 import '../../../../core/models/discover_model.dart';
 import '../../../../core/models/hero_slide_model.dart';
 import '../../../../core/models/product_model.dart';
@@ -31,6 +32,13 @@ abstract class CatalogRepository {
   // `null` = تعذّر الجلب (أبقِ المعروض)، بينما `[]` = لا بنرات مُعرَّفة فعلاً
   // (أخفِ السلايدر). التفريق ضروريّ وإلّا بقيت بنراتٌ حُذفت من اللوحة ظاهرةً.
   Future<List<HeroSlideModel>?> fetchHomeHeroSlides();
+
+  /// تخطيط رئيسيّة التطبيق من اللوحة (SDUI).
+  ///
+  /// `null` = **لا تخطيط لهذه القناة** (404) أو تعذّر الجلب ⇒ تبقى الرئيسيّة
+  /// المكتوبة في الشيفرة. وصفحةٌ بلا أقسام تُعامَل معاملة `null` للسبب نفسه:
+  /// شاشةٌ بيضاء أسوأ من تخطيطٍ قديمٍ يعمل.
+  Future<CmsPageModel?> fetchAppHomeLayout();
 
   // أرفف الاكتشاف لقسمٍ بعينه ('all' = الكلّ).
   // `null` = تعذّر الجلب (أبقِ المعروض)، بينما خلاصةٌ بلا أرفف = لا إشارات بعد.

@@ -15,6 +15,14 @@ class CatalogRemoteDataSource {
     return _apiClient.getMap(ApiRoutes.catalogHome);
   }
 
+  /// تخطيط رئيسيّة التطبيق من لوحة التحكّم (SDUI).
+  ///
+  /// ‼️ يعود **404** حين لا رئيسيّة منشورة لقناة `app` — وهي حالةٌ طبيعيّة لا
+  /// عطل: رئيسيّة كلّ متجرٍ اليوم للويب. والمستودع يترجمها إلى `null`.
+  Future<Map<String, dynamic>> fetchAppHomeLayout() {
+    return _apiClient.getMap(ApiRoutes.cmsHome);
+  }
+
   Future<List<dynamic>> fetchTrendingProducts() {
     return _apiClient.getList(ApiRoutes.catalogTrends);
   }

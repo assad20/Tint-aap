@@ -7,6 +7,7 @@ import '../../../../core/models/hero_slide_model.dart';
 import '../../../../core/models/product_model.dart';
 import '../../../../core/widgets/tint_ui.dart';
 import '../cubit/home_store_cubit.dart';
+import '../sdui/section_builders.dart';
 import '../sdui/sections/category_world_card.dart';
 import '../sdui/sections/product_carousel_section.dart';
 import '../sdui/sections/product_grid_section.dart';
@@ -31,6 +32,14 @@ void _openSlideTarget(BuildContext context, String href) {
     }
   }
 }
+
+/// سجلّ مكوّنات SDUI — يُبنى مرّةً واحدة.
+///
+/// ‼️ خارج `build`: بناؤه في كلّ إطارٍ يُنشئ خريطة بانيات جديدة عند كلّ تمرير.
+final _sectionRegistry = buildDefaultSectionRegistry(
+  onSkipped: (type, error) =>
+      debugPrint('[sdui] لم يُعرَض "$type" على الرئيسيّة${error == null ? '' : ': $error'}'),
+);
 
 /// ⚙️ مفتاح تجربة «الهيدر الغاطس» (نمط شي إن): السلايدر يمتدّ خلف شريط البحث
 /// والأقسام بدل أن يبدأ تحتهما، والهيدر يطفو شفّافاً ثمّ يصير أبيض بالتمرير.
@@ -107,8 +116,18 @@ class _HomePageState extends State<HomePage> {
         // الغَطس يعمل على كلّ التبويبات ما دام خلف الهيدر بانر. أمّا قسمٌ بلا
         // بانر فيُصمَت فيه الوضع (opacity = 1)، وإلّا صار الهيدر أبيضَ شفّافاً
         // فوق خلفيّةٍ بيضاء = غير مرئيّ بالكامل.
+        /**
+         * ‼️ **التخطيط من اللوحة يُلغي الغَطس.**
+         *
+         * كُشف على المحاكي: الهيدر الغاطس يرسم أيقوناته **بيضاء** لأنّه يفترض
+         * بانراً داكناً خلفه. وتخطيط اللوحة لا يبدأ ببانرٍ بالضرورة — فصار
+         * الهيدر أبيضَ على أبيض: شريط بحثٍ وأيقوناتٌ موجودةٌ في الشجرة **وغير
+         * مرئيّة إطلاقاً**. لا خطأ في السجلّ، ولا اختبارٌ يلتقطها.
+         *
+         * فما دام التخطيط من اللوحة، الهيدر معتمٌ دائماً (`overlay = 1`).
+         */
         final hasBannerBehind = state.activeTopNav == kHomeNav
-            ? state.heroSlides.isNotEmpty
+            ? (state.homeLayout == null && state.heroSlides.isNotEmpty)
             : state.categoryBanners.isNotEmpty;
         final overlay = hasBannerBehind ? _headerOpacity : 1.0;
         return Stack(
@@ -139,6 +158,30 @@ class _HomePageState extends State<HomePage> {
     final offers = state.productsOf('عروض وخصومات');
     final bestSellers = state.productsOf('الأكثر مبيعاً');
     final picks = state.productsOf('مختارات لك');
+
+    /**
+     * ‼️ **التخطيط من اللوحة يسبق المكتوب في الشيفرة** (المهمّة 2.10).
+     *
+     * وهو يُغطّي تبويب «الرئيسية» وحده: بقيّة التبويبات أقسام كتالوج تُبنى من
+     * `/catalog/categories/:slug`، وليست صفحاتِ CMS.
+     *
+     * ‼️ **والرجوع إلى المكتوب حين لا تخطيط — عمداً وموقّتاً.** معيار القبول
+     * «لا قسمٌ مكتوبٌ في الشيفرة»، لكنّ حذفَه اليوم يعني شاشةً بيضاء في كلّ
+     * متجرٍ لم تُنشأ له رئيسيّة `channel=app` بعد — وهي كلّ المتاجر. يُحذف مع
+     * 2.12 (التخطيط الافتراضيّ المدمج) حين يصير للفراغ بديلٌ لا فراغ.
+     */
+    final layout = state.homeLayout;
+    if (state.activeTopNav == kHomeNav && layout != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // إزاحة الهيدر الغاطس: التخطيط من اللوحة لا يعرف بوجوده، وبلا الإزاحة
+          // يختفي أوّل قسمٍ خلف شريط البحث.
+          if (kImmersiveHeroHeader) SizedBox(height: _headerHeight(context)),
+          ..._sectionRegistry.buildAll(context, layout),
+        ],
+      );
+    }
 
     // «الرئيسية» = البوّابة بالأقسام التحريريّة الحقيقيّة من /catalog/bootstrap.
     if (state.activeTopNav == kHomeNav) {
