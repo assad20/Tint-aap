@@ -30,10 +30,14 @@ class TintWideBanner extends StatelessWidget {
   /// القائم: تخمينُ نسبةٍ أسوأ من ارتفاعٍ ثابتٍ يعمل اليوم.
   final double? aspectRatio;
 
-  /// ‼️ **وجهةٌ فارغة ⇒ لا زرّ** (المهمّة 0.1 والمبدأ الثاني). زرٌّ لا يؤدّي
-  /// شيئاً أسوأ من غيابه: العميل يضغطه مرّتين ثمّ يظنّ التطبيق معطّلاً.
-  /// و`null` هنا هو الحالة القائمة في الرئيسيّة المكتوبة بالشيفرة اليوم
-  /// (`onPressed: () {}`), فالمظهر لا يتغيّر حتّى يُربَط من اللوحة.
+  /// ‼️ **وجهةٌ فارغة ⇒ لا زرّ** (المهمّة 0.1 والمبدأ الثاني).
+  ///
+  /// زرٌّ لا يؤدّي شيئاً **أسوأ من غيابه**: العميل يضغطه مرّةً فلا يحدث شيء،
+  /// ثمّ ثانيةً، ثمّ يظنّ التطبيق معطّلاً — ولا سجلّ ولا شكوى تُفسّر ذلك.
+  /// وقُيس على الإنتاج بنرٌ نوعه `category` بوجهةٍ فارغة يفعل هذا بالضبط.
+  ///
+  /// و`null` ⇒ الشريط يُعرَض بصورته ونصّه بلا زرّ. لا زرٌّ «معطَّل» رماديّ:
+  /// المعطَّل يوحي بأنّ شيئاً سيعمل لاحقاً، والغياب يقول الحقيقة.
   final VoidCallback? onTap;
 
   @override
@@ -101,14 +105,15 @@ class TintWideBanner extends StatelessWidget {
                     ],
                   ),
                 ),
-                FilledButton(
-                  onPressed: onTap ?? () {},
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: TintColors.sand,
+                if (onTap != null)
+                  FilledButton(
+                    onPressed: onTap,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: TintColors.sand,
+                    ),
+                    child: const Text('تصفح'),
                   ),
-                  child: const Text('تصفح'),
-                ),
               ],
             ),
           ),

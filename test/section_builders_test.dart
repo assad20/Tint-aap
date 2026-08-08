@@ -134,6 +134,61 @@ void main() {
       expect(find.text('ثانٍ'), findsOneWidget);
     });
 
+    testWidgets('banner_grid: وجهةٌ فارغة ⇒ لا زرّ (المهمّة 0.1)', (tester) async {
+      // ‼️ زرٌّ يُعرَض ثمّ لا يفعل شيئاً أسوأ من غيابه: يظنّ العميل التطبيق
+      //    معطّلاً، ولا سجلّ يُفسّر ذلك.
+      final navigated = <String>[];
+      final registry = buildDefaultSectionRegistry(
+        onNavigate: (_, href) => navigated.add(href),
+      );
+      final page = CmsPageModel.fromJson({
+        'sections': [
+          {
+            'id': 'b',
+            'type': 'banner_grid',
+            'position': 0,
+            'items': [
+              {'image': 'https://example.test/1.jpg', 'title': 'بوجهة', 'href': '/category/makeup'},
+              {'image': 'https://example.test/2.jpg', 'title': 'بلا وجهة'},
+              {'image': 'https://example.test/3.jpg', 'title': 'وجهةٌ فراغات', 'href': '   '},
+            ],
+          },
+        ],
+      });
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => SingleChildScrollView(
+              child: Column(children: registry.buildAll(context, page)),
+            ),
+          ),
+        ),
+      ));
+
+      // ثلاثة شرائط، وزرٌّ واحد فقط — للذي يملك وجهة.
+      expect(find.byType(TintWideBanner), findsNWidgets(3));
+      expect(find.text('تصفح'), findsOneWidget);
+
+      await tester.tap(find.text('تصفح'));
+      expect(navigated, ['/category/makeup']);
+    });
+
+    testWidgets('banner_grid: بلا مُنفِّذ تنقّل ⇒ لا زرّ ولو وُجدت وجهة', (tester) async {
+      // وجهةٌ لا أحد يستطيع فتحها = وجهةٌ فارغة عمليّاً.
+      final built = await buildOne(tester, {
+        'id': 'b',
+        'type': 'banner_grid',
+        'position': 0,
+        'items': [
+          {'image': 'https://example.test/1.jpg', 'href': '/category/makeup'},
+        ],
+      });
+
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: built)));
+      expect(find.text('تصفح'), findsNothing);
+    });
+
     testWidgets('banner_grid: aspectRatio من الخادم يحجز المساحة (2.13)', (tester) async {
       // ‼️ الحجز قبل وصول الصورة هو ما يمنع القفز. وبلا نسبةٍ يبقى الارتفاع
       //    الثابت — ولا تُخمَّن نسبة.

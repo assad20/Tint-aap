@@ -39,6 +39,8 @@ void _openSlideTarget(BuildContext context, String href) {
 final _sectionRegistry = buildDefaultSectionRegistry(
   onSkipped: (type, error) =>
       debugPrint('[sdui] لم يُعرَض "$type" على الرئيسيّة${error == null ? '' : ': $error'}'),
+  // نفس مُترجم الوجهات الذي يستعمله سلايدر البنرات — قاموسٌ واحد للوجهات.
+  onNavigate: _openSlideTarget,
 );
 
 /// ⚙️ مفتاح تجربة «الهيدر الغاطس» (نمط شي إن): السلايدر يمتدّ خلف شريط البحث

@@ -43,7 +43,25 @@ String _title(CmsSectionModel section) =>
 ///
 /// ‼️ **ما ليس هنا يسقط بصمت** — وهذا مقصود: الأنواع الثمانية عشرة في الخادم
 /// تُرحَّل تباعاً (2.6 و2.9)، والنشر يبقى آمناً في كلّ مرحلةٍ منها.
-SectionRegistry buildDefaultSectionRegistry({SectionSkipReporter? onSkipped}) {
+/// يفتح وجهةً قادمة من اللوحة (`/category/<slug>` اليوم).
+///
+/// ‼️ يُمرَّر من الشاشة لا يُبنى هنا: التنقّل في هذا التطبيق تبديلُ تبويبٍ داخل
+/// القشرة لا مسارُ `go_router`، وهو ما تعرفه الشاشة وحدها. ويُوسَّع في 3.2.
+typedef SectionNavigate = void Function(BuildContext context, String href);
+
+SectionRegistry buildDefaultSectionRegistry({
+  SectionSkipReporter? onSkipped,
+  SectionNavigate? onNavigate,
+}) {
+  /// ‼️ **لا زرَّ بلا وجهةٍ عاملة** (المهمّة 0.1): وجهةٌ فارغة **أو** غياب
+  /// مُنفِّذٍ للتنقّل ⇒ `null` ⇒ الشريط بلا زرّ. زرٌّ يُعرَض ثمّ لا يفعل شيئاً
+  /// أسوأ من غيابه.
+  VoidCallback? tapFor(BuildContext context, Map<String, dynamic> item) {
+    final href = (item['href'] ?? item['ctaHref'])?.toString().trim() ?? '';
+    if (href.isEmpty || onNavigate == null) return null;
+    return () => onNavigate(context, href);
+  }
+
   return SectionRegistry(
     onSkipped: onSkipped,
     builders: {
@@ -87,6 +105,7 @@ SectionRegistry buildDefaultSectionRegistry({SectionSkipReporter? onSkipped}) {
                   subtitle: banners[i]['subtitle']?.toString() ?? '',
                   // 2.13 — يعود من الخادم لصور المكتبة وحدها (1.5).
                   aspectRatio: _double(banners[i]['aspectRatio']),
+                  onTap: tapFor(context, banners[i]),
                 ),
               ],
             ],
