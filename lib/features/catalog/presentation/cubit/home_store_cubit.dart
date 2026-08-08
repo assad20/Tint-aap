@@ -91,12 +91,16 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
   Future<void> bootstrap() async {
     // ① لقطة محفوظة → عرض لحظيّ للرئيسيّة بينما نُحدّث في الخلفيّة (يُخفي بُعد الخادم).
     final cached = _readCachedSnapshot();
-    if (cached != null) {
+    // ‼️ التخطيط المخزَّن يُقرأ ويُعرض قبل أيّ نداء شبكة (2.11): بدونه ترى العينُ
+    //    الرئيسيّةَ القديمة ثمّ تقفز إلى تخطيط اللوحة بعد رحلةٍ كاملة.
+    final cachedLayout = _readCachedLayout();
+    if (cached != null || cachedLayout != null) {
       emit(state.copyWith(
         isLoading: true, // المحتوى ظاهر؛ مؤشّر تحديث خفيف فقط
-        catalog: cached.$1,
-        topNav: cached.$2,
-        heroSlides: cached.$3,
+        catalog: cached?.$1,
+        topNav: cached?.$2,
+        heroSlides: cached?.$3,
+        homeLayout: cachedLayout,
       ));
     } else {
       emit(state.copyWith(isLoading: true));
@@ -118,7 +122,8 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
       final slides = results[2] as List<HeroSlideModel>? ?? state.heroSlides;
       // `null` ⇒ أبقِ ما هو معروض (`copyWith` تتجاهل الفراغ) — فانقطاعُ شبكةٍ
       // لا يُعيد المستخدم إلى التخطيط القديم بعد أن رأى الجديد.
-      final layout = results[3] as CmsPageModel?;
+      final rawLayout = results[3] as Map<String, dynamic>?;
+      final layout = rawLayout == null ? null : CmsPageModel.fromJson(rawLayout);
       final gotData = catalog.isNotEmpty || nav.isNotEmpty;
       if (gotData) {
         emit(state.copyWith(
@@ -132,10 +137,18 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
         await _saveSnapshot(catalog, nav, slides);
       } else {
         // لا بيانات جديدة (فشل/فارغ): أبقِ المعروض (الكاش أو الفارغ)، لا تُفرّغه.
+        // ‼️ والتخطيط يُمرَّر هنا أيضاً: هو نداءٌ مستقلّ، وقد ينجح بينما يفشل
+        //    الكتالوج — فربطُ مصيره بمصير الكتالوج يُضيّع تخطيطاً وصل سليماً.
         emit(state.copyWith(
           isLoading: false,
+          homeLayout: layout,
           errorMessage: cached == null ? 'تعذّر تحميل الكتالوج' : null,
         ));
+      }
+
+      // ‼️ خارج الفرعين للسبب نفسه.
+      if (rawLayout != null) {
+        await _saveLayout(rawLayout);
       }
       if (state.activeTopNav != kHomeNav) {
         await _loadCategory(state.activeTopNav);
@@ -181,6 +194,27 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
       return (catalog, nav, slides);
     } catch (_) {
       return null; // كاش تحسينيّ فقط — تجاهل أيّ تلف
+    }
+  }
+
+  /// يقرأ التخطيط المخزَّن ويُعيد تحليله — فيُعاد تطبيق حارس `minAppVersion`
+  /// بنسخة التطبيق **الحاليّة** لا بالتي خزّنته.
+  CmsPageModel? _readCachedLayout() {
+    final raw = _appPreferences.cachedHomeLayout;
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final page = CmsPageModel.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      return page.sections.isEmpty ? null : page;
+    } catch (_) {
+      return null; // كاش تحسينيّ — تجاهل أيّ تلف
+    }
+  }
+
+  Future<void> _saveLayout(Map<String, dynamic> raw) async {
+    try {
+      await _appPreferences.setCachedHomeLayout(jsonEncode(raw));
+    } catch (_) {
+      // تجاهل: الكاش تحسينيّ لا يؤثّر على العمل.
     }
   }
 

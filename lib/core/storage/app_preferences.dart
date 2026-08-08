@@ -83,6 +83,18 @@ class AppPreferences {
     await _prefs.setString('home_snapshot_v1', json);
   }
 
+  /// ─── تخطيط الرئيسيّة من اللوحة (SDUI) — **يُخزَّن خاماً كما وصل** ───
+  ///
+  /// ‼️ خاماً لا مُحلَّلاً عمداً: التحليل يُطبّق حارس `minAppVersion`، وتخزينُ
+  /// نتيجته يُجمّد قراراً اتُّخذ بنسخةٍ قديمة — فقسمٌ أُخفي لأنّه يحتاج `1.4.0`
+  /// يبقى مخفيّاً بعد ترقية التطبيق إلى `1.4.0` نفسها. والخام يُعاد تقييمه في
+  /// كلّ إقلاع.
+  String? get cachedHomeLayout => _prefs.getString('home_layout_v1');
+
+  Future<void> setCachedHomeLayout(String json) async {
+    await _prefs.setString('home_layout_v1', json);
+  }
+
   // ─── بيانات العميل بعد تسجيل الدخول (التوكن نفسه في التخزين الآمن) ───
   String? get customerPhone => _prefs.getString('customer_phone');
   String? get customerName => _prefs.getString('customer_name');

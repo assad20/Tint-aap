@@ -98,13 +98,13 @@ class CatalogRepositoryImpl implements CatalogRepository {
   }
 
   @override
-  Future<CmsPageModel?> fetchAppHomeLayout() async {
+  Future<Map<String, dynamic>?> fetchAppHomeLayout() async {
     try {
-      final page = CmsPageModel.fromJson(await _remoteDataSource.fetchAppHomeLayout());
-      // ‼️ صفحةٌ بلا أقسامٍ مفهومة = `null` لا «تخطيطٌ فارغ». قد تكون كلّ أقسامها
-      //    أحدث من هذه النسخة (`minAppVersion`)، والعرض حينها شاشةٌ بيضاء بينما
-      //    الرئيسيّة القديمة تعمل.
-      return page.sections.isEmpty ? null : page;
+      final raw = await _remoteDataSource.fetchAppHomeLayout();
+      // ‼️ صفحةٌ بلا أقسامٍ **مفهومة** = لا تخطيط. قد تكون كلّ أقسامها أحدث من
+      //    هذه النسخة (`minAppVersion`)، والعرض حينها شاشةٌ بيضاء بينما
+      //    الرئيسيّة القائمة تعمل. والفحص هنا يمنع تخزين كاشٍ فارغ أيضاً.
+      return CmsPageModel.fromJson(raw).sections.isEmpty ? null : raw;
     } catch (_) {
       // 404 (لا رئيسيّة لقناة `app`) أو انقطاع — وكلاهما «أبقِ ما يعمل».
       return null;
