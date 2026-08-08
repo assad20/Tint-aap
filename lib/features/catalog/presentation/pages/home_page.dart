@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -9,6 +7,10 @@ import '../../../../core/models/hero_slide_model.dart';
 import '../../../../core/models/product_model.dart';
 import '../../../../core/widgets/tint_ui.dart';
 import '../cubit/home_store_cubit.dart';
+import '../sdui/sections/category_world_card.dart';
+import '../sdui/sections/product_carousel_section.dart';
+import '../sdui/sections/product_grid_section.dart';
+import '../sdui/sections/wide_banner_section.dart';
 import '../widgets/banner_slider.dart';
 import '../widgets/product_card.dart';
 import '../widgets/top_header.dart';
@@ -190,7 +192,7 @@ class _HomePageState extends State<HomePage> {
             headerInset:
                 kImmersiveHeroHeader ? _headerHeight(context) : 0,
           ),
-        _SimpleGridStorefront(
+        TintProductGrid(
           title: state.activeTopNav,
           subtitle: 'تشكيلة القسم',
           products: state.categoryProducts,
@@ -238,7 +240,7 @@ class _HomeGatewayStorefront extends StatelessWidget {
             onSlideTap: (href) => _openSlideTarget(context, href),
           ),
         ),
-        _SectionCarousel(
+        TintProductCarousel(
           title: 'الأكثر مبيعًا',
           subtitle: 'الأكثر رواجًا لدى عملائنا',
           items: bestSellers,
@@ -272,7 +274,7 @@ class _HomeGatewayStorefront extends StatelessWidget {
                           onTap: () => context
                               .read<HomeStoreCubit>()
                               .setActiveTopNav(e.value.name),
-                          child: _CategoryWorldCard(
+                          child: TintCategoryWorldCard(
                             images: e.value.displayImages,
                             title: e.value.name,
                             index: e.key,
@@ -283,7 +285,7 @@ class _HomeGatewayStorefront extends StatelessWidget {
             ],
           ),
         ),
-        _SectionCarousel(
+        TintProductCarousel(
           title: 'وصل حديثًا',
           subtitle: 'منتجات جديدة أضيفت خصيصًا لك',
           items: newArrivals,
@@ -320,314 +322,19 @@ class _HomeGatewayStorefront extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: _WideBanner(
+          child: TintWideBanner(
             image:
                 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=800&q=80',
             title: 'دليلك للهدايا',
             subtitle: 'هدايا جاهزة وتغليف فاخر',
           ),
         ),
-        _SectionCarousel(
+        TintProductCarousel(
           title: 'مختارات الهدايا',
           subtitle: 'أفكار جاهزة للمناسبات الخاصة',
           items: safeGifts,
         ),
         const SizedBox(height: 10),
-      ],
-    );
-  }
-}
-
-class _SimpleGridStorefront extends StatelessWidget {
-  const _SimpleGridStorefront({
-    required this.title,
-    required this.subtitle,
-    required this.products,
-    this.highlighted = false,
-  });
-
-  final String title;
-  final String subtitle;
-  final List<ProductModel> products;
-  final bool highlighted;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 6, 14, 16),
-      child: TintSurfaceCard(
-        color: highlighted ? const Color(0xFFFFF4F1) : Colors.white,
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-        child: Column(
-          children: [
-            TintSectionHeader(title: title, subtitle: subtitle),
-            const SizedBox(height: 10),
-            GridView.builder(
-              shrinkWrap: true,
-              padding: EdgeInsets.zero,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: products.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisExtent: 258,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-              ),
-              itemBuilder: (context, index) => ProductCard(product: products[index]),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SectionCarousel extends StatelessWidget {
-  const _SectionCarousel({
-    required this.title,
-    required this.subtitle,
-    required this.items,
-    this.accent = TintColors.sand,
-  });
-
-  final String title;
-  final String subtitle;
-  final List<ProductModel> items;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-      child: Column(
-        children: [
-          TintSectionHeader(
-            title: title,
-            subtitle: subtitle,
-            trailing: TextButton(
-              onPressed: () {},
-              child: Text(
-                'عرض الكل',
-                style: TextStyle(
-                  color: accent,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 275,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemBuilder: (context, index) => SizedBox(
-                width: 160,
-                child: ProductCard(product: items[index]),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-class _WideBanner extends StatelessWidget {
-  const _WideBanner({
-    required this.image,
-    required this.title,
-    required this.subtitle,
-    this.height = 145,
-  });
-
-  final String image;
-  final String title;
-  final String subtitle;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: height,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: TintNetworkImage(
-              url: image,
-              fit: BoxFit.cover,
-              // كبطاقة القسم: بلا مقاسٍ صريح تنكمش الصورة إلى نسبتها ويظهر
-              // الرماديّ على جانبَي الشريط.
-              width: double.infinity,
-              height: double.infinity,
-              borderRadius: BorderRadius.circular(24),
-              overlay: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24),
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.black.withOpacity(0.45),
-                      Colors.black.withOpacity(0.1),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            right: 18,
-            left: 18,
-            bottom: 18,
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                FilledButton(
-                  onPressed: () {},
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: TintColors.sand,
-                  ),
-                  child: const Text('تصفح'),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// بطاقة القسم: تتبدّل صورها تلقائيّاً حين تُرفع أكثر من واحدة من اللوحة،
-/// وتبقى ثابتة بصورةٍ واحدة. الصور مرصوفة فوق بعضها ويتبدّل ظهورها فلا
-/// تحميل عند كلّ تبدّل ولا وميض.
-class _CategoryWorldCard extends StatefulWidget {
-  const _CategoryWorldCard({
-    required this.images,
-    required this.title,
-    required this.index,
-  });
-
-  final List<String> images;
-  final String title;
-
-  /// موضع البطاقة في الشبكة — يُؤخّر بدايتها فلا يتبدّل الصفّ كلّه دفعةً
-  /// واحدة (وهو ما يبدو آليّاً مزعجاً بدل حركةٍ هادئة).
-  final int index;
-
-  @override
-  State<_CategoryWorldCard> createState() => _CategoryWorldCardState();
-}
-
-class _CategoryWorldCardState extends State<_CategoryWorldCard> {
-  int _active = 0;
-  Timer? _timer;
-  Timer? _stagger;
-
-  @override
-  void initState() {
-    super.initState();
-    _start();
-  }
-
-  @override
-  void didUpdateWidget(covariant _CategoryWorldCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.images.length != widget.images.length) {
-      if (_active >= widget.images.length) _active = 0;
-      _start();
-    }
-  }
-
-  void _start() {
-    _timer?.cancel();
-    _stagger?.cancel();
-    if (widget.images.length <= 1) return;
-    _stagger = Timer(Duration(milliseconds: widget.index * 450), () {
-      if (!mounted) return;
-      _timer = Timer.periodic(const Duration(seconds: 4), (_) {
-        if (!mounted) return;
-        setState(() => _active = (_active + 1) % widget.images.length);
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _stagger?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        for (var i = 0; i < widget.images.length; i++)
-          Positioned.fill(
-            child: AnimatedOpacity(
-              opacity: i == _active ? 1 : 0,
-              duration: const Duration(milliseconds: 600),
-              child: TintNetworkImage(
-                url: widget.images[i],
-                fit: BoxFit.cover,
-                // بلا مقاسٍ صريح تُعطي Stack قيوداً مرنة، فتنكمش الصورة إلى
-                // نسبتها الأصليّة وتتوسّط ويظهر الرماديّ حولها — و`cover` لا
-                // يقصّ شيئاً لأنّ الصندوق صار بمقاس الصورة أصلاً.
-                width: double.infinity,
-                height: double.infinity,
-                borderRadius: BorderRadius.circular(22),
-              ),
-            ),
-          ),
-        Positioned.fill(
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              color: Colors.black.withOpacity(0.36),
-            ),
-          ),
-        ),
-        Center(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.18),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white30),
-            ),
-            child: Text(
-              widget.title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ),
       ],
     );
   }
