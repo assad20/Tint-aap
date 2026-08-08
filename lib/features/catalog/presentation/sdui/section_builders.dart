@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import '../../../../core/models/cms_section_model.dart';
 import '../../../../core/models/product_model.dart';
 import 'section_registry.dart';
+import 'sections/circle_categories_section.dart';
+import 'sections/flash_sale_section.dart';
 import 'sections/product_carousel_section.dart';
 import 'sections/product_grid_section.dart';
+import 'sections/rich_text_section.dart';
 import 'sections/wide_banner_section.dart';
 
 /// يحوّل عنصر منتجٍ كما يُرسله الوسيط داخل قسم CMS إلى `ProductModel`.
@@ -18,9 +21,10 @@ import 'sections/wide_banner_section.dart';
 /// القسم فارغاً في كلّ بطاقةٍ تأتي من اللوحة، بينما يمتلئ في البطاقات القادمة
 /// من `/catalog/bootstrap` — فيختلف مظهر بطاقتين لنفس المنتج بحسب مصدرها.
 ///
-/// ‼️ **و`oldPrice` غير موجود في هذا الشكل إطلاقاً**، فلا شارة خصمٍ على بطاقةٍ
-/// من اللوحة ولو كان للمنتج `comparePrice`. نقصٌ في الخادم لا في التطبيق،
-/// ومُسجَّلٌ هنا حتّى لا يُشخَّص لاحقاً على أنّه عطلٌ في البطاقة.
+/// ‼️ **و`oldPrice` يُرسَل حين يوجد فعلاً** — تحقّقٌ لاحق على قسم `flash_sale`
+/// أعاد `"price":5.8,"oldPrice":7`. وغيابُه من عيّنة `new_arrivals` الأولى كان
+/// لأنّ ذلك المنتج بلا سعرٍ سابق، لا لأنّ الحقل مفقود من العقد. ولا يُبنى على
+/// عيّنةٍ واحدة حكمٌ على عقدٍ كامل.
 ProductModel productFromCmsItem(Map<String, dynamic> item) {
   final json = Map<String, dynamic>.from(item);
   json['category'] ??= json['categorySlug'];
@@ -87,6 +91,61 @@ SectionRegistry buildDefaultSectionRegistry({SectionSkipReporter? onSkipped}) {
           ),
         );
       },
+
+      // ───────────────────────── 2.9 ─────────────────────────
+
+      // ‼️ الافتراضيّ 24 كما في الويب حرفيّاً (`Number(settings.height ?? 24)`).
+      //    ورقمٌ مختلف هنا يعني صفحةً تتنفّس في الويب وتختنق في التطبيق.
+      'spacer': (context, section) =>
+          SizedBox(height: _double(section.settings['height']) ?? 24),
+
+      // `custom_html` يشترك مع `rich_text` في الويب — ونفس الاشتراك هنا.
+      'rich_text': _richTextBuilder,
+      'custom_html': _richTextBuilder,
+
+      'circle_categories': (context, section) {
+        final circles = <TintCircleItem>[];
+        for (var i = 0; i < section.items.length; i++) {
+          circles.add(TintCircleItem.fromJson(section.items[i], i));
+        }
+        return TintCircleCategories(
+          items: circles,
+          // الحدّ ٢..٦ في الويب — ويُطبَّق داخل الودجة أيضاً حمايةً من قيمةٍ قديمة.
+          columns: _int(section.settings['mobileColumns']) ?? 4,
+          beigeBackground: section.settings['beigeBackground'] == true,
+        );
+      },
+
+      'flash_sale': (context, section) => TintFlashSale(
+            title: _title(section),
+            subtitle: section.subtitle,
+            items: _products(section),
+            // ‼️ `tryParse` لا `parse`: تاريخٌ تالف يُسقط الرفّ كلّه بينما
+            //    منتجاته سليمة. بلا تاريخٍ يُعرَض الرفّ بلا عدّاد.
+            endsAt: DateTime.tryParse(section.settings['endsAt']?.toString() ?? '')?.toLocal(),
+          ),
     },
   );
+}
+
+Widget _richTextBuilder(BuildContext context, CmsSectionModel section) {
+  final text = htmlToPlainText(section.settings['html']?.toString() ?? '');
+  // ‼️ نصٌّ فارغ ⇒ لا بطاقة: إطارٌ أبيض بلا محتوى يبدو عطلاً لا تصميماً.
+  if (text.isEmpty && (section.title ?? '').isEmpty) return const SizedBox.shrink();
+  return TintRichTextSection(
+    text: text,
+    title: section.title,
+    subtitle: section.subtitle,
+  );
+}
+
+double? _double(dynamic value) {
+  if (value is num) return value.toDouble();
+  return double.tryParse(value?.toString() ?? '');
+}
+
+int? _int(dynamic value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value?.toString() ?? '');
 }
