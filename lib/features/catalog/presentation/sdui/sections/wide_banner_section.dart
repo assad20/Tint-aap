@@ -14,6 +14,7 @@ class TintWideBanner extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.height = 145,
+    this.aspectRatio,
     this.onTap,
   });
 
@@ -21,6 +22,13 @@ class TintWideBanner extends StatelessWidget {
   final String title;
   final String subtitle;
   final double height;
+
+  /// نسبة الصورة كما يقولها الخادم (المهمّة 1.5).
+  ///
+  /// ‼️ **حين تُعرَف يُحجَز مكانها بها قبل التحميل** — فلا يقفز ما تحتها حين
+  /// تصل الصورة (المهمّة 2.13). و`null` تعني «لا أعرف» فيبقى الارتفاع الثابت
+  /// القائم: تخمينُ نسبةٍ أسوأ من ارتفاعٍ ثابتٍ يعمل اليوم.
+  final double? aspectRatio;
 
   /// ‼️ **وجهةٌ فارغة ⇒ لا زرّ** (المهمّة 0.1 والمبدأ الثاني). زرٌّ لا يؤدّي
   /// شيئاً أسوأ من غيابه: العميل يضغطه مرّتين ثمّ يظنّ التطبيق معطّلاً.
@@ -30,9 +38,16 @@ class TintWideBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: height,
-      child: Stack(
+    final ratio = aspectRatio;
+    // ‼️ `AspectRatio` تحجز المساحة **قبل** وصول الصورة، فالمحتوى تحتها لا يقفز
+    //    (2.13). و`SizedBox` الثابتة تبقى حين لا نسبة — ولا تُخمَّن نسبة.
+    return ratio != null && ratio > 0
+        ? AspectRatio(aspectRatio: ratio, child: _content())
+        : SizedBox(height: height, child: _content());
+  }
+
+  Widget _content() {
+    return Stack(
         children: [
           Positioned.fill(
             child: TintNetworkImage(
@@ -98,7 +113,6 @@ class TintWideBanner extends StatelessWidget {
             ),
           ),
         ],
-      ),
     );
   }
 }

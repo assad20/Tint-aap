@@ -85,6 +85,8 @@ SectionRegistry buildDefaultSectionRegistry({SectionSkipReporter? onSkipped}) {
                   image: banners[i]['image'].toString(),
                   title: banners[i]['title']?.toString() ?? '',
                   subtitle: banners[i]['subtitle']?.toString() ?? '',
+                  // 2.13 — يعود من الخادم لصور المكتبة وحدها (1.5).
+                  aspectRatio: _double(banners[i]['aspectRatio']),
                 ),
               ],
             ],

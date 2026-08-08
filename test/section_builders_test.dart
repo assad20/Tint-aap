@@ -134,6 +134,29 @@ void main() {
       expect(find.text('ثانٍ'), findsOneWidget);
     });
 
+    testWidgets('banner_grid: aspectRatio من الخادم يحجز المساحة (2.13)', (tester) async {
+      // ‼️ الحجز قبل وصول الصورة هو ما يمنع القفز. وبلا نسبةٍ يبقى الارتفاع
+      //    الثابت — ولا تُخمَّن نسبة.
+      await pumpPage(tester, {
+        'sections': [
+          {
+            'id': 'b',
+            'type': 'banner_grid',
+            'position': 0,
+            'items': [
+              {'image': 'https://example.test/1.jpg', 'aspectRatio': 1.333},
+              {'image': 'https://example.test/2.jpg'},
+            ],
+          },
+        ],
+      });
+
+      final banners = tester.widgetList<TintWideBanner>(find.byType(TintWideBanner)).toList();
+      expect(banners[0].aspectRatio, 1.333);
+      expect(banners[1].aspectRatio, isNull);
+      expect(find.byType(AspectRatio), findsOneWidget);
+    });
+
     testWidgets('banner_grid بلا صورةٍ صالحة ⇒ لا شيء (لا إطارٌ فارغ)', (tester) async {
       await pumpPage(tester, {
         'sections': [
