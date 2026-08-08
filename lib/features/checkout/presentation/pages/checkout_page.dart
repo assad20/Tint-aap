@@ -817,8 +817,17 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
         return;
       }
 
-      // صفحة النتيجة تُشتقّ من عنوان الخادم نفسه — فلا تُثبَّت في الشيفرة.
-      final resultUrl = context.read<AppConfig>().origin + '/checkout/paytabs/result';
+      /// ‼️ صفحة النتيجة تأتي **من الخادم** (`resultPageUrl`)، ولا تُشتقّ هنا.
+      ///
+      /// كانت تُبنى من `AppConfig.origin` — وهو نطاق **الـAPI**، بينما صفحة
+      /// النتيجة على نطاق **المتجر**. فكانت الشاشة تراقب عنواناً لا يُزار
+      /// أبداً: يدفع المشتري، ويُحوّله الخادم إلى المتجر، وتبقى الشاشة واقفة
+      /// إلى الأبد. وهو عين عطل تابي في «سنعيدك الآن».
+      ///
+      /// والاحتياط أدناه للتوافق مع خادمٍ أقدم لم يُرسل الحقل بعد.
+      final resultUrl = (session['resultPageUrl']?.toString().trim().isNotEmpty ?? false)
+          ? session['resultPageUrl'].toString().trim()
+          : '${context.read<AppConfig>().origin}/checkout/paytabs/result';
 
       if (!mounted) return;
       final outcome = await Navigator.of(context).push<PaymentWebviewOutcome>(
