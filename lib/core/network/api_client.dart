@@ -5,11 +5,20 @@ import 'package:dio/dio.dart';
 import '../storage/token_storage.dart';
 import 'api_exception.dart';
 
+/// ترويسة مفتاح متجر التطبيق (المهمّة 1.8).
+///
+/// ‼️ **بدونها يُحَلّ التطبيق إلى المتجر الافتراضيّ بملاذ الرجوع** — أي يعمل
+/// **بالمصادفة** لأنّ الافتراضيّ هو تِنت. ويوم يُطلَق تطبيقٌ لمتجرٍ آخر يبيع
+/// كتالوج تِنت ويَنسب طلباته إليها **بلا خطأٍ في أيّ سجلّ**.
+const String kAppKeyHeader = 'x-tint-app-key';
+
 class ApiClient {
   ApiClient({
     required String baseUrl,
     required TokenStorage tokenStorage,
+    String appKey = _compiledAppKey,
   })  : _tokenStorage = tokenStorage,
+        _appKey = appKey.trim(),
         _dio = Dio(
           BaseOptions(
             baseUrl: baseUrl,
@@ -26,6 +35,11 @@ class ApiClient {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
+          // ‼️ في المعترِض لا في `BaseOptions`: كلّ نداءٍ يحمله بلا استثناء —
+          //    ونداءٌ واحد يُغفله يُحَلّ إلى متجرٍ آخر بصمت.
+          if (_appKey.isNotEmpty) {
+            options.headers[kAppKeyHeader] = _appKey;
+          }
           final token = await _tokenStorage.readToken();
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
@@ -41,6 +55,23 @@ class ApiClient {
 
   final Dio _dio;
   final TokenStorage _tokenStorage;
+
+  /// مفتاح متجر هذه الحزمة. الفراغ = لا ترويسة (السلوك القديم حرفيّاً).
+  final String _appKey;
+
+  /// ‼️ **يُحقَن وقت البناء لا وقت التشغيل**: كلّ حزمةٍ تخصّ متجراً واحداً،
+  /// وقراءتُه من إعدادٍ يُبدَّل تعني تطبيقاً واحداً يتنقّل بين المتاجر — وهو ما
+  /// يجعل طلبات عميلٍ تُنسب لمتجرٍ ثمّ لآخر.
+  ///
+  /// للبناء: `--dart-define=TINT_APP_KEY=<مفتاح المتجر من لوحة إدارة المتاجر>`
+  ///
+  /// ‼️ **والافتراضيّ فارغ عمداً**: حزمةٌ بُنيت بلا مفتاح تسلك كاليوم بالضبط
+  /// (ملاذ الرجوع إلى المتجر الافتراضيّ) بدل أن تُرسل مفتاحاً مخترعاً يُرفَض.
+  static const String _compiledAppKey =
+      String.fromEnvironment('TINT_APP_KEY', defaultValue: '');
+
+  /// للتشخيص وحده — يُظهر إن كانت الحزمة تحمل مفتاحاً دون كشف قيمته كاملةً.
+  bool get hasAppKey => _appKey.isNotEmpty;
 
   Future<Map<String, dynamic>> getMap(
     String path, {
