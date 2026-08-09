@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/theme/app_theme.dart';
 import '../../../../core/models/cms_section_model.dart';
 import '../../../../core/models/hero_slide_model.dart';
 import '../../../../core/models/product_model.dart';
+import '../../../../core/widgets/tint_ui.dart';
 import '../widgets/banner_slider.dart';
 import 'sdui_tracker.dart';
 import 'section_action.dart';
@@ -131,6 +133,146 @@ SectionRegistry buildDefaultSectionRegistry({
         );
       },
 
+      /**
+       * `hero` — بانرٌ كبير بعنوانٍ وزرّ.
+       *
+       * ‼️ يُعاد استعمال `TintWideBanner`: شكلُه هو هذا بالضبط (صورةٌ وتدرّجٌ
+       * ونصٌّ وزرّ). وودجةٌ ثانية كانت ستنحرف عنه في التدرّج ونصف القطر.
+       *
+       * ونسبة الصورة تصل في `settings.aspectRatio` لصور المكتبة (1.5) — وبلا
+       * نسبةٍ يبقى الارتفاع الثابت ولا تُخمَّن.
+       */
+      'hero': (context, section) {
+        final image = section.settings['image']?.toString().trim() ?? '';
+        if (image.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          child: TintWideBanner(
+            image: image,
+            title: _text(section.settings['title']) ?? section.title ?? '',
+            subtitle: _text(section.settings['subtitle']) ?? section.subtitle ?? '',
+            aspectRatio: _double(section.settings['aspectRatio']),
+            onTap: tapFor(section.settings, section),
+          ),
+        );
+      },
+
+      /// `media` — صورةٌ عريضة بلا نصّ ولا زرّ.
+      'media': (context, section) {
+        final image = section.settings['image']?.toString().trim() ?? '';
+        if (image.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: AspectRatio(
+              // الويب يستعمل 21:9 لهذا النوع؛ ونسبة الصورة الحقيقيّة تسبقها.
+              aspectRatio: _double(section.settings['aspectRatio']) ?? 21 / 9,
+              child: TintNetworkImage(
+                url: image,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
+              ),
+            ),
+          ),
+        );
+      },
+
+      /**
+       * `split_feature` — صورةٌ ونصّ.
+       *
+       * ‼️ **مرصوفان عموديّاً لا جنباً إلى جنب**: الويب يضعهما عمودين على
+       * الشاشات الواسعة (`md:grid-cols-2`) وعموداً واحداً على الجوّال — فهذا
+       * هو الشكل المطابق لما يراه زائر الهاتف.
+       *
+       * ‼️ والنصّ **عاديّ لا HTML** كـ`rich_text` وللسبب نفسه.
+       */
+      'split_feature': (context, section) {
+        final image = section.settings['image']?.toString().trim() ?? '';
+        final text = htmlToPlainText(section.settings['html']?.toString() ?? '');
+        final ctaLabel = _text(section.settings['ctaLabel']);
+        final onTap = tapFor(section.settings, section);
+        if (image.isEmpty && text.isEmpty) return const SizedBox.shrink();
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+          child: TintSurfaceCard(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (image.isNotEmpty)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: AspectRatio(
+                      aspectRatio: _double(section.settings['aspectRatio']) ?? 4 / 3,
+                      child: TintNetworkImage(
+                        url: image,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity,
+                      ),
+                    ),
+                  ),
+                if ((section.title ?? '').isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    section.title!,
+                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                  ),
+                ],
+                if (text.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    text,
+                    style: const TextStyle(height: 1.7, fontSize: 14, color: TintColors.textMuted),
+                  ),
+                ],
+                // ‼️ زرٌّ بلا وجهةٍ تُفتَح لا يُعرَض (0.1) — ولو كُتب له عنوان.
+                if (onTap != null && (ctaLabel ?? '').isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: onTap,
+                    style: FilledButton.styleFrom(backgroundColor: TintColors.charcoal),
+                    child: Text(ctaLabel!),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+
+      /**
+       * `banner_placement` — بنرات موضعٍ من «استوديو البنرات».
+       *
+       * ‼️ **الخادم يحلّها في `settings.resolvedBanners`** — لا تُكتب عناصرها
+       * يدويّاً. فتغييرُ بنرٍ من الاستوديو يظهر هنا بلا لمس الصفحة.
+       */
+      'banner_placement': (context, section) {
+        final raw = section.settings['resolvedBanners'];
+        final banners = raw is List
+            ? raw
+                .whereType<Map>()
+                .map((b) => Map<String, dynamic>.from(b))
+                .where((b) => (b['image']?.toString().trim() ?? '').isNotEmpty)
+                .toList(growable: false)
+            : const <Map<String, dynamic>>[];
+        if (banners.isEmpty) return const SizedBox.shrink();
+
+        return TintBannerSlider(
+          slides: banners
+              .map((b) => HeroSlideModel(
+                    image: b['image'].toString(),
+                    href: (b['href'] ?? '').toString(),
+                  ))
+              .toList(growable: false),
+          aspectRatio: _double(banners.first['aspectRatio']) ?? 2.5,
+          showDots: banners.length > 1,
+        );
+      },
+
       // ───────────────────────── 2.9 ─────────────────────────
 
       // ‼️ الافتراضيّ 24 كما في الويب حرفيّاً (`Number(settings.height ?? 24)`).
@@ -244,6 +386,11 @@ Widget _richTextBuilder(BuildContext context, CmsSectionModel section) {
     title: section.title,
     subtitle: section.subtitle,
   );
+}
+
+String? _text(dynamic value) {
+  final text = value?.toString().trim() ?? '';
+  return text.isEmpty ? null : text;
 }
 
 double? _double(dynamic value) {
