@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/models/cms_section_model.dart';
+import '../../../../core/models/hero_slide_model.dart';
 import '../../../../core/models/product_model.dart';
+import '../widgets/banner_slider.dart';
 import 'section_action.dart';
 import 'section_registry.dart';
 import 'sections/category_highlights_section.dart';
@@ -142,6 +144,54 @@ SectionRegistry buildDefaultSectionRegistry({
           // الحدّ ٢..٦ في الويب — ويُطبَّق داخل الودجة أيضاً حمايةً من قيمةٍ قديمة.
           columns: _int(section.settings['mobileColumns']) ?? 4,
           beigeBackground: section.settings['beigeBackground'] == true,
+        );
+      },
+
+      /**
+       * `hex_banner_grid` — بنراتٌ بمواضع (`center` · `left` · `right`).
+       *
+       * ‼️ **المركزيّ وحده — وهذا ما يفعله الويب على الجوّال حرفيّاً.**
+       * تعليل مُصيّر الويب صريح: «يُخفى على الجوّال بقرارٍ تصميميّ لا لعجزٍ
+       * تقنيّ: الشاشة الضيّقة تجعل البنرات الجانبيّة صفّاً إضافيّاً يُبعد
+       * المنتجات عن أوّل مشهد، والبنر المركزيّ يحمل الرسالة كاملةً».
+       *
+       * فعرضُها في التطبيق كان سيُخالف قراراً مدروساً — لا يُنفّذه.
+       *
+       * ‼️ **ونسبة الصورة من الخادم** (1.5): قِيست على الإنتاج `2.359` و`1`
+       * و`4` — أي أنّ نسبةً واحدة مفروضة كانت ستقصّ بنراتٍ صُمّمت بمقاساتٍ
+       * مختلفة. فتُؤخَذ من أوّل شريحةٍ تعرف نسبتها.
+       */
+      'hex_banner_grid': (context, section) {
+        final center = section.items
+            .where((item) => (item['slot']?.toString() ?? '') == 'center')
+            .where((item) => (item['image']?.toString().trim() ?? '').isNotEmpty)
+            .toList(growable: false);
+        if (center.isEmpty) return const SizedBox.shrink();
+
+        final ratio = center
+            .map((item) => _double(item['aspectRatio']))
+            .firstWhere((value) => value != null && value > 0, orElse: () => null);
+
+        final millis = _int(section.settings['autoplayMs']) ?? 4000;
+
+        return TintBannerSlider(
+          slides: center
+              .map((item) => HeroSlideModel(
+                    image: item['image'].toString(),
+                    href: (item['href'] ?? '').toString(),
+                  ))
+              .toList(growable: false),
+          aspectRatio: ratio ?? 2.5,
+          showDots: center.length > 1,
+          // ‼️ يُحَدّ كما في الويب (١٫٥–١٥ ثانية): قيمةٌ صغيرة تجعل البنر
+          //    يومض بلا أن يُقرأ، وكبيرةٌ تجعله يبدو جامداً.
+          interval: Duration(milliseconds: millis.clamp(1500, 15000)),
+          onSlideTap: (href) {
+            final action = SduiAction.legacyFromHref(href);
+            if (action != null && onAction != null) {
+              onAction(action, execute: true);
+            }
+          },
         );
       },
 

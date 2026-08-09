@@ -6,6 +6,7 @@ import 'package:tint_mobile/features/catalog/presentation/sdui/section_registry.
 import 'package:tint_mobile/features/catalog/presentation/sdui/sections/product_carousel_section.dart';
 import 'package:tint_mobile/features/catalog/presentation/sdui/sections/product_grid_section.dart';
 import 'package:tint_mobile/features/catalog/presentation/sdui/sections/wide_banner_section.dart';
+import 'package:tint_mobile/features/catalog/presentation/widgets/banner_slider.dart';
 
 /// ‼️ **عنصر منتجٍ حقيقيّ** — منسوخ من استجابة حيّة لـ`/cms/public/pages/:slug`
 /// بقسم `product_carousel` ومصدر `new_arrivals`. وليس شكلاً مُتخيَّلاً: لاحِظ
@@ -329,17 +330,70 @@ void main() {
     });
 
     testWidgets('نوعٌ لا يعرفه السجلّ يسقط بصمت — ويُبلَّغ عنه', (tester) async {
-      // بقيت أنواعٌ لم تُرحَّل بعد (`hex_banner_grid` مثلاً)، وسقوطها الصامت
-      // هو ما يجعل النشر آمناً في كلّ مرحلة.
+      // بقيت أنواعٌ لم تُرحَّل بعد، وسقوطها الصامت هو ما يجعل النشر آمناً في
+      // كلّ مرحلة.
       final skipped = <String>[];
       final built = await buildOne(
         tester,
-        {'id': 'x', 'type': 'hex_banner_grid', 'position': 0},
+        {'id': 'x', 'type': 'video_reels', 'position': 0},
         onSkipped: (type, _) => skipped.add(type),
       );
 
-      expect(skipped, ['hex_banner_grid']);
+      expect(skipped, ['video_reels']);
       expect(built, isA<SizedBox>());
+    });
+
+    testWidgets('hex_banner_grid: المركزيّ وحده — كالويب على الجوّال', (tester) async {
+      // ‼️ عناصر منسوخة من **إنتاج تِنت**: المواضع والنسب حقيقيّة.
+      final built = await buildOne(tester, {
+        'id': 'hex',
+        'type': 'hex_banner_grid',
+        'position': 0,
+        'settings': {'autoplayMs': 4000},
+        'items': [
+          {'slot': 'center', 'image': 'https://example.test/c1.webp', 'aspectRatio': 2.359},
+          {'slot': 'right', 'image': 'https://example.test/r1.png', 'aspectRatio': 1},
+          {'slot': 'center', 'image': 'https://example.test/c2.webp'},
+          {'slot': 'left', 'image': 'https://example.test/l1.webp', 'aspectRatio': 4},
+        ],
+      });
+
+      expect(built, isA<TintBannerSlider>());
+      final slider = built as TintBannerSlider;
+      // شريحتان مركزيّتان فقط — والجانبيّتان لا تُعرضان (قرار الويب نفسه).
+      expect(slider.slides.length, 2);
+      // ‼️ النسبة من الخادم لا مفروضة: بنراتٌ صُمّمت 2.359 لا تُقصّ إلى 2.5.
+      expect(slider.aspectRatio, 2.359);
+      expect(slider.interval, const Duration(milliseconds: 4000));
+      expect(slider.showDots, isTrue);
+    });
+
+    testWidgets('hex_banner_grid: بلا شريحةٍ مركزيّة ⇒ لا شيء', (tester) async {
+      final built = await buildOne(tester, {
+        'id': 'hex',
+        'type': 'hex_banner_grid',
+        'position': 0,
+        'items': [
+          {'slot': 'right', 'image': 'https://example.test/r.png'},
+        ],
+      });
+
+      expect(built, isA<SizedBox>());
+    });
+
+    testWidgets('hex_banner_grid: مدّة التبديل تُحَدّ كالويب', (tester) async {
+      final fast = await buildOne(tester, {
+        'id': 'hex',
+        'type': 'hex_banner_grid',
+        'position': 0,
+        'settings': {'autoplayMs': 200},
+        'items': [
+          {'slot': 'center', 'image': 'https://example.test/c.webp'},
+        ],
+      });
+
+      // ٢٠٠ms تجعل البنر يومض بلا أن يُقرأ — يُرفَع إلى الحدّ الأدنى.
+      expect((fast as TintBannerSlider).interval, const Duration(milliseconds: 1500));
     });
   });
 }
