@@ -4,6 +4,7 @@ import '../../../../core/models/cms_section_model.dart';
 import '../../../../core/models/product_model.dart';
 import 'section_action.dart';
 import 'section_registry.dart';
+import 'sections/category_highlights_section.dart';
 import 'sections/circle_categories_section.dart';
 import 'sections/flash_sale_section.dart';
 import 'sections/product_carousel_section.dart';
@@ -143,6 +144,26 @@ SectionRegistry buildDefaultSectionRegistry({
           beigeBackground: section.settings['beigeBackground'] == true,
         );
       },
+
+      // 2.6 — الأنماط الثلاثة كلّها: صورة · منتجات · بوّابة (صورةٌ ومنتجات).
+      'category_highlights': (context, section) => TintCategoryHighlights(
+            blocks: section.items.map((item) {
+              final rawProducts = item['products'];
+              return TintHighlightBlock(
+                contentType: item['contentType']?.toString() ?? 'image',
+                title: item['title']?.toString() ?? '',
+                image: item['image']?.toString(),
+                icon: item['icon']?.toString(),
+                products: rawProducts is List
+                    ? rawProducts
+                        .whereType<Map>()
+                        .map((p) => productFromCmsItem(Map<String, dynamic>.from(p)))
+                        .toList(growable: false)
+                    : const <ProductModel>[],
+                onTap: tapFor(item),
+              );
+            }).toList(growable: false),
+          ),
 
       'flash_sale': (context, section) => TintFlashSale(
             title: _title(section),

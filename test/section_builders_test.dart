@@ -328,17 +328,17 @@ void main() {
       expect((built as TintProductCarousel).title, 'رفٌّ بلا عنوانٍ معروض');
     });
 
-    testWidgets('category_highlights غير مسجَّل بعد ⇒ يسقط بصمت (2.6 معلّقة)', (tester) async {
-      // ‼️ توثيقٌ لسلوكٍ مقصود لا اختبارُ ميزة: نوع الخادم أغنى من البطاقة
-      //    القائمة (أربعة أنماط محتوى)، وتسجيلُها اليوم يُخفي كتل «منتجات» بصمت.
+    testWidgets('نوعٌ لا يعرفه السجلّ يسقط بصمت — ويُبلَّغ عنه', (tester) async {
+      // بقيت أنواعٌ لم تُرحَّل بعد (`hex_banner_grid` مثلاً)، وسقوطها الصامت
+      // هو ما يجعل النشر آمناً في كلّ مرحلة.
       final skipped = <String>[];
       final built = await buildOne(
         tester,
-        {'id': 'h', 'type': 'category_highlights', 'position': 0},
+        {'id': 'x', 'type': 'hex_banner_grid', 'position': 0},
         onSkipped: (type, _) => skipped.add(type),
       );
 
-      expect(skipped, ['category_highlights']);
+      expect(skipped, ['hex_banner_grid']);
       expect(built, isA<SizedBox>());
     });
   });
