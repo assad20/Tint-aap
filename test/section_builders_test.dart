@@ -139,7 +139,11 @@ void main() {
       //    معطّلاً، ولا سجلّ يُفسّر ذلك.
       final navigated = <String>[];
       final registry = buildDefaultSectionRegistry(
-        onNavigate: (_, href) => navigated.add(href),
+        onAction: (action, {required execute}) {
+          if (action.type != 'category') return false;
+          if (execute) navigated.add('${action.type}:${action.value}');
+          return true;
+        },
       );
       final page = CmsPageModel.fromJson({
         'sections': [
@@ -171,7 +175,88 @@ void main() {
       expect(find.text('تصفح'), findsOneWidget);
 
       await tester.tap(find.text('تصفح'));
-      expect(navigated, ['/category/makeup']);
+      expect(navigated, ['category:makeup']);
+    });
+
+    testWidgets('نوعُ إجراءٍ لا يعرفه المُنفِّذ ⇒ لا زرّ (المهمّة 3.2)', (tester) async {
+      // ‼️ جوهر 3.2: نوعٌ اخترعته لوحةٌ أحدث من هذه النسخة يُتجاهَل **بصمت** —
+      //    لا زرٌّ يُعرَض ثمّ يخيب، ولا استثناء.
+      final executed = <String>[];
+      final registry = buildDefaultSectionRegistry(
+        onAction: (action, {required execute}) {
+          if (action.type != 'category') return false;
+          if (execute) executed.add(action.value);
+          return true;
+        },
+      );
+      final page = CmsPageModel.fromJson({
+        'sections': [
+          {
+            'id': 'b',
+            'type': 'banner_grid',
+            'position': 0,
+            'items': [
+              {'image': 'https://example.test/1.jpg', 'action': {'type': 'story', 'value': 'x'}},
+              {'image': 'https://example.test/2.jpg', 'action': {'type': 'none', 'value': ''}},
+              {'image': 'https://example.test/3.jpg', 'action': {'type': 'category', 'value': 'makeup'}},
+            ],
+          },
+        ],
+      });
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => SingleChildScrollView(
+              child: Column(children: registry.buildAll(context, page)),
+            ),
+          ),
+        ),
+      ));
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(TintWideBanner), findsNWidgets(3));
+      // زرٌّ واحد فقط — للنوع الذي يعرفه المُنفِّذ.
+      expect(find.text('تصفح'), findsOneWidget);
+    });
+
+    testWidgets('`action` من الخادم يسبق الرابط القديم', (tester) async {
+      // كاشٌ قديم بلا `action` يجب أن يبقى عاملاً (توافقٌ خلفيّ)، وحين يوجد
+      // كلاهما فالخادم هو المرجع.
+      final seen = <String>[];
+      final registry = buildDefaultSectionRegistry(
+        onAction: (action, {required execute}) {
+          if (execute) seen.add('${action.type}:${action.value}');
+          return true;
+        },
+      );
+      final page = CmsPageModel.fromJson({
+        'sections': [
+          {
+            'id': 'b',
+            'type': 'banner_grid',
+            'position': 0,
+            'items': [
+              {
+                'image': 'https://example.test/1.jpg',
+                'href': '/category/old',
+                'action': {'type': 'category', 'value': 'new'},
+              },
+            ],
+          },
+        ],
+      });
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => Column(children: registry.buildAll(context, page)),
+          ),
+        ),
+      ));
+
+      await tester.tap(find.text('تصفح'));
+      expect(seen, ['category:new']);
     });
 
     testWidgets('banner_grid: بلا مُنفِّذ تنقّل ⇒ لا زرّ ولو وُجدت وجهة', (tester) async {

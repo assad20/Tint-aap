@@ -7,7 +7,9 @@ import '../../../../core/models/hero_slide_model.dart';
 import '../../../../core/models/product_model.dart';
 import '../../../../core/widgets/tint_ui.dart';
 import '../cubit/home_store_cubit.dart';
+import '../sdui/section_action.dart';
 import '../sdui/section_builders.dart';
+import '../sdui/section_registry.dart';
 import '../sdui/sections/category_world_card.dart';
 import '../sdui/sections/product_carousel_section.dart';
 import '../sdui/sections/product_grid_section.dart';
@@ -36,12 +38,42 @@ void _openSlideTarget(BuildContext context, String href) {
 /// سجلّ مكوّنات SDUI — يُبنى مرّةً واحدة.
 ///
 /// ‼️ خارج `build`: بناؤه في كلّ إطارٍ يُنشئ خريطة بانيات جديدة عند كلّ تمرير.
-final _sectionRegistry = buildDefaultSectionRegistry(
-  onSkipped: (type, error) =>
-      debugPrint('[sdui] لم يُعرَض "$type" على الرئيسيّة${error == null ? '' : ': $error'}'),
-  // نفس مُترجم الوجهات الذي يستعمله سلايدر البنرات — قاموسٌ واحد للوجهات.
-  onNavigate: _openSlideTarget,
-);
+/// مُنفِّذ إجراءات SDUI لهذه الشاشة (المهمّة 3.2).
+///
+/// ‼️ **`category` وحده اليوم** — وهو ما تستطيعه هذه الشاشة فعلاً: الأقسام
+/// تُعرَض بتبديل تبويبٍ داخل القشرة لا بمسار. وما عداه يُعيد `false` **فلا
+/// يُرسَم له زرّ أصلاً** بدل أن يُرسَم ثمّ يخيب.
+///
+/// ‼️ **وقسمٌ غير موجودٍ في تنقّل هذا المتجر يُعامَل معاملة المجهول**: بنرٌ
+/// يشير إلى قسمٍ أخفته قواعد المتجر لا يُفتَح — فلا يُعرَض زرّه.
+bool _handleSduiAction(
+  BuildContext context,
+  SduiAction action, {
+  required bool execute,
+}) {
+  if (action.type != 'category') {
+    return false;
+  }
+
+  final cubit = context.read<HomeStoreCubit>();
+  for (final category in cubit.state.topNav) {
+    if (category.id == action.value) {
+      if (execute) cubit.setActiveTopNav(category.name);
+      return true;
+    }
+  }
+  return false;
+}
+
+/// ‼️ **يُبنى داخل `build` لا خارجه** — بخلاف ما كان: المُنفِّذ يحتاج
+/// `BuildContext` ليقرأ الكيوبت، وسجلٌّ عالميّ لا يملك سياقاً. والكلفة مقبولة:
+/// خريطة بانياتٍ صغيرة تُبنى مع الشجرة التي تستهلكها.
+SectionRegistry _registryFor(BuildContext context) => buildDefaultSectionRegistry(
+      onSkipped: (type, error) =>
+          debugPrint('[sdui] لم يُعرَض "$type" على الرئيسيّة${error == null ? '' : ': $error'}'),
+      onAction: (action, {required execute}) =>
+          _handleSduiAction(context, action, execute: execute),
+    );
 
 /// ⚙️ مفتاح تجربة «الهيدر الغاطس» (نمط شي إن): السلايدر يمتدّ خلف شريط البحث
 /// والأقسام بدل أن يبدأ تحتهما، والهيدر يطفو شفّافاً ثمّ يصير أبيض بالتمرير.
@@ -180,7 +212,7 @@ class _HomePageState extends State<HomePage> {
           // إزاحة الهيدر الغاطس: التخطيط من اللوحة لا يعرف بوجوده، وبلا الإزاحة
           // يختفي أوّل قسمٍ خلف شريط البحث.
           if (kImmersiveHeroHeader) SizedBox(height: _headerHeight(context)),
-          ..._sectionRegistry.buildAll(context, layout),
+          ..._registryFor(context).buildAll(context, layout),
         ],
       );
     }

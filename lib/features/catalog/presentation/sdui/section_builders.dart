@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/models/cms_section_model.dart';
 import '../../../../core/models/product_model.dart';
+import 'section_action.dart';
 import 'section_registry.dart';
 import 'sections/circle_categories_section.dart';
 import 'sections/flash_sale_section.dart';
@@ -43,23 +44,29 @@ String _title(CmsSectionModel section) =>
 ///
 /// ‼️ **ما ليس هنا يسقط بصمت** — وهذا مقصود: الأنواع الثمانية عشرة في الخادم
 /// تُرحَّل تباعاً (2.6 و2.9)، والنشر يبقى آمناً في كلّ مرحلةٍ منها.
-/// يفتح وجهةً قادمة من اللوحة (`/category/<slug>` اليوم).
-///
-/// ‼️ يُمرَّر من الشاشة لا يُبنى هنا: التنقّل في هذا التطبيق تبديلُ تبويبٍ داخل
-/// القشرة لا مسارُ `go_router`، وهو ما تعرفه الشاشة وحدها. ويُوسَّع في 3.2.
-typedef SectionNavigate = void Function(BuildContext context, String href);
-
 SectionRegistry buildDefaultSectionRegistry({
   SectionSkipReporter? onSkipped,
-  SectionNavigate? onNavigate,
+  SduiActionHandler? onAction,
 }) {
-  /// ‼️ **لا زرَّ بلا وجهةٍ عاملة** (المهمّة 0.1): وجهةٌ فارغة **أو** غياب
-  /// مُنفِّذٍ للتنقّل ⇒ `null` ⇒ الشريط بلا زرّ. زرٌّ يُعرَض ثمّ لا يفعل شيئاً
-  /// أسوأ من غيابه.
-  VoidCallback? tapFor(BuildContext context, Map<String, dynamic> item) {
-    final href = (item['href'] ?? item['ctaHref'])?.toString().trim() ?? '';
-    if (href.isEmpty || onNavigate == null) return null;
-    return () => onNavigate(context, href);
+  /// ‼️ **لا زرَّ بلا إجراءٍ يُنفَّذ فعلاً** (المهمّتان 0.1 و3.2).
+  ///
+  /// ثلاث حالاتٍ تُنتج `null` — وكلّها «لا زرّ»:
+  ///  · لا `action` ولا رابط ⇒ لا وجهة أصلاً.
+  ///  · `type: none` أو قيمةٌ فارغة ⇒ وجهةٌ مُعلَنة وفارغة.
+  ///  · لا مُنفِّذ، أو مُنفِّذٌ لا يعرف النوع ⇒ **وجهةٌ لا أحد يفتحها**.
+  ///
+  /// والثالثة هي جوهر 3.2: نوعٌ اخترعته لوحةٌ أحدث من هذه النسخة يُتجاهَل
+  /// **بصمت** — لا زرّ يُعرَض ثمّ يخيب، ولا استثناء.
+  VoidCallback? tapFor(Map<String, dynamic> item) {
+    final action = SduiAction.from(item);
+    if (action == null || !action.isActionable || onAction == null) {
+      return null;
+    }
+    // ‼️ يُسأل المُنفِّذ **قبل** عرض الزرّ لا عند النقر.
+    if (!onAction(action, execute: false)) {
+      return null;
+    }
+    return () => onAction(action, execute: true);
   }
 
   return SectionRegistry(
@@ -105,7 +112,7 @@ SectionRegistry buildDefaultSectionRegistry({
                   subtitle: banners[i]['subtitle']?.toString() ?? '',
                   // 2.13 — يعود من الخادم لصور المكتبة وحدها (1.5).
                   aspectRatio: _double(banners[i]['aspectRatio']),
-                  onTap: tapFor(context, banners[i]),
+                  onTap: tapFor(banners[i]),
                 ),
               ],
             ],
