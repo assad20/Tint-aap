@@ -18,6 +18,7 @@ import '../../features/account/presentation/pages/wallet_page.dart';
 import '../../features/assistant/presentation/pages/assistant_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../core/models/product_model.dart';
+import '../../features/catalog/presentation/pages/category_deep_link_page.dart';
 import '../../features/catalog/presentation/pages/product_detail_page.dart';
 import '../../features/catalog/presentation/pages/discover_section_page.dart';
 import '../../features/catalog/presentation/pages/search_page.dart';
@@ -25,9 +26,53 @@ import '../../features/checkout/presentation/pages/checkout_page.dart';
 import '../../features/shell/presentation/pages/main_shell_page.dart';
 
 class AppRouter {
+  /// ‼️ **يُترجَم رابط `tint://` إلى مسارٍ داخليّ قبل أن يراه الموجّه.**
+  ///
+  /// نظام أندرويد يُسلّم `tint://category/makeup` بمضيفٍ `category` ومسارٍ
+  /// `/makeup` — أي أنّ **الجزء المهمّ يقع في `host` لا في `path`**. وتمريرُه
+  /// كما هو يجعل الموجّه يبحث عن `/makeup` فيفتح شاشةً بيضاء.
+  ///
+  /// وترجمةُ الوجهات نفسها تبقى في `SduiAction` — هذه تُصلح الشكل فقط.
+  static String normalizeDeepLink(Uri uri) {
+    if (uri.scheme != 'tint') {
+      return uri.path.isEmpty ? '/' : uri.path;
+    }
+    final segments = [uri.host, ...uri.pathSegments].where((s) => s.isNotEmpty);
+    return segments.isEmpty ? '/' : '/${segments.join('/')}';
+  }
+
   static final GoRouter router = GoRouter(
     initialLocation: '/',
+    /**
+     * ‼️ **الوجهةُ المجهولة تفتح الرئيسيّة ولا تُظهر خطأً.**
+     *
+     * الروابط تُنشَر في رسائل وإعلانات وتبقى سنوات، ونوعٌ نحذفه لاحقاً يترك
+     * روابط حيّة في الدنيا. وشاشةُ «٤٠٤» في تطبيقٍ تبدو عطلاً لا رابطاً قديماً.
+     */
+    errorBuilder: (context, state) => const MainShellPage(),
+    redirect: (context, state) {
+      final uri = state.uri;
+      if (uri.scheme != 'tint') return null;
+      final normalized = normalizeDeepLink(uri);
+      return normalized == state.matchedLocation ? null : normalized;
+    },
     routes: [
+      /**
+       * ‼️ **`category` وحده اليوم من بين وجهات الروابط العميقة.**
+       *
+       * و`product` و`page` **غير ممكنتين بعد** — ونقصٌ في التطبيق لا في العقد:
+       *  · مسار `/product` القائم يفتح المنتج بكائنٍ مُمرَّر (`extra`) لا
+       *    بمعرّف، فلا يستطيع رابطٌ فتحه. يلزمه مسار `product/:id` يجلب المنتج
+       *    من `/catalog/products/:id` ثمّ يعرضه.
+       *  · ولا شاشة لعرض صفحات CMS في التطبيق أصلاً.
+       *
+       * ورابطٌ لأيّهما يفتح الرئيسيّة بهدوء (`errorBuilder`) بدل شاشةٍ بيضاء.
+       */
+      GoRoute(
+        path: '/category/:slug',
+        builder: (context, state) =>
+            CategoryDeepLinkPage(slug: state.pathParameters['slug'] ?? ''),
+      ),
       GoRoute(
         path: '/',
         builder: (context, state) => const MainShellPage(),

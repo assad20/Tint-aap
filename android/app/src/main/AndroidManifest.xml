@@ -36,6 +36,24 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!--
+              الروابط العميقة (المهمّة 3.3): tint://category/<slug>
+
+              ‼️ مخطَّطٌ خاصّ لا App Links على الدومين — عمداً في هذه المرحلة.
+              App Links تتطلّب ملفّ `assetlinks.json` على الدومين وبصمة توقيع
+              الإصدار، وبدونهما يفتح النظام الرابط في المتصفّح بلا رسالة خطأ.
+              والمخطّط الخاصّ يعمل فوراً وبلا اعتماد على الاستضافة.
+
+              ‼️ و`autoVerify` غير مضبوط لأنّه لا معنى له مع مخطَّطٍ خاصّ —
+              وضبطُه يُظهر تحذيراً في Play Console عند الرفع.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="tint" />
+            </intent-filter>
         </activity>
         <meta-data
             android:name="flutterEmbedding"
