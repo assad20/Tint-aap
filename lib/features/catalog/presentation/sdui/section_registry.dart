@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/models/cms_page_model.dart';
 import '../../../../core/models/cms_section_model.dart';
+import 'sdui_section_observer.dart';
+import 'sdui_tracker.dart';
 
 /// بانٍ لمكوّنٍ واحد. يُسجَّل باسم النوع كما في `CmsSectionType` بالخادم.
 typedef SectionBuilder = Widget Function(BuildContext context, CmsSectionModel section);
@@ -24,9 +26,13 @@ class SectionRegistry {
   SectionRegistry({
     Map<String, SectionBuilder>? builders,
     this.onSkipped,
+    this.tracker,
   }) : _builders = {...?builders};
 
   final Map<String, SectionBuilder> _builders;
+
+  /// قياس الظهور (5.1). `null` = لا قياس — والاختبارات تعمل بلا شبكة.
+  final SduiTracker? tracker;
 
   /// يُستدعى عند كلّ مكوّنٍ لم يُرسَم — نوعٌ مجهول أو بانٍ رمى.
   final SectionSkipReporter? onSkipped;
@@ -76,5 +82,23 @@ class SectionRegistry {
   /// بناءَ كلّ قسمٍ مرّتين (مرّةً للفحص ومرّةً للعرض)، والبانيات تقرأ من الشبكة
   /// والكاش. و`SizedBox.shrink()` بلا كلفة رسمٍ أصلاً.
   List<Widget> buildAll(BuildContext context, CmsPageModel page) =>
-      page.sections.map((section) => build(context, section)).toList(growable: false);
+      page.sections.map((section) => _measured(context, section)).toList(growable: false);
+
+  /// ‼️ **القياس يُلَفّ هنا لا داخل كلّ بانٍ.** لفُّه في البانيات يعني عشر
+  /// نسخٍ من نفس المنطق، وأوّل بانٍ جديد يُنسى فيه يصير مكوّناً بلا أرقامٍ
+  /// **يبدو غير مستعمَل** في التقرير فيُحذَف وهو يعمل.
+  Widget _measured(BuildContext context, CmsSectionModel section) {
+    final built = build(context, section);
+    final observer = tracker;
+    // بلا `listName` لا قياس — والخادم وحده يُصدره (1.4).
+    if (observer == null || (section.listName ?? '').isEmpty) {
+      return built;
+    }
+    return SduiSectionObserver(
+      tracker: observer,
+      listName: section.listName,
+      sectionType: section.type,
+      child: built,
+    );
+  }
 }

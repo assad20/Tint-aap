@@ -1,5 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../../../core/network/api_client.dart';
+import '../sdui/sdui_tracker.dart';
 
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/models/category_model.dart';
@@ -68,11 +73,13 @@ bool _handleSduiAction(
 /// ‼️ **يُبنى داخل `build` لا خارجه** — بخلاف ما كان: المُنفِّذ يحتاج
 /// `BuildContext` ليقرأ الكيوبت، وسجلٌّ عالميّ لا يملك سياقاً. والكلفة مقبولة:
 /// خريطة بانياتٍ صغيرة تُبنى مع الشجرة التي تستهلكها.
-SectionRegistry _registryFor(BuildContext context) => buildDefaultSectionRegistry(
+SectionRegistry _registryFor(BuildContext context, SduiTracker tracker) =>
+    buildDefaultSectionRegistry(
       onSkipped: (type, error) =>
           debugPrint('[sdui] لم يُعرَض "$type" على الرئيسيّة${error == null ? '' : ': $error'}'),
       onAction: (action, {required execute}) =>
           _handleSduiAction(context, action, execute: execute),
+      tracker: tracker,
     );
 
 /// ⚙️ مفتاح تجربة «الهيدر الغاطس» (نمط شي إن): السلايدر يمتدّ خلف شريط البحث
@@ -98,14 +105,23 @@ class _HomePageState extends State<HomePage> {
   final _scroll = ScrollController();
   double _headerOpacity = 0;
 
+  /// ‼️ **يعيش مع الشاشة لا مع الإطار**: تراكمُ الأحداث وقائمةُ «ما رُئي» يجب
+  /// أن يبقيا عبر إعادات البناء، وإنشاؤه في `build` كان يُصفّرهما مع كلّ تمريرة
+  /// فيُعاد تسجيل الظهور مراتٍ لا تُحصى.
+  late final SduiTracker _tracker;
+
   @override
   void initState() {
     super.initState();
+    _tracker = SduiTracker(context.read<ApiClient>())..start();
     if (kImmersiveHeroHeader) _scroll.addListener(_onScroll);
   }
 
   @override
   void dispose() {
+    // ‼️ يُفرَّغ قبل التخلّص: أحداث آخر خمس ثوانٍ لم يحن موعد إرسالها بعد.
+    unawaited(_tracker.flush());
+    _tracker.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -212,7 +228,7 @@ class _HomePageState extends State<HomePage> {
           // إزاحة الهيدر الغاطس: التخطيط من اللوحة لا يعرف بوجوده، وبلا الإزاحة
           // يختفي أوّل قسمٍ خلف شريط البحث.
           if (kImmersiveHeroHeader) SizedBox(height: _headerHeight(context)),
-          ..._registryFor(context).buildAll(context, layout),
+          ..._registryFor(context, _tracker).buildAll(context, layout),
         ],
       );
     }

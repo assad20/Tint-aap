@@ -22,6 +22,7 @@ class CmsSectionModel {
     this.subtitle,
     this.position = 0,
     this.minAppVersion,
+    this.listName,
     this.settings = const <String, dynamic>{},
     this.items = const <Map<String, dynamic>>[],
   });
@@ -39,6 +40,13 @@ class CmsSectionModel {
 
   /// أدنى إصدار تطبيقٍ يفهم هذا المكوّن. `null` = كلّ الإصدارات.
   final String? minAppVersion;
+
+  /// مفتاح القياس كما يُصدره الخادم (`product_carousel:sec-1`) — المهمّة 1.4.
+  ///
+  /// ‼️ **يُشتقّ في الخادم ولا يُبنى هنا.** الويب والتطبيق يعرضان نفس القسم،
+  /// ولو اشتقّ كلٌّ مفتاحه لظهر رفٌّ واحد باسمين في التقرير فتُقسَم أرقامه.
+  /// وغيابُه يعني «لا تقس» لا «اخترع مفتاحاً».
+  final String? listName;
 
   final Map<String, dynamic> settings;
   final List<Map<String, dynamic>> items;
@@ -82,6 +90,7 @@ class CmsSectionModel {
         subtitle: _nonEmpty(json['subtitle']),
         position: _asInt(json['position']) ?? fallbackPosition,
         minAppVersion: _nonEmpty(json['minAppVersion']),
+        listName: _nonEmpty(_asMap(json['analytics'])['listName']),
         settings: _asMap(json['settings']),
         items: _asMapList(json['items']),
       );

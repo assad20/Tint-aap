@@ -24,6 +24,9 @@ abstract final class ApiRoutes {
 
   /// تنقّل التطبيق من اللوحة: قائمةٌ جانبيّة + تبويبات سفليّة (المهمّة 1.6).
   static const cmsAppNavigation = '/cms/public/app-navigation';
+
+  /// قياس ظهور مكوّنات التخطيط ونقراتها — دفعاتٌ لا حدثٌ واحد (المهمّة 5.1).
+  static const sduiEvents = '/catalog/sdui-events';
   // طرق الشحن وأسعارها — المصدر الموثوق الذي يعيد الخادم حسابه عند الطلب.
   static const catalogShippingMethods = '/catalog/shipping-methods';
 

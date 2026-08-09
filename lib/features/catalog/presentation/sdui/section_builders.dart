@@ -4,6 +4,7 @@ import '../../../../core/models/cms_section_model.dart';
 import '../../../../core/models/hero_slide_model.dart';
 import '../../../../core/models/product_model.dart';
 import '../widgets/banner_slider.dart';
+import 'sdui_tracker.dart';
 import 'section_action.dart';
 import 'section_registry.dart';
 import 'sections/category_highlights_section.dart';
@@ -50,6 +51,7 @@ String _title(CmsSectionModel section) =>
 SectionRegistry buildDefaultSectionRegistry({
   SectionSkipReporter? onSkipped,
   SduiActionHandler? onAction,
+  SduiTracker? tracker,
 }) {
   /// ‼️ **لا زرَّ بلا إجراءٍ يُنفَّذ فعلاً** (المهمّتان 0.1 و3.2).
   ///
@@ -60,7 +62,7 @@ SectionRegistry buildDefaultSectionRegistry({
   ///
   /// والثالثة هي جوهر 3.2: نوعٌ اخترعته لوحةٌ أحدث من هذه النسخة يُتجاهَل
   /// **بصمت** — لا زرّ يُعرَض ثمّ يخيب، ولا استثناء.
-  VoidCallback? tapFor(Map<String, dynamic> item) {
+  VoidCallback? tapFor(Map<String, dynamic> item, [CmsSectionModel? section]) {
     final action = SduiAction.from(item);
     if (action == null || !action.isActionable || onAction == null) {
       return null;
@@ -69,11 +71,17 @@ SectionRegistry buildDefaultSectionRegistry({
     if (!onAction(action, execute: false)) {
       return null;
     }
-    return () => onAction(action, execute: true);
+    return () {
+      // ‼️ النقرة تُسجَّل **قبل** التنفيذ: التنفيذ يُبدّل التبويب فتُعاد بناء
+      //    الشجرة، وتسجيلٌ بعده قد يقع في ودجةٍ زالت.
+      tracker?.recordClick(section?.listName, section?.type);
+      onAction(action, execute: true);
+    };
   }
 
   return SectionRegistry(
     onSkipped: onSkipped,
+    tracker: tracker,
     builders: {
       // 2.4
       'product_carousel': (context, section) => TintProductCarousel(
@@ -115,7 +123,7 @@ SectionRegistry buildDefaultSectionRegistry({
                   subtitle: banners[i]['subtitle']?.toString() ?? '',
                   // 2.13 — يعود من الخادم لصور المكتبة وحدها (1.5).
                   aspectRatio: _double(banners[i]['aspectRatio']),
-                  onTap: tapFor(banners[i]),
+                  onTap: tapFor(banners[i], section),
                 ),
               ],
             ],
@@ -210,7 +218,7 @@ SectionRegistry buildDefaultSectionRegistry({
                         .map((p) => productFromCmsItem(Map<String, dynamic>.from(p)))
                         .toList(growable: false)
                     : const <ProductModel>[],
-                onTap: tapFor(item),
+                onTap: tapFor(item, section),
               );
             }).toList(growable: false),
           ),
