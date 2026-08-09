@@ -29,6 +29,10 @@ abstract final class ApiRoutes {
 
   /// قياس ظهور مكوّنات التخطيط ونقراتها — دفعاتٌ لا حدثٌ واحد (المهمّة 5.1).
   static const sduiEvents = '/catalog/sdui-events';
+
+  /// معاينة مسودّةٍ برابطٍ موقَّع (4.3). عامّة بلا رمز أدمن — الحماية في
+  /// التوقيع نفسه، والرابط ينتهي بعد ساعتين.
+  static const cmsPreview = '/catalog/preview'; // + /<token>
   // طرق الشحن وأسعارها — المصدر الموثوق الذي يعيد الخادم حسابه عند الطلب.
   static const catalogShippingMethods = '/catalog/shipping-methods';
 

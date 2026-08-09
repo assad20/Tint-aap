@@ -19,6 +19,7 @@ import '../../features/assistant/presentation/pages/assistant_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../core/models/product_model.dart';
 import '../../features/catalog/presentation/pages/category_deep_link_page.dart';
+import '../../features/catalog/presentation/pages/preview_page.dart';
 import '../../features/catalog/presentation/pages/product_by_id_page.dart';
 import '../../features/catalog/presentation/pages/product_detail_page.dart';
 import '../../features/catalog/presentation/pages/discover_section_page.dart';
@@ -86,6 +87,16 @@ class AppRouter {
         path: '/product/:id',
         builder: (context, state) =>
             ProductByIdPage(productId: state.pathParameters['id'] ?? ''),
+      ),
+      /**
+       * معاينة مسودّةٍ على الجهاز — `tint://preview/<token>` (المهمّة 4.3).
+       *
+       * ‼️ التوكن يحمل نطاقه داخل توقيعه، فلا يُمرَّر متجرٌ ولا قناةٌ من هنا.
+       */
+      GoRoute(
+        path: '/preview/:token',
+        builder: (context, state) =>
+            PreviewPage(token: state.pathParameters['token'] ?? ''),
       ),
       GoRoute(
         path: '/',

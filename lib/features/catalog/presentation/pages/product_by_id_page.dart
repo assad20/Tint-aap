@@ -5,7 +5,6 @@ import '../../../../app/config/api_routes.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/models/product_model.dart';
 import '../../../../core/network/api_client.dart';
-import '../../../../core/widgets/tint_ui.dart';
 import 'product_detail_page.dart';
 
 /// يفتح صفحة منتجٍ **بمعرّفه** — وجهة `tint://product/<id>` (المهمّة 3.3).
