@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../cart/presentation/cubit/cart_cubit.dart';
 import '../../../shell/presentation/cubit/shell_cubit.dart';
+import '../../../shell/presentation/pages/main_shell_page.dart';
 import '../cubit/home_store_cubit.dart';
 
 // لون القسم النشط في القائمة العلويّة وخطّه السفليّ. شي إن تستعمل الأسود؛
@@ -22,7 +23,14 @@ class _AllCategoriesButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => context.read<ShellCubit>().selectTab(2),
+      /**
+       * ‼️ **يفتح القائمة الجانبيّة لا تبويب «الأقسام»** (المهمّة 3.4).
+       *
+       * كان يُبدّل التبويب — وهو انتقالٌ يُخرج المستخدم من مكانه. والقائمة
+       * تنزلق فوق ما يتصفّحه ويُغلقها فيعود حيث كان. وتبويب «الأقسام» يبقى
+       * كما هو للتصفّح الكامل بالصور والبحث.
+       */
+      onTap: MainShellPage.openDrawer,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Row(

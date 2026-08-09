@@ -8,7 +8,9 @@ import '../../../cart/presentation/pages/cart_page.dart';
 import '../../../catalog/presentation/pages/categories_page.dart';
 import '../../../catalog/presentation/cubit/categories_cubit.dart';
 import '../../../catalog/presentation/cubit/discover_cubit.dart';
+import '../../../catalog/presentation/cubit/home_store_cubit.dart';
 import '../../../catalog/presentation/pages/home_page.dart';
+import '../../../catalog/presentation/widgets/store_drawer.dart';
 import '../../../catalog/presentation/pages/trends_page.dart';
 import '../../../account/presentation/cubit/addresses_cubit.dart';
 import '../../../account/presentation/cubit/favorites_cubit.dart';
@@ -20,6 +22,13 @@ import '../cubit/shell_cubit.dart';
 
 class MainShellPage extends StatefulWidget {
   const MainShellPage({super.key});
+
+  /// ‼️ مفتاحٌ على قشرة التطبيق: زرّ ☰ يعيش داخل هيدر الرئيسيّة — أعمق من
+  /// `Scaffold` القشرة — فبلا مفتاحٍ صريح لا يجد القائمة ليفتحها.
+  static final scaffoldKey = GlobalKey<ScaffoldState>();
+
+  /// تُفتَح من أيّ شاشة داخل القشرة.
+  static void openDrawer() => scaffoldKey.currentState?.openEndDrawer();
 
   @override
   State<MainShellPage> createState() => _MainShellPageState();
@@ -66,7 +75,21 @@ class _MainShellPageState extends State<MainShellPage> {
       listener: _ensureLoaded,
       builder: (context, currentIndex) {
         return Scaffold(
+          key: MainShellPage.scaffoldKey,
           backgroundColor: const Color(0xFFE5E7EB),
+          /**
+           * ‼️ **القائمة على القشرة لا على كلّ شاشة**: `Scaffold` واحدٌ يملكها،
+           * فتُفتَح من أيّ تبويب بنفس الإيماءة ولا تتكرّر خمس مرّات.
+           *
+           * و`endDrawer` لا `drawer`: الواجهة عربيّة، والقائمة تنزلق من اليمين.
+           */
+          endDrawer: StoreDrawer(
+            onOpenCategory: (item) {
+              // ‼️ تبديل تبويبٍ لا مسار: الأقسام تُعرَض داخل القشرة.
+              context.read<HomeStoreCubit>().setActiveTopNav(item.label);
+              context.read<ShellCubit>().selectTab(0);
+            },
+          ),
           body: Stack(
             children: [
               Positioned.fill(
@@ -107,6 +130,64 @@ class _MainShellPageState extends State<MainShellPage> {
   }
 }
 
+/// ‼️ **الخريطة في التطبيق لا في الخادم.** الخادم يُرسل `id` نصّيّاً
+/// (`home`/`cart`…) لأنّه لا يعرف `IconData` ولا فهارس القشرة — وهما تفصيلٌ
+/// داخليّ يتغيّر بإعادة ترتيب الشاشات. فلو أرسلهما الخادم لصار تعديلُ ترتيبٍ
+/// في التطبيق يستلزم تعديلاً في القاعدة.
+const Map<String, ({IconData icon, int index})> _tabRegistry = {
+  'home': (icon: Icons.home_rounded, index: 0),
+  'trends': (icon: Icons.trending_up_rounded, index: 1),
+  'categories': (icon: Icons.grid_view_rounded, index: 2),
+  'cart': (icon: Icons.shopping_cart_outlined, index: 3),
+  'account': (icon: Icons.person_outline_rounded, index: 4),
+};
+
+/// التبويبات الأربعة المكتوبة — ملاذُ الرجوع، وهي نفسها ترتيب الخادم الافتراضيّ.
+const List<_NavItem> _defaultTabs = [
+  _NavItem(icon: Icons.person_outline_rounded, label: 'حسابي', index: 4),
+  _NavItem(icon: Icons.trending_up_rounded, label: 'الترندات', index: 1),
+  _NavItem(icon: Icons.grid_view_rounded, label: 'الأقسام', index: 2),
+  _NavItem(icon: Icons.shopping_cart_outlined, label: 'السلة', index: 3),
+];
+
+/// يبني تبويبات الشريط من `app-navigation` — **التسمية والترتيب فقط** (3.5).
+///
+/// ‼️ **والعدد يبقى أربعة بحكم التصميم لا بحكم البيانات.** الشريط اثنان يميناً
+/// واثنان يساراً حول زرّ «تنت» العائم، فخمسةٌ تكسره وثلاثةٌ تترك فجوة. ولذلك:
+/// أيّ عددٍ مخالف ⇒ **يُرفض كلّه ويُعاد للمكتوب** — لا يُقصّ ولا يُكمَّل، لأنّ
+/// شريطاً نصفه من اللوحة ونصفه من الشيفرة يُربك من يُحرّره.
+///
+/// ‼️ و`home` يُستبعَد: هو الزرّ الدائريّ في الوسط لا عنصرٌ في الصفّ.
+List<_NavItem> _resolveTabs(BuildContext context) {
+  final tabs = context.watch<HomeStoreCubit>().state.appNavigation?.bottomTabs;
+  if (tabs == null || tabs.isEmpty) return _defaultTabs;
+
+  final resolved = <_NavItem>[];
+  for (final tab in tabs) {
+    final key = tab.actionType == 'tab' && tab.actionValue.isNotEmpty
+        ? tab.actionValue
+        : tab.id;
+    if (key == 'home') continue;
+
+    final known = _tabRegistry[key];
+    if (known == null) continue; // تبويبٌ لا تعرفه هذه النسخة ⇒ يسقط بصمت.
+    resolved.add(_NavItem(
+      // الأيقونة من الاسم إن أرسله الخادم، وإلّا فأيقونة التبويب المعروفة.
+      icon: _tabRegistry[tab.icon ?? '']?.icon ?? known.icon,
+      label: tab.label,
+      index: known.index,
+    ));
+  }
+
+  if (resolved.length != _defaultTabs.length) {
+    debugPrint(
+      '[sdui] تبويبات الشريط ${resolved.length} لا ${_defaultTabs.length} ⇒ أُبقي المكتوب',
+    );
+    return _defaultTabs;
+  }
+  return resolved;
+}
+
 class _BottomNav extends StatelessWidget {
   const _BottomNav({required this.currentIndex});
 
@@ -117,12 +198,7 @@ class _BottomNav extends StatelessWidget {
     final cubit = context.read<ShellCubit>();
     // مساحة آمنة سفلية متغيرة حسب الجهاز (شريط الإيماءات/الزر السفلي)
     final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
-    final items = [
-      _NavItem(icon: Icons.person_outline_rounded, label: 'حسابي', index: 4),
-      _NavItem(icon: Icons.trending_up_rounded, label: 'الترندات', index: 1),
-      _NavItem(icon: Icons.grid_view_rounded, label: 'الأقسام', index: 2),
-      _NavItem(icon: Icons.shopping_cart_outlined, label: 'السلة', index: 3),
-    ];
+    final items = _resolveTabs(context);
 
     return Container(
       padding: EdgeInsets.fromLTRB(16, 8, 16, 12 + bottomInset),
