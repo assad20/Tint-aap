@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../sdui/sdui_tracker.dart';
@@ -56,6 +57,13 @@ bool _handleSduiAction(
   SduiAction action, {
   required bool execute,
 }) {
+  // ‼️ المنتج يُفتَح بمعرّفه عبر المسار الجالب — فلا يلزم أن يكون معروضاً في
+  //    الشاشة، ولا أن يكون في كتالوج الرئيسيّة أصلاً.
+  if (action.type == 'product') {
+    if (execute) context.push('/product/${Uri.encodeComponent(action.value)}');
+    return true;
+  }
+
   if (action.type != 'category') {
     return false;
   }

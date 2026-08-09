@@ -10,6 +10,8 @@ abstract final class ApiRoutes {
   static const catalogSearch = '/catalog/search';
   static const catalogNavigation = '/catalog/navigation';
   static const catalogCategories = '/catalog/categories'; // + /<slug>
+  /// صفحة منتجٍ بمعرّفه — تُفتَح من رابطٍ عميق لا من بطاقةٍ تحمل الكائن.
+  static const catalogProducts = '/catalog/products'; // + /<id>
   // توفّر بنود السلّة — تُراجَع عند فتح السلّة وقبل الدفع، فلا يُكتشف النفاد
   // بعد إدخال العنوان. نفس المطابقة التي يستعملها الخادم عند التسعير.
   static const catalogAvailability = '/catalog/availability';
