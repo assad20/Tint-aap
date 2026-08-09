@@ -1,3 +1,4 @@
+import '../../../../core/models/app_navigation_model.dart';
 import '../../../../core/models/category_model.dart';
 import '../../../../core/models/cms_page_model.dart';
 import '../../../../core/models/discover_model.dart';
@@ -107,6 +108,17 @@ class CatalogRepositoryImpl implements CatalogRepository {
       return CmsPageModel.fromJson(raw).sections.isEmpty ? null : raw;
     } catch (_) {
       // 404 (لا رئيسيّة لقناة `app`) أو انقطاع — وكلاهما «أبقِ ما يعمل».
+      return null;
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>?> fetchAppNavigation() async {
+    try {
+      final raw = await _remoteDataSource.fetchAppNavigation();
+      // تنقّلٌ بلا عنصرٍ واحد = لا تنقّل: لا نمحو المعروض بفراغٍ وصل من الشبكة.
+      return AppNavigationModel.fromJson(raw).isEmpty ? null : raw;
+    } catch (_) {
       return null;
     }
   }

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/models/app_navigation_model.dart';
 import '../../../../core/models/category_model.dart';
 import '../../../../core/models/cms_page_model.dart';
 import '../../../../core/models/hero_slide_model.dart';
@@ -22,6 +23,7 @@ class HomeStoreState {
     this.categoryBanners = const [],
     this.isCategoryLoading = false,
     this.homeLayout,
+    this.appNavigation,
     this.errorMessage,
   });
 
@@ -43,6 +45,9 @@ class HomeStoreState {
   /// أو تعذّر جلبه ⇒ تُعرَض الرئيسيّة المكتوبة في الشيفرة.
   final CmsPageModel? homeLayout;
 
+  /// تنقّل التطبيق من اللوحة (المهمّة 3.6). `null` = يبقى التنقّل القائم.
+  final AppNavigationModel? appNavigation;
+
   final String? errorMessage;
 
   HomeStoreState copyWith({
@@ -55,6 +60,7 @@ class HomeStoreState {
     List<String>? categoryBanners,
     bool? isCategoryLoading,
     CmsPageModel? homeLayout,
+    AppNavigationModel? appNavigation,
     String? errorMessage,
   }) {
     return HomeStoreState(
@@ -67,6 +73,7 @@ class HomeStoreState {
       categoryBanners: categoryBanners ?? this.categoryBanners,
       isCategoryLoading: isCategoryLoading ?? this.isCategoryLoading,
       homeLayout: homeLayout ?? this.homeLayout,
+      appNavigation: appNavigation ?? this.appNavigation,
       errorMessage: errorMessage,
     );
   }
@@ -101,6 +108,7 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
         topNav: cached?.$2,
         heroSlides: cached?.$3,
         homeLayout: cachedLayout,
+        appNavigation: _readCachedNavigation(),
       ));
     } else {
       emit(state.copyWith(isLoading: true));
@@ -115,6 +123,7 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
         //    متسلسلاً يُضيف رحلةً كاملة إلى زمن الإقلاع — والخدمة والقاعدة في
         //    منطقتين (~70ms للرحلة الواحدة).
         _catalogRepository.fetchAppHomeLayout(),
+        _catalogRepository.fetchAppNavigation(),
       ]);
       final catalog = results[0] as Map<String, List<ProductModel>>;
       final nav = results[1] as List<CategoryModel>;
@@ -124,6 +133,8 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
       // لا يُعيد المستخدم إلى التخطيط القديم بعد أن رأى الجديد.
       final rawLayout = results[3] as Map<String, dynamic>?;
       final layout = rawLayout == null ? null : CmsPageModel.fromJson(rawLayout);
+      final rawNav = results[4] as Map<String, dynamic>?;
+      final appNav = rawNav == null ? null : AppNavigationModel.fromJson(rawNav);
       final gotData = catalog.isNotEmpty || nav.isNotEmpty;
       if (gotData) {
         emit(state.copyWith(
@@ -132,6 +143,7 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
           topNav: nav,
           heroSlides: slides,
           homeLayout: layout,
+          appNavigation: appNav,
           errorMessage: null,
         ));
         await _saveSnapshot(catalog, nav, slides);
@@ -142,6 +154,7 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
         emit(state.copyWith(
           isLoading: false,
           homeLayout: layout,
+          appNavigation: appNav,
           errorMessage: cached == null ? 'تعذّر تحميل الكتالوج' : null,
         ));
       }
@@ -149,6 +162,9 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
       // ‼️ خارج الفرعين للسبب نفسه.
       if (rawLayout != null) {
         await _saveLayout(rawLayout);
+      }
+      if (rawNav != null) {
+        await _saveNavigation(rawNav);
       }
       if (state.activeTopNav != kHomeNav) {
         await _loadCategory(state.activeTopNav);
@@ -207,6 +223,26 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
       return page.sections.isEmpty ? null : page;
     } catch (_) {
       return null; // كاش تحسينيّ — تجاهل أيّ تلف
+    }
+  }
+
+  /// يقرأ التنقّل المخزَّن ويُعيد تحليله (المهمّة 3.6) — فيعمل التطبيق بلا شبكة.
+  AppNavigationModel? _readCachedNavigation() {
+    final raw = _appPreferences.cachedAppNavigation;
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final nav = AppNavigationModel.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      return nav.isEmpty ? null : nav;
+    } catch (_) {
+      return null; // كاش تحسينيّ — تجاهل أيّ تلف
+    }
+  }
+
+  Future<void> _saveNavigation(Map<String, dynamic> raw) async {
+    try {
+      await _appPreferences.setCachedAppNavigation(jsonEncode(raw));
+    } catch (_) {
+      // تجاهل: الكاش تحسينيّ لا يؤثّر على العمل.
     }
   }
 

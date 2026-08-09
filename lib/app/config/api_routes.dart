@@ -21,6 +21,9 @@ abstract final class ApiRoutes {
   /// القناة يسقط الطلب على `web` فيستقبل التطبيق **تخطيط الموقع** — وهو ما كان
   /// يحدث فعلاً قبل توصيل المُعامِل في الكنترولر.
   static const cmsHome = '/cms/public/home?channel=app';
+
+  /// تنقّل التطبيق من اللوحة: قائمةٌ جانبيّة + تبويبات سفليّة (المهمّة 1.6).
+  static const cmsAppNavigation = '/cms/public/app-navigation';
   // طرق الشحن وأسعارها — المصدر الموثوق الذي يعيد الخادم حسابه عند الطلب.
   static const catalogShippingMethods = '/catalog/shipping-methods';
 

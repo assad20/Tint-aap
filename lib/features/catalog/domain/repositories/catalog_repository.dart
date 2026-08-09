@@ -40,6 +40,10 @@ abstract class CatalogRepository {
   /// `minAppVersion` يجب أن يُعاد تطبيقه عند كلّ قراءة لا أن يُجمَّد في الكاش.
   Future<Map<String, dynamic>?> fetchAppHomeLayout();
 
+  /// تنقّل التطبيق من اللوحة — **خاماً** للسبب نفسه: يُخزَّن ويُعاد تحليله.
+  /// `null` = تعذّر الجلب ⇒ يبقى المعروض.
+  Future<Map<String, dynamic>?> fetchAppNavigation();
+
   // أرفف الاكتشاف لقسمٍ بعينه ('all' = الكلّ).
   // `null` = تعذّر الجلب (أبقِ المعروض)، بينما خلاصةٌ بلا أرفف = لا إشارات بعد.
   Future<DiscoverFeed?> fetchDiscover(String category);

@@ -23,6 +23,11 @@ class CatalogRemoteDataSource {
     return _apiClient.getMap(ApiRoutes.cmsHome);
   }
 
+  /// تنقّل التطبيق من اللوحة (المهمّة 1.6).
+  Future<Map<String, dynamic>> fetchAppNavigation() {
+    return _apiClient.getMap(ApiRoutes.cmsAppNavigation);
+  }
+
   Future<List<dynamic>> fetchTrendingProducts() {
     return _apiClient.getList(ApiRoutes.catalogTrends);
   }

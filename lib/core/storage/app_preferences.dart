@@ -95,6 +95,13 @@ class AppPreferences {
     await _prefs.setString('home_layout_v1', json);
   }
 
+  /// تنقّل التطبيق المخزَّن (المهمّة 3.6) — خاماً كسابقه، وللسبب نفسه.
+  String? get cachedAppNavigation => _prefs.getString('app_navigation_v1');
+
+  Future<void> setCachedAppNavigation(String json) async {
+    await _prefs.setString('app_navigation_v1', json);
+  }
+
   // ─── بيانات العميل بعد تسجيل الدخول (التوكن نفسه في التخزين الآمن) ───
   String? get customerPhone => _prefs.getString('customer_phone');
   String? get customerName => _prefs.getString('customer_name');
