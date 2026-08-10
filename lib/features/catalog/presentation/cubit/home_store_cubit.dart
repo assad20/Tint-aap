@@ -41,8 +41,8 @@ class HomeStoreState {
   final List<String> categoryBanners;
   final bool isCategoryLoading;
 
-  /// تخطيط الرئيسيّة من اللوحة (SDUI). `null` = لا تخطيط منشورٌ لقناة `app`
-  /// أو تعذّر جلبه ⇒ تُعرَض الرئيسيّة المكتوبة في الشيفرة.
+  /// تخطيط الرئيسيّة من اللوحة (SDUI). `null` ⇒ تُعرَض **الرئيسيّة الرسميّة**
+  /// المكتوبة في التطبيق — وهي ملاذُ الرجوع لا شاشةٌ فارغة.
   final CmsPageModel? homeLayout;
 
   /// تنقّل التطبيق من اللوحة (المهمّة 3.6). `null` = يبقى التنقّل القائم.
@@ -62,6 +62,10 @@ class HomeStoreState {
     CmsPageModel? homeLayout,
     AppNavigationModel? appNavigation,
     String? errorMessage,
+    /// ‼️ **المحو يحتاج عَلَماً صريحاً**: `homeLayout: null` لا تُميَّز عن «لم
+    /// يُمرَّر»، وهي القاعدة التي تحمي المعروض من الانقطاع. فبلا هذا العَلَم لا
+    /// سبيل إلى العودة للرئيسيّة الرسميّة بعد حذف رئيسيّة اللوحة.
+    bool clearHomeLayout = false,
   }) {
     return HomeStoreState(
       isLoading: isLoading ?? this.isLoading,
@@ -72,7 +76,7 @@ class HomeStoreState {
       categoryProducts: categoryProducts ?? this.categoryProducts,
       categoryBanners: categoryBanners ?? this.categoryBanners,
       isCategoryLoading: isCategoryLoading ?? this.isCategoryLoading,
-      homeLayout: homeLayout ?? this.homeLayout,
+      homeLayout: clearHomeLayout ? null : (homeLayout ?? this.homeLayout),
       appNavigation: appNavigation ?? this.appNavigation,
       errorMessage: errorMessage,
     );
@@ -129,10 +133,19 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
       final nav = results[1] as List<CategoryModel>;
       // null = تعذّر الجلب → أبقِ المعروض؛ [] = لا بنرات معرّفة → أخفِ السلايدر.
       final slides = results[2] as List<HeroSlideModel>? ?? state.heroSlides;
-      // `null` ⇒ أبقِ ما هو معروض (`copyWith` تتجاهل الفراغ) — فانقطاعُ شبكةٍ
-      // لا يُعيد المستخدم إلى التخطيط القديم بعد أن رأى الجديد.
-      final rawLayout = results[3] as Map<String, dynamic>?;
+      /**
+       * ‼️ **ثلاث حالاتٍ لا اثنتان** (انظر `HomeLayoutFetch`):
+       *
+       * - `ok` ⇒ اعرضه وخزّنه.
+       * - `none` ⇒ **الخادم قال لا**: امحُ المخزَّن وارجع إلى الرئيسيّة الرسميّة.
+       *   وهذه هي حال «حذفتُ رئيسيّة اللوحة».
+       * - `unavailable` ⇒ لا حكم: أبقِ المعروض، فانقطاعُ شبكةٍ لا يجوز أن يُرمى
+       *   بالمستخدم إلى الرئيسيّة القديمة بعد أن رأى الجديدة.
+       */
+      final layoutFetch = results[3] as HomeLayoutFetch;
+      final rawLayout = layoutFetch.raw;
       final layout = rawLayout == null ? null : CmsPageModel.fromJson(rawLayout);
+      final dropLayout = layoutFetch.status == HomeLayoutStatus.none;
       final rawNav = results[4] as Map<String, dynamic>?;
       final appNav = rawNav == null ? null : AppNavigationModel.fromJson(rawNav);
       final gotData = catalog.isNotEmpty || nav.isNotEmpty;
@@ -143,6 +156,7 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
           topNav: nav,
           heroSlides: slides,
           homeLayout: layout,
+          clearHomeLayout: dropLayout,
           appNavigation: appNav,
           errorMessage: null,
         ));
@@ -154,6 +168,7 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
         emit(state.copyWith(
           isLoading: false,
           homeLayout: layout,
+          clearHomeLayout: dropLayout,
           appNavigation: appNav,
           errorMessage: cached == null ? 'تعذّر تحميل الكتالوج' : null,
         ));
@@ -162,6 +177,11 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
       // ‼️ خارج الفرعين للسبب نفسه.
       if (rawLayout != null) {
         await _saveLayout(rawLayout);
+      } else if (dropLayout) {
+        // ‼️ **والمحو من القرص لا من الحالة وحدها**: لو بقي المخزَّن لعادت
+        //    الرئيسيّة المحذوفة عند الإقلاع التالي قبل وصول أيّ ردّ — فتومض
+        //    ثمّ تختفي، أو تبقى كما هي إن كان الجهاز بلا شبكة.
+        await _clearLayout();
       }
       if (rawNav != null) {
         await _saveNavigation(rawNav);
@@ -251,6 +271,18 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
       await _appPreferences.setCachedHomeLayout(jsonEncode(raw));
     } catch (_) {
       // تجاهل: الكاش تحسينيّ لا يؤثّر على العمل.
+    }
+  }
+
+  /// يمحو التخطيط المخزَّن حين **يقول الخادم إنّه لم يعد موجوداً**.
+  ///
+  /// ‼️ لا يُستدعى عند فشل الجلب أبداً — وإلّا أفرغ انقطاعٌ عابر كاشَ من رأى
+  /// تخطيط اللوحة، وهو نقيض الغرض من تخزينه.
+  Future<void> _clearLayout() async {
+    try {
+      await _appPreferences.clearCachedHomeLayout();
+    } catch (_) {
+      // تجاهل: الحالة في الذاكرة مُحيت أصلاً، والقرص يُصحَّح في الإقلاع التالي.
     }
   }
 

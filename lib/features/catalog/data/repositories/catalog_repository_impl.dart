@@ -4,6 +4,7 @@ import '../../../../core/models/cms_page_model.dart';
 import '../../../../core/models/discover_model.dart';
 import '../../../../core/models/hero_slide_model.dart';
 import '../../../../core/models/product_model.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../domain/repositories/catalog_repository.dart';
 import '../datasources/catalog_remote_data_source.dart';
 
@@ -99,16 +100,32 @@ class CatalogRepositoryImpl implements CatalogRepository {
   }
 
   @override
-  Future<Map<String, dynamic>?> fetchAppHomeLayout() async {
+  Future<HomeLayoutFetch> fetchAppHomeLayout() async {
     try {
       final raw = await _remoteDataSource.fetchAppHomeLayout();
       // ‼️ صفحةٌ بلا أقسامٍ **مفهومة** = لا تخطيط. قد تكون كلّ أقسامها أحدث من
       //    هذه النسخة (`minAppVersion`)، والعرض حينها شاشةٌ بيضاء بينما
-      //    الرئيسيّة القائمة تعمل. والفحص هنا يمنع تخزين كاشٍ فارغ أيضاً.
-      return CmsPageModel.fromJson(raw).sections.isEmpty ? null : raw;
+      //    الرئيسيّة الرسميّة تعمل. وهو **حكمٌ** لا عُطل: يُمحى المخزَّن.
+      return CmsPageModel.fromJson(raw).sections.isEmpty
+          ? const HomeLayoutFetch.none()
+          : HomeLayoutFetch.ok(raw);
+    } on ApiException catch (error) {
+      /**
+       * ‼️ **٤٠٤ حكمٌ لا عُطل.**
+       *
+       * كان يُجمَع مع الانقطاع تحت `null` ⇒ «أبقِ ما يعمل». فرئيسيّةٌ يحذفها
+       * المالك من اللوحة تبقى على كلّ جهازٍ خزّنها **بلا نهاية**: لا صلاحيّة
+       * تنتهي ولا شيء يمحوها، وفيها روابط لأقسامٍ وعروضٍ انتهت. والجهاز الذي
+       * لم يرَها قطّ يعرض الرسميّة — فيختلف جهازان في المتجر نفسه بلا سببٍ ظاهر.
+       *
+       * وما عدا ٤٠٤ (500 · مهلة · 502) عُطلٌ مؤقّت ⇒ يبقى المعروض.
+       */
+      return error.statusCode == 404
+          ? const HomeLayoutFetch.none()
+          : const HomeLayoutFetch.unavailable();
     } catch (_) {
-      // 404 (لا رئيسيّة لقناة `app`) أو انقطاع — وكلاهما «أبقِ ما يعمل».
-      return null;
+      // جسمٌ تالف أو خطأ غير متوقّع: لا حكم ⇒ أبقِ المعروض.
+      return const HomeLayoutFetch.unavailable();
     }
   }
 

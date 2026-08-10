@@ -2,6 +2,9 @@ import '../../../../core/models/category_model.dart';
 import '../../../../core/models/discover_model.dart';
 import '../../../../core/models/hero_slide_model.dart';
 import '../../../../core/models/product_model.dart';
+import '../entities/home_layout_fetch.dart';
+
+export '../entities/home_layout_fetch.dart';
 
 // صفحة القسم: منتجاته + بانرات السلايدر (heroSlides المُدارة من الأدمن).
 class CategoryPageResult {
@@ -34,11 +37,10 @@ abstract class CatalogRepository {
 
   /// تخطيط رئيسيّة التطبيق من اللوحة (SDUI) — **خاماً كما وصل**.
   ///
-  /// `null` = **لا تخطيط لهذه القناة** (404) أو تعذّر الجلب ⇒ يبقى المعروض.
-  ///
-  /// ‼️ يُعيد الخام لا `CmsPageModel`: الطبقة العليا تحتاجه نصّاً لتخزّنه، وحارس
-  /// `minAppVersion` يجب أن يُعاد تطبيقه عند كلّ قراءة لا أن يُجمَّد في الكاش.
-  Future<Map<String, dynamic>?> fetchAppHomeLayout();
+  /// ‼️ **بثلاث حالات لا اثنتين** (انظر [HomeLayoutFetch]): «حُذفت» تُمحى ويُرجَع
+  /// إلى الرئيسيّة الرسميّة، و«تعذّر الجلب» يُبقي المعروض. وجمعُهما في `null`
+  /// كان يُبقي رئيسيّةً حذفها المالك تعمل على الأجهزة بلا نهاية.
+  Future<HomeLayoutFetch> fetchAppHomeLayout();
 
   /// تنقّل التطبيق من اللوحة — **خاماً** للسبب نفسه: يُخزَّن ويُعاد تحليله.
   /// `null` = تعذّر الجلب ⇒ يبقى المعروض.

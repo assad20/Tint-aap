@@ -95,6 +95,14 @@ class AppPreferences {
     await _prefs.setString('home_layout_v1', json);
   }
 
+  /// يُزيل التخطيط المخزَّن — **حين يقول الخادم إنّه لم يعد منشوراً وحدها**.
+  ///
+  /// ‼️ وبدونها تبقى رئيسيّةٌ حذفها المالك تعمل على الجهاز بلا نهاية: الكاش
+  /// بلا صلاحيّةٍ تنتهي، ولا شيء آخر يمحوه.
+  Future<void> clearCachedHomeLayout() async {
+    await _prefs.remove('home_layout_v1');
+  }
+
   /// تنقّل التطبيق المخزَّن (المهمّة 3.6) — خاماً كسابقه، وللسبب نفسه.
   String? get cachedAppNavigation => _prefs.getString('app_navigation_v1');
 
