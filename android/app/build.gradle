@@ -3,6 +3,8 @@ plugins {
     id "kotlin-android"
     // يجب أن يأتي بعد إضافتي Android و Kotlin
     id "dev.flutter.flutter-gradle-plugin"
+    // ‼️ بعد إضافة أندرويد لا قبلها — وإلّا لا تجد إعدادات التطبيق.
+    id "com.google.gms.google-services"
 }
 
 // تحميل إعدادات التوقيع من key.properties إن وُجد

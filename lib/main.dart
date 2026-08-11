@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'app/config/app_config.dart';
 import 'app/tint_app.dart';
 import 'core/network/api_client.dart';
+import 'core/notifications/push_service.dart';
 import 'core/storage/app_preferences.dart';
 import 'core/storage/token_storage.dart';
 import 'core/widgets/tint_ui.dart';
@@ -56,6 +59,13 @@ Future<void> main() async {
     baseUrl: appConfig.baseUrl,
     tokenStorage: tokenStorage,
   );
+
+  /// الإشعارات — **بلا `await`** عمداً.
+  ///
+  /// ‼️ تهيئة Firebase وطلب الإذن وجلب الرمز رحلاتٌ قد تستغرق ثوانيَ على شبكةٍ
+  /// بطيئة، وانتظارُها هنا يؤخّر أوّل إطارٍ يراه المستخدم. والإشعارات ليست شرطاً
+  /// لعرض المتجر — فتُهيَّأ بجانبه لا قبله. والخدمة لا ترمي في أيّ حال.
+  unawaited(PushService(apiClient).initialize());
 
   final catalogRepository = CatalogRepositoryImpl(
     remoteDataSource: CatalogRemoteDataSource(apiClient),
