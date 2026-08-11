@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "317822947274",
+    "project_id": "tint-3bcf5",
+    "storage_bucket": "tint-3bcf5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:317822947274:android:208cbf833138eace538933",
+        "android_client_info": {
+          "package_name": "com.tintstore.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCm9Zq8J7ZaUoIkP2HdbKv4sKlUOOQjXHA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
