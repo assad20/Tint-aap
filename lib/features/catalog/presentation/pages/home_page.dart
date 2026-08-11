@@ -148,18 +148,43 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return BlocBuilder<HomeStoreCubit, HomeStoreState>(
       builder: (context, state) {
+        /**
+         * ‼️ **سحبٌ للتحديث — وهو المخرج الوحيد من «تطبيقٌ مفتوح لا يرى الجديد».**
+         *
+         * `bootstrap()` تُنادى مرّةً واحدة عند إنشاء التطبيق (`main.dart`)، فمن
+         * كان تطبيقه مفتوحاً حين تُنشَر صفحةٌ من اللوحة **لا يراها حتّى يُغلقه
+         * ويفتحه**. ولم يكن في الرئيسيّة سبيلٌ للتحديث إطلاقاً (السحب كان في
+         * «الترندات» وحدها).
+         *
+         * ‼️ **و`refresh()` لا `bootstrap()`**: الثانية ترفع `isLoading` فتُستبدل
+         * الصفحة كلّها بدوّارةٍ تحت إصبع الساحب ثمّ تعود — أسوأُ من ألّا يتحدّث
+         * شيء. انظر تعليقها في الكيوبت.
+         *
+         * ‼️ **و`edgeOffset` ليست تجميلاً**: الهيدر يطفو فوق المحتوى في الوضع
+         * الغاطس، وبلا الإزاحة يظهر المؤشّر **خلفه** — فيسحب المستخدم ولا يرى
+         * شيئاً يتحرّك، فيظنّ السحب معطّلاً.
+         */
         final body = state.isLoading
             ? const Center(child: CircularProgressIndicator())
-            : ListView(
-                controller: kImmersiveHeroHeader ? _scroll : null,
-                padding: EdgeInsets.only(
-                  // في الوضع الغاطس يبدأ المحتوى من أعلى الشاشة ليمرّ البانر
-                  // خلف الهيدر؛ وفي الوضع العاديّ الهيدر فوقه في عمود.
-                  bottom: 110,
+            : RefreshIndicator(
+                onRefresh: () => context.read<HomeStoreCubit>().refresh(),
+                color: TintColors.sand,
+                edgeOffset: kImmersiveHeroHeader ? _headerHeight(context) : 0,
+                child: ListView(
+                  controller: kImmersiveHeroHeader ? _scroll : null,
+                  // ‼️ **دائمُ التمرير**: صفحةٌ قصيرة لا تملأ الشاشة لا تُنتج
+                  // إيماءة سحبٍ أصلاً — ورئيسيّةٌ بقسمٍ واحدٍ من اللوحة حالةٌ
+                  // واقعيّة تماماً، فيبقى التحديث متعذّراً حيث يُحتاج أكثر.
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.only(
+                    // في الوضع الغاطس يبدأ المحتوى من أعلى الشاشة ليمرّ البانر
+                    // خلف الهيدر؛ وفي الوضع العاديّ الهيدر فوقه في عمود.
+                    bottom: 110,
+                  ),
+                  children: [
+                    _buildStorefront(context, state),
+                  ],
                 ),
-                children: [
-                  _buildStorefront(context, state),
-                ],
               );
 
         if (!kImmersiveHeroHeader) {

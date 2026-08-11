@@ -118,6 +118,31 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
       emit(state.copyWith(isLoading: true));
     }
     // ② تحديث من الشبكة.
+    await _refreshFromNetwork(hasVisibleContent: cached != null);
+  }
+
+  /// سحبٌ للتحديث — **بلا `isLoading`**.
+  ///
+  /// ‼️ **ولهذا لم تُستدعَ `bootstrap` نفسها.** الرئيسيّة تستبدل محتواها كلّه
+  /// بدوّارةٍ ما دام `isLoading` مرفوعاً (`home_page.dart`)، فلو نادى السحبُ
+  /// الإقلاعَ لاختفت الصفحة تحت إصبع المستخدم لحظةَ سحبها ثمّ عادت — وهو أسوأ
+  /// ممّا لو لم يُحدَّث شيء. و`RefreshIndicator` يرسم مؤشّره بنفسه، فمؤشّرٌ
+  /// ثانٍ زيادةٌ لا فائدة فيها.
+  ///
+  /// ‼️ **ولا تُقرأ اللقطة المخزَّنة هنا.** قراءتها في الإقلاع تُخفي بُعد الخادم؛
+  /// وقراءتها في التحديث تعني إحلال **الأقدم** محلّ المعروض قبل وصول الأحدث.
+  ///
+  /// **ولماذا وُجد هذا أصلاً:** `bootstrap()` تُنادى مرّةً واحدة عند إنشاء
+  /// التطبيق (`main.dart`) — فمن كان تطبيقه مفتوحاً لا يرى صفحةً نُشرت للتوّ من
+  /// اللوحة حتّى يُغلقه ويفتحه. والسحب يجعل التحديث بيده.
+  Future<void> refresh() => _refreshFromNetwork(hasVisibleContent: true);
+
+  /// الجلب المشترك بين الإقلاع والسحب.
+  ///
+  /// `hasVisibleContent` تحكم رسالة الخطأ وحدها: من يرى محتوًى معروضاً لا يُصدَم
+  /// برسالة فشلٍ تحته — يبقى ما يراه، ويُعاد المحاولة. ومن لا يرى شيئاً يجب أن
+  /// يُخبَر لئلّا ينتظر أمام فراغ.
+  Future<void> _refreshFromNetwork({required bool hasVisibleContent}) async {
     try {
       final results = await Future.wait([
         _catalogRepository.fetchBootstrapCatalog(),
@@ -170,7 +195,7 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
           homeLayout: layout,
           clearHomeLayout: dropLayout,
           appNavigation: appNav,
-          errorMessage: cached == null ? 'تعذّر تحميل الكتالوج' : null,
+          errorMessage: hasVisibleContent ? null : 'تعذّر تحميل الكتالوج',
         ));
       }
 
@@ -193,7 +218,7 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
       // خطأ غير متوقّع: أبقِ اللقطة المعروضة إن وُجدت.
       emit(state.copyWith(
         isLoading: false,
-        errorMessage: cached == null ? error.toString() : null,
+        errorMessage: hasVisibleContent ? null : error.toString(),
       ));
     }
   }
