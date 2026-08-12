@@ -105,6 +105,10 @@ class PushService {
         title: title,
         body: body,
         imageUrl: (notification?.android?.imageUrl ?? message.data['image'])?.toString(),
+        // ‼️ القناة من الرسالة: إشعار طلبٍ على قناة العروض يُسكَت مع الحملات.
+        channel: (message.data['channel'] ?? '').toString() == 'orders'
+            ? TintLocalNotifications.ordersChannel
+            : TintLocalNotifications.campaignsChannel,
       ),
     );
   }

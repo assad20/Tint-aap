@@ -72,6 +72,21 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_color"
             android:resource="@color/tint_notification" />
+        <!--
+          ‼️ **القناة الافتراضيّة — وإلّا صنع Firebase قناةً باسم
+          «Miscellaneous».**
+
+          كُشفت على المحاكي (2026-08-12): إشعارٌ يصل بلا `channelId` يجعل
+          Firebase يُنشئ قناةً افتراضيّة **باسمٍ إنجليزيٍّ غامض** تظهر في شاشة
+          إعدادات العميل بجوار قنواتنا العربيّة — وهو العيب نفسه الذي رُصد في
+          «نون» (`Zoho SalesIQ`) و«شي إن» (`latest offers` مكرّرة).
+
+          والخادم يُصرّح بالقناة في كلّ حملة؛ وهذا حزامُ أمانٍ ثانٍ لما يُرسَل
+          من مكانٍ آخر أو من نسخةٍ أقدم.
+        -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="tint_campaigns" />
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

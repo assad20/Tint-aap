@@ -25,10 +25,31 @@ class TintLocalNotifications {
   /// ‼️ **قناةٌ مصرَّحٌ بها مسبقاً.** أندرويد ٨+ يرفض أيّ إشعارٍ بلا قناة —
   /// **بصمت**: لا خطأ، ولا شيء يظهر. وإنشاؤها عند أوّل إشعار سباقٌ مع الزمن،
   /// فتُنشأ عند التهيئة.
-  static const _channel = AndroidNotificationChannel(
+  ///
+  /// ‼️ **قناتان لا واحدة — وهذا لصالحنا لا لصالح العميل وحده.**
+  /// مفتاح النظام الواحد يُطفئ كلّ شيء: من ضاق بحملةٍ ترويجيّة كان يفقد معها
+  /// «طلبك شُحن» — فنخسر أثمن قناةٍ لدينا بسبب رسالة تخفيضات.
+  ///
+  /// ‼️ **وثابتتان بالعدد.** فُحصت ترنديول على جهاز المالك (2026-08-12):
+  /// عندها `Campaign` و`Order` — ثمّ **ستّ عشرة** قناةً باسم
+  /// «Special Notifications (٣)…(١٦)». وهذا ما يحدث حين تُنشأ قناةٌ لكلّ حملة:
+  /// شاشة إعداداتٍ لا تُقرأ، ومستخدمٌ يريد إسكات العروض فلا يعرف أيّ مفتاحٍ
+  /// يُطفئ **فيُطفئ الكلّ** — أي نفس الضرر الذي وُجدت القنوات لمنعه.
+  /// **فلا قناةَ لكلّ حملة أبداً.**
+  ///
+  /// ‼️ **وأسماؤها بالعربيّة**: اسم القناة يُثبَّت لحظة إنشائها ولا يتبع
+  /// لغة الجهاز بعدها — ولذلك تظهر قنوات ترنديول بالإنجليزيّة على هاتفٍ عربيّ.
+  static const campaignsChannel = AndroidNotificationChannel(
     'tint_campaigns',
-    'عروض تنت',
-    description: 'إشعارات العروض والحملات من متجر تنت.',
+    'العروض والحملات',
+    description: 'عروض وتخفيضات ومنتجات جديدة من تنت.',
+    importance: Importance.high,
+  );
+
+  static const ordersChannel = AndroidNotificationChannel(
+    'tint_orders',
+    'تحديثات الطلبات',
+    description: 'حالة طلبك: التجهيز والشحن والتسليم.',
     importance: Importance.high,
   );
 
@@ -42,9 +63,10 @@ class TintLocalNotifications {
           android: AndroidInitializationSettings('ic_stat_tint'),
         ),
       );
-      await _plugin
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-          ?.createNotificationChannel(_channel);
+      final android = _plugin
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      await android?.createNotificationChannel(campaignsChannel);
+      await android?.createNotificationChannel(ordersChannel);
       _ready = true;
     } catch (error) {
       debugPrint('[push] تعذّرت تهيئة الإشعارات المحلّيّة: $error');
@@ -59,11 +81,15 @@ class TintLocalNotifications {
   ///
   /// ‼️ **وفشل الصورة لا يُسقط الإشعار.** شبكةٌ بطيئة أو رابطٌ معطوب يعنيان
   /// إشعاراً نصّيّاً — لا صمتاً. والنصّ هو الرسالة، والصورة زينة.
+  /// ‼️ **القناة تُختار بالرسالة لا تُثبَّت.** إشعار طلبٍ يُرسَل على قناة
+  /// العروض يُسكَت مع الحملات — فيقول العميل «لم يخبرني أحدٌ أنّ طلبي شُحن»
+  /// وهو الذي أطفأ الإعلانات لا الطلبات.
   static Future<void> show({
     required String title,
     required String body,
     String? imageUrl,
     String? payload,
+    AndroidNotificationChannel channel = campaignsChannel,
   }) async {
     await initialize();
     if (!_ready) return;
@@ -82,9 +108,9 @@ class TintLocalNotifications {
           );
 
     final details = AndroidNotificationDetails(
-      _channel.id,
-      _channel.name,
-      channelDescription: _channel.description,
+      channel.id,
+      channel.name,
+      channelDescription: channel.description,
       importance: Importance.high,
       priority: Priority.high,
       // لون العلامة — نفس قيمة المانيفست، فلا يختلف مظهر الإشعارين.
