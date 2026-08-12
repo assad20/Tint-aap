@@ -582,22 +582,27 @@ class _PaymentMethodsCard extends StatelessWidget {
                    */
                   if (m.id == 'paytabs') ...[
                     _SelectableTile(
-                      selected: state.paymentMethod == m.id,
+                      // ‼️ المعرّف وحده لا يكفي: البطاقتان تُرسلانه نفسه.
+                      selected: state.paymentMethod == m.id &&
+                          state.cardBrand == 'mada',
                       title: 'مدى',
                       subtitle: 'دفع آمن ببطاقة مدى عبر PayTabs',
                       markKey: 'mada',
-                      onTap: () =>
-                          context.read<CheckoutCubit>().setPaymentMethod(m.id),
+                      onTap: () => context
+                          .read<CheckoutCubit>()
+                          .setPaymentMethod(m.id, cardBrand: 'mada'),
                     ),
                     const SizedBox(height: 10),
                     _SelectableTile(
-                      selected: state.paymentMethod == m.id,
+                      selected: state.paymentMethod == m.id &&
+                          state.cardBrand == 'visa',
                       title: 'Visa / Mastercard',
                       subtitle: 'دفع آمن بالبطاقة الائتمانيّة عبر PayTabs',
                       // ‼️ شعاران في بطاقةٍ واحدة — كما يعرضهما الموقع.
                       markKeys: const ['visa', 'mastercard'],
-                      onTap: () =>
-                          context.read<CheckoutCubit>().setPaymentMethod(m.id),
+                      onTap: () => context
+                          .read<CheckoutCubit>()
+                          .setPaymentMethod(m.id, cardBrand: 'visa'),
                     ),
                   ] else
                     _SelectableTile(

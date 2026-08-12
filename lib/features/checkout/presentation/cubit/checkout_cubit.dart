@@ -12,6 +12,7 @@ class CheckoutState {
     this.isSubmitting = false,
     this.shippingMethod = 'aramex',
     this.paymentMethod = 'cod',
+    this.cardBrand = 'mada',
     this.methods = const [],
     this.methodsLoading = true,
     this.shippingMethods = const [],
@@ -22,6 +23,14 @@ class CheckoutState {
   final bool isSubmitting;
   final String shippingMethod;
   final String paymentMethod;
+
+  /// أيّ بطاقةٍ اختار المستخدم داخل PayTabs: `mada` أو `visa`.
+  ///
+  /// ‼️ **للعرض وحده — والخادم يستقبل `paytabs` في الحالتين.** البطاقتان
+  /// تُرسلان المعرّف نفسه، فجعلُ «مُحدَّدة» تعتمد على المعرّف وحده كان يُضيء
+  /// الاثنتين معاً (بلاغ المالك 2026-08-12). والتمييز هنا لا في العقد: المزوّد
+  /// واحد، والفصل بصريٌّ لأنّ المشتري يبحث عن شعار «مدى» بعينه.
+  final String cardBrand;
   // وسائل الدفع المفعّلة من الخادم (المصدر الوحيد للرسوم).
   final List<PaymentMethodModel> methods;
   final bool methodsLoading;
@@ -60,6 +69,7 @@ class CheckoutState {
     bool? isSubmitting,
     String? shippingMethod,
     String? paymentMethod,
+    String? cardBrand,
     List<PaymentMethodModel>? methods,
     bool? methodsLoading,
     List<ShippingMethodModel>? shippingMethods,
@@ -70,6 +80,7 @@ class CheckoutState {
       isSubmitting: isSubmitting ?? this.isSubmitting,
       shippingMethod: shippingMethod ?? this.shippingMethod,
       paymentMethod: paymentMethod ?? this.paymentMethod,
+      cardBrand: cardBrand ?? this.cardBrand,
       methods: methods ?? this.methods,
       methodsLoading: methodsLoading ?? this.methodsLoading,
       shippingMethods: shippingMethods ?? this.shippingMethods,
@@ -209,8 +220,8 @@ class CheckoutCubit extends Cubit<CheckoutState> {
     emit(state.copyWith(shippingMethod: value));
   }
 
-  void setPaymentMethod(String value) {
-    emit(state.copyWith(paymentMethod: value));
+  void setPaymentMethod(String value, {String? cardBrand}) {
+    emit(state.copyWith(paymentMethod: value, cardBrand: cardBrand));
   }
 
   Future<String> submitOrder({
