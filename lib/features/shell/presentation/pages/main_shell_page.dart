@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../../../../core/tracking/tracking_service.dart';
+import '../../../settings/presentation/pages/tracking_consent_page.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -47,6 +50,40 @@ class _MainShellPageState extends State<MainShellPage> {
   // بلا تحميل كسول كانت كلّ الـCubits تجلب دفعةً واحدة عند البدء فتزاحمت
   // على خادم أوروبا وتجاوزت المهلة عند البرودة.
   final Set<int> _loaded = {0};
+
+  /// ‼️ **تُعرَض مرّةً واحدة وبعد أوّل إطار.**
+  ///
+  /// `initState` أبكر ممّا يجوز: الشجرة لم تُبنَ بعد فلا `Navigator` يُدفَع
+  /// عليه. و`addPostFrameCallback` يضمن شاشةً حاضرة.
+  ///
+  /// ‼️ **وتنتظر وصول الإعدادات**: `needsConsentDecision` تعود `false`
+  /// ما دامت القناة مُطفأة — وهي كذلك حتّى يصل ردّ `config`. فعرضُها فوراً كان
+  /// يسأل مستخدمي متاجرَ لا تقيس أصلاً.
+  bool _consentAsked = false;
+
+  Future<void> _maybeAskConsent() async {
+    if (_consentAsked || !mounted) return;
+    final tracking = context.read<TrackingService>();
+    if (!tracking.needsConsentDecision) return;
+
+    _consentAsked = true;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TrackingConsentPage(tracking: tracking),
+        fullscreenDialog: true,
+      ),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // ‼️ مهلةٌ قصيرة: `config` رحلةُ شبكةٍ بدأت مع الإقلاع، وسؤالٌ
+      //    قبل وصولها لا يقع أصلاً (الحارس أعلاه) فتضيع فرصة العرض.
+      Future<void>.delayed(const Duration(seconds: 3), _maybeAskConsent);
+    });
+  }
 
   void _ensureLoaded(BuildContext context, int index) {
     switch (index) {

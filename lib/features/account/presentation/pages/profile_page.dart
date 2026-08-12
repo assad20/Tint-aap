@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../../../../core/tracking/tracking_service.dart';
+import '../../../settings/presentation/pages/tracking_consent_page.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -223,6 +226,23 @@ class _AccountDashboard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 22),
+            // ‼️ **قرار الخصوصيّة يُعدَّل متى شاء صاحبه** — موافقةٌ لا
+            //    يمكن سحبها ليست موافقةً نظاميّة. والمدخل ظاهرٌ لا مدفونٌ في
+            //    قائمةٍ فرعيّة.
+            TextButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => TrackingConsentPage(
+                    tracking: context.read<TrackingService>(),
+                    isSettings: true,
+                  ),
+                ),
+              ),
+              style: TextButton.styleFrom(foregroundColor: TintColors.charcoal),
+              icon: const Icon(Icons.privacy_tip_outlined),
+              label: const Text('الخصوصيّة والقياس',
+                  style: TextStyle(fontWeight: FontWeight.w800)),
+            ),
             TextButton.icon(
               onPressed: () async {
                 await context.read<AuthCubit>().logout();

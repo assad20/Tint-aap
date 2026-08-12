@@ -37,6 +37,25 @@ abstract final class ApiRoutes {
   static const pushDevices = '/v1/push/devices';
   static const pushDevicesUnregister = '/v1/push/devices/unregister';
 
+  /// عقود القياس — `docs/app-tracking-contract.md` **هو المرجع الملزم**، وما
+  /// ليس فيه لا يُخمَّن.
+  ///
+  /// ‼️ تُقرأ الإعدادات **عند الإقلاع قبل تسجيل الدخول**: بها يقرّر التطبيق هل
+  /// يُهيّئ القياس أصلاً وهل يطلب إذن ATT.
+  static const trackingConfig = '/v1/tracking/config';
+
+  /// ترحيل معرّفات النقرات — **عند فتح رابطٍ عميق يحملها، لا عند كلّ إقلاع**.
+  static const trackingClickIds = '/v1/tracking/click-ids';
+
+  /// علامة رصد الشراء.
+  ///
+  /// ‼️ **أثرها سلبيٌّ محض**: تمنع استدراك الخادم ولا تُنشئ إرسالاً. ولذلك لا
+  /// تقبل مبلغاً ولا عناصر — ولو قَبِلت لصارت مسار تحويلٍ مفتوحاً للعالم.
+  ///
+  /// ‼️ **والاسم `browser-purchase` تاريخيّ** ويبقى: كسرُه يُعطّل نسخ الوِب
+  /// المنشورة (انظر ملاحظة التسمية في الوثيقة).
+  static const conversionsBrowserPurchase = '/conversions/browser-purchase';
+
   /// معاينة مسودّةٍ برابطٍ موقَّع (4.3). عامّة بلا رمز أدمن — الحماية في
   /// التوقيع نفسه، والرابط ينتهي بعد ساعتين.
   static const cmsPreview = '/catalog/preview'; // + /<token>

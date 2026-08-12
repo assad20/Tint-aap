@@ -7,6 +7,7 @@ import 'app/config/app_config.dart';
 import 'app/tint_app.dart';
 import 'core/network/api_client.dart';
 import 'core/notifications/push_service.dart';
+import 'core/tracking/tracking_service.dart';
 import 'core/storage/app_preferences.dart';
 import 'core/storage/token_storage.dart';
 import 'core/widgets/tint_ui.dart';
@@ -67,6 +68,14 @@ Future<void> main() async {
   /// لعرض المتجر — فتُهيَّأ بجانبه لا قبله. والخدمة لا ترمي في أيّ حال.
   unawaited(PushService(apiClient).initialize());
 
+  /// القياس — **بلا `await`** كالإشعارات، ولسببٍ إضافيّ:
+  ///
+  /// ‼️ `GET /v1/tracking/config` رحلةُ شبكةٍ كاملة، وانتظارُها يؤخّر أوّل إطار.
+  /// والخدمة **مُطفأةٌ افتراضيّاً** حتّى تصل الإعدادات — فلا حدث يخرج في تلك
+  /// الفترة أصلاً، ولا شيء يُفقَد بعدم الانتظار.
+  final tracking = TrackingService(apiClient);
+  unawaited(tracking.initialize());
+
   final catalogRepository = CatalogRepositoryImpl(
     remoteDataSource: CatalogRemoteDataSource(apiClient),
   );
@@ -92,6 +101,9 @@ Future<void> main() async {
         RepositoryProvider.value(value: appPreferences),
         RepositoryProvider.value(value: tokenStorage),
         RepositoryProvider.value(value: apiClient),
+        // ‼️ يُحقَن كخدمةٍ واحدة: أيّ شاشةٍ تُنشئ نسخةً ثانية تتخطّى
+        //    بوّابة الموافقة وقيد القناة معاً.
+        RepositoryProvider.value(value: tracking),
         RepositoryProvider<CatalogRepository>.value(value: catalogRepository),
         RepositoryProvider<AccountRepository>.value(value: accountRepository),
         RepositoryProvider<CheckoutRepository>.value(value: checkoutRepository),
