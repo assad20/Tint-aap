@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../../app/config/api_routes.dart';
 import '../../app/router/app_router.dart';
 import '../network/api_client.dart';
+import 'local_notifications.dart';
 
 /// ‼️ **معالِج الرسائل والتطبيق مغلق — يجب أن يكون دالّةً عليا (top-level).**
 ///
@@ -74,9 +75,38 @@ class PushService {
       final initial = await messaging.getInitialMessage();
       if (initial != null) _openTarget(initial);
       FirebaseMessaging.onMessageOpenedApp.listen(_openTarget);
+
+      /// ‼️ **الرسالة والتطبيق مفتوح: يرسمها التطبيق أو لا تُرسَم.**
+      ///
+      /// أندرويد لا يعرض إشعار FCM ما دام التطبيق في المقدّمة — يُسلّمه هنا
+      /// بصمت. فمن يتصفّح المتجر لحظة إطلاق الحملة كان **لا يرى منها شيئاً**،
+      /// وهم أفضل الجمهور. (قِيس بتجربةٍ فاشلة قبل الناجحة.)
+      await TintLocalNotifications.initialize();
+      FirebaseMessaging.onMessage.listen(_showForeground);
     } catch (error) {
       debugPrint('[push] تعذّرت تهيئة الإشعارات: $error');
     }
+  }
+
+  /// يرسم إشعاراً لرسالةٍ وصلت والتطبيق مفتوح.
+  ///
+  /// ‼️ **الصورة تُقرأ من `data` لا من `notification.android.imageUrl`**: الحقل
+  /// الثاني يقرؤه النظام وحده ولا يصل الشيفرة كاملاً على كلّ النسخ. والخادم
+  /// يضعها في الاثنين لهذا السبب.
+  void _showForeground(RemoteMessage message) {
+    final notification = message.notification;
+    final title = (notification?.title ?? message.data['title'] ?? '').toString().trim();
+    final body = (notification?.body ?? message.data['body'] ?? '').toString().trim();
+    // ‼️ رسالةٌ بلا عنوانٍ ولا نصّ لا تُرسَم: إشعارٌ فارغ يُقلق ولا يُفيد.
+    if (title.isEmpty && body.isEmpty) return;
+
+    unawaited(
+      TintLocalNotifications.show(
+        title: title,
+        body: body,
+        imageUrl: (notification?.android?.imageUrl ?? message.data['image'])?.toString(),
+      ),
+    );
   }
 
   /// يفتح وجهة الإشعار.
