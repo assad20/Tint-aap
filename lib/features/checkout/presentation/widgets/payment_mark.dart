@@ -52,6 +52,33 @@ class PaymentMark extends StatelessWidget {
       return const Icon(Icons.credit_card_rounded, size: _height, color: Color(0xFF8A8F98));
     }
 
+    /// ‼️ **«تمارا» تُركَّب طبقتين — ولا تُرسَم بملفّها وحده.**
+    ///
+    /// ملفّها يرسم الاسم بمساراتٍ فوق مستطيلٍ خلفيّته `fill='url(#…)'` —
+    /// و«النمط» الذي يحمل التدرّج **صورةٌ مضمَّنة base64**. و`flutter_svg` لا
+    /// يدعم `pattern`، فيُسقط الخلفيّة **بصمت** ويرسم الاسم أسودَ معلّقاً في
+    /// الفراغ (بلاغ المالك 2026-08-12: «شعار تمارا لم يظهر»).
+    ///
+    /// فتُستخرج الصورة المضمَّنة وتُرسَم خلفيّةً، ويُرسَم الملفّ فوقها — وهو
+    /// **نفس ما يفعله المتصفّح**، لا تلوينٌ من عندنا. والزوايا ٨ كما في الملفّ.
+    if (markKey == 'tamara') {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: SizedBox(
+          height: _height,
+          // نسبة الملفّ الأصليّ 85×28 — وتثبيتُها يمنع تمطّط التدرّج.
+          width: _height * (85 / 28),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.asset('assets/payment/tamara_bg.png', fit: BoxFit.cover),
+              SvgPicture.asset(path, fit: BoxFit.contain),
+            ],
+          ),
+        ),
+      );
+    }
+
     return SizedBox(
       height: _height,
       child: SvgPicture.asset(
