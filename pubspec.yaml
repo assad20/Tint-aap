@@ -31,6 +31,7 @@ dependencies:
   firebase_messaging: ^16.5.0
   flutter_local_notifications: ^22.3.0
   http: ^1.6.0
+  flutter_svg: ^2.3.0
 
 dev_dependencies:
   flutter_test:
@@ -44,6 +45,9 @@ flutter:
   assets:
     - assets/icon/
     - assets/splash/
+    # شعارات وسائل الدفع — نفس ملفّات الموقع (public/payment) لا نسخةً ثانية:
+    # نسختان تتباعدان، وشروط أصحاب العلامات تسري على الاثنتين.
+    - assets/payment/
   # خطّ عربيّ حقيقيّ بدل خطّ النظام — مُحزَّم في التطبيق فيعمل بلا إنترنت.
   fonts:
     - family: Tajawal

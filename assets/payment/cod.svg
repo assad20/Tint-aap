@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="4.5 9.5 41 34.5" role="img" aria-label="الدفع عند الاستلام">
+<g fill="none" stroke="#212B36" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<rect x="6.5" y="11.5" width="32" height="18.5" rx="3" fill="#FFFFFF"/>
+<circle cx="22.5" cy="20.75" r="4.6"/>
+<line x1="12" y1="18" x2="12" y2="23.5"/>
+<line x1="33" y1="18" x2="33" y2="23.5"/>
+<circle cx="36.5" cy="35" r="7" fill="#FFFFFF"/>
+</g>
+</svg>

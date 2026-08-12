@@ -18,6 +18,7 @@ import '../../../account/presentation/cubit/addresses_cubit.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../cart/presentation/cubit/cart_cubit.dart';
 import '../cubit/checkout_cubit.dart';
+import '../widgets/payment_mark.dart';
 import '../widgets/tabby_promo_snippet.dart';
 
 class CheckoutPage extends StatefulWidget {
@@ -521,18 +522,15 @@ class _PaymentMethodsCard extends StatelessWidget {
   final DateTime? selectedDob;
   final VoidCallback onSelectDob;
 
-  // شارة الوسيلة (نصّ صغير على اليسار) ولونها.
-  static String _badge(String id) => switch (id) {
-        'cod' => 'نقد',
+  /// ‼️ **شعارٌ رسميّ بدل نصٍّ ملوّن** (بلاغ المالك 2026-08-12): كان
+  /// التطبيق يكتب «tabby» و«tamara» نصّاً، بينما يعرض المتجر شعاراتها. والعميل
+  /// يعرف العلامة بشكلها لا باسمها المكتوب — وهو ما يصنع الثقة لحظة الدفع.
+  static String _markKey(String id) => switch (id) {
+        'cod' => 'cod',
         'tabby' => 'tabby',
         'tamara' => 'tamara',
-        'card' => 'بطاقة',
+        'bank' => 'bank',
         _ => id,
-      };
-  static Color _color(String id) => switch (id) {
-        'tabby' => const Color(0xFF3EEDBF),
-        'tamara' => const Color(0xFFF2A7A4),
-        _ => TintColors.sand,
       };
 
   // العنوان الفرعيّ: الوصف + الرسوم إن وُجدت.
@@ -574,15 +572,42 @@ class _PaymentMethodsCard extends StatelessWidget {
                 )
               else
                 for (final m in state.methods) ...[
-                  _SelectableTile(
-                    selected: state.paymentMethod == m.id,
-                    title: m.label,
-                    subtitle: _subtitle(m),
-                    trailing: _badge(m.id),
-                    trailingColor: _color(m.id),
-                    onTap: () =>
-                        context.read<CheckoutCubit>().setPaymentMethod(m.id),
-                  ),
+                  /**
+                   * ‼️ **بطاقة الدفع بالبطاقة تُعرَض مرّتين: «مدى» و«فيزا».**
+                   *
+                   * المزوّد واحد (PayTabs) والمعرّف المُرسَل إلى الخادم واحد —
+                   * والفرق **عرضٌ لا سلوك**. والسبب أنّ المشتري السعوديّ يبحث عن
+                   * شعار «مدى» بعينه، و«بطاقة — مدى أو ائتمانيّة» بسطرٍ واحد
+                   * تجعله يظنّ أنّ بطاقته غير مقبولة. وهو نفس ما يفعله المتجر.
+                   */
+                  if (m.id == 'paytabs') ...[
+                    _SelectableTile(
+                      selected: state.paymentMethod == m.id,
+                      title: 'مدى',
+                      subtitle: 'دفع آمن ببطاقة مدى عبر PayTabs',
+                      markKey: 'mada',
+                      onTap: () =>
+                          context.read<CheckoutCubit>().setPaymentMethod(m.id),
+                    ),
+                    const SizedBox(height: 10),
+                    _SelectableTile(
+                      selected: state.paymentMethod == m.id,
+                      title: 'Visa / Mastercard',
+                      subtitle: 'دفع آمن بالبطاقة الائتمانيّة عبر PayTabs',
+                      // ‼️ شعاران في بطاقةٍ واحدة — كما يعرضهما الموقع.
+                      markKeys: const ['visa', 'mastercard'],
+                      onTap: () =>
+                          context.read<CheckoutCubit>().setPaymentMethod(m.id),
+                    ),
+                  ] else
+                    _SelectableTile(
+                      selected: state.paymentMethod == m.id,
+                      title: m.label,
+                      subtitle: _subtitle(m),
+                      markKey: _markKey(m.id),
+                      onTap: () =>
+                          context.read<CheckoutCubit>().setPaymentMethod(m.id),
+                    ),
                   // كتلة Tabby الخاصّة (العرض + بيانات المشتري) عند اختياره فقط.
                   if (m.id == 'tabby' && state.paymentMethod == 'tabby') ...[
                     const SizedBox(height: 12),
@@ -1231,7 +1256,16 @@ class _SelectableTile extends StatelessWidget {
     required this.selected,
     required this.title,
     required this.subtitle,
-    required this.trailing,
+    /// ‼️ **لاحقةٌ واحدة من اثنتين — والبطاقة مشتركة.**
+    ///
+    /// تُستعمل لطرق **الشحن** (اللاحقة سعرٌ نصّيّ: «مجاني» · «25 ريال») ولطرق
+    /// **الدفع** (اللاحقة شعارٌ رسميّ). وجعلُ الشعار إلزاميّاً كسر الشحن —
+    /// وهو ما التقطه المحلّل فوراً. فكلاهما اختياريّ، ويُرسَم الموجود منهما.
+    this.markKey,
+    /// ‼️ **شعاران في بطاقةٍ واحدة** — «فيزا» و«ماستركارد» علامتان لمزوّدٍ
+    /// واحد، وعرضُ إحداهما وحدها يجعل حامل الأخرى يظنّ بطاقته غير مقبولة.
+    this.markKeys,
+    this.trailing,
     this.trailingColor = TintColors.sand,
     required this.onTap,
   });
@@ -1239,7 +1273,9 @@ class _SelectableTile extends StatelessWidget {
   final bool selected;
   final String title;
   final String subtitle;
-  final String trailing;
+  final String? markKey;
+  final List<String>? markKeys;
+  final String? trailing;
   final Color trailingColor;
   final VoidCallback onTap;
 
@@ -1288,14 +1324,27 @@ class _SelectableTile extends StatelessWidget {
                 ],
               ),
             ),
-            Text(
-              trailing,
-              style: TextStyle(
-                color: trailingColor,
-                fontWeight: FontWeight.w900,
-                fontSize: 13,
+            if (markKeys != null)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final key in markKeys!) ...[
+                    PaymentMark(markKey: key),
+                    const SizedBox(width: 6),
+                  ],
+                ],
+              )
+            else if (markKey != null)
+              PaymentMark(markKey: markKey!, fallbackLabel: title)
+            else if (trailing != null)
+              Text(
+                trailing!,
+                style: TextStyle(
+                  color: trailingColor,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                ),
               ),
-            ),
           ],
         ),
       ),
