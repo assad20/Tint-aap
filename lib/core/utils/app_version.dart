@@ -7,7 +7,7 @@ import 'package:flutter/foundation.dart';
 /// لقراءة رقمٍ نعرفه وقت البناء أصلاً، والمشروع يُبنى أحياناً على FlutLab
 /// (Dart 3.8.1) حيث كلّ اعتمادٍ جديد خطر توافق. والثمن الوحيد — أن يُنسى
 /// تحديثه — يحرسه اختبارٌ يقرأ `pubspec.yaml` ويقارن (`test/app_version_test.dart`).
-const String kAppVersion = '1.1.0';
+const String kAppVersion = '1.2.0';
 
 /// يقارن إصدارين رقميّاً بالمقاطع: `-1` إن كان `a` أقدم، `0` تساوٍ، `1` أحدث.
 ///
