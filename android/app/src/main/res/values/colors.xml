@@ -1,4 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#111113</color>
+
+    <!--
+      لون علامة الإشعار — رمليّ الهويّة (TintColors.sand).
+
+      ‼️ يُلوّن **الأيقونة الصغيرة واسم التطبيق** في الإشعار لا نصَّه: أندرويد
+      يفرض ألوان النصّ تبعاً لسمة الجهاز، ولا حقل لونٍ للنصّ في FCM ولا في
+      النظام نفسه.
+    -->
+    <color name="tint_notification">#C59C8F</color>
 </resources>

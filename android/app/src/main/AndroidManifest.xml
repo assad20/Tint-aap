@@ -55,6 +55,23 @@
                 <data android:scheme="tint" />
             </intent-filter>
         </activity>
+        <!--
+          ‼️ **أيقونة الإشعار الافتراضيّة ولونها.**
+
+          بلا هذين كان يُستعمل رمز التطبيق كما هو، فيرسمه النظام **دائرةً
+          بيضاء فارغة** بلا علامة — وهو ما ظهر في كلّ إشعاراتنا التجريبيّة.
+
+          والأيقونة ظِلٌّ أبيض على شفّاف عمداً: أندرويد يقرأ قناة الشفافيّة
+          وحدها ويمسح الألوان، فأيقونةٌ ملوّنة تظهر مربّعاً أبيض صلداً.
+
+          واللون يُلوّن الأيقونة واسم التطبيق — لا نصّ الإشعار.
+        -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_tint" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/tint_notification" />
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

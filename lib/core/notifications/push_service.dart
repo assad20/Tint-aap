@@ -5,6 +5,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../app/config/api_routes.dart';
+import '../../app/router/app_router.dart';
 import '../network/api_client.dart';
 
 /// ‼️ **معالِج الرسائل والتطبيق مغلق — يجب أن يكون دالّةً عليا (top-level).**
@@ -63,8 +64,57 @@ class PushService {
       ///
       _refreshSubscription?.cancel();
       _refreshSubscription = messaging.onTokenRefresh.listen(_register);
+
+      /// ‼️ **حالتان للنقر لا واحدة — وإغفال إحداهما يُسقط نصف النقرات.**
+      ///
+      /// `getInitialMessage` للنقر **والتطبيق مغلقٌ تماماً** (الحال الأشيع في
+      /// الحملات: الإشعار يصل ليلاً ويُضغط صباحاً). و`onMessageOpenedApp` وهو
+      /// في الخلفيّة. ولا يُغني أحدهما عن الآخر، ولا ينبّه أحدٌ إلى نقصهما:
+      /// الإشعار يُفتح، ويُعرض التطبيق، ولا يذهب إلى شيء — فيبدو سليماً.
+      final initial = await messaging.getInitialMessage();
+      if (initial != null) _openTarget(initial);
+      FirebaseMessaging.onMessageOpenedApp.listen(_openTarget);
     } catch (error) {
       debugPrint('[push] تعذّرت تهيئة الإشعارات: $error');
+    }
+  }
+
+  /// يفتح وجهة الإشعار.
+  ///
+  /// ‼️ **الوجهة تُقرأ من `data` لا من `notification`.** ما في الثانية يعرضه
+  /// النظام ولا يصل الشيفرة والتطبيق مغلق — فوضعُها هناك يعني إشعاراً يُفتَح
+  /// ولا يذهب إلى شيء. والخادم يرسلها في `data` لهذا السبب.
+  ///
+  /// ‼️ **ووجهةٌ مجهولة لا تفعل شيئاً** — يبقى المستخدم على الرئيسيّة بهدوء.
+  /// النسخ المثبَّتة لا تُحدَّث بأمرنا، فحملةٌ بوجهةٍ أضيفت بعد نسخة الجهاز
+  /// يجب أن تفتح التطبيق لا أن تُعطّله.
+  void _openTarget(RemoteMessage message) {
+    final kind = (message.data['targetKind'] ?? '').toString().trim();
+    final value = (message.data['targetValue'] ?? '').toString().trim();
+    if (kind.isEmpty || kind == 'none') return;
+
+    try {
+      switch (kind) {
+        case 'product':
+          if (value.isNotEmpty) AppRouter.router.push('/product/${Uri.encodeComponent(value)}');
+          break;
+        case 'category':
+          // مسارٌ قائمٌ من قبل (`CategoryDeepLinkPage`) — يبدّل تبويب القشرة
+          // وينتظر وصول التنقّل إن فُتح التطبيق من البارد.
+          if (value.isNotEmpty) AppRouter.router.push('/category/${Uri.encodeComponent(value)}');
+          break;
+        case 'url':
+          /// ‼️ **الروابط الداخليّة وحدها.** فتحُ رابطٍ خارجيّ يأتي من الخادم
+          /// يعني أنّ من يملك اللوحة يقود عملاءنا إلى أيّ موقع. والمسار
+          /// الداخليّ يُصفّى بالموجّه نفسه: ما لا يُعرَف يقع على الرئيسيّة.
+          if (value.startsWith('/')) AppRouter.router.push(value);
+          break;
+        default:
+          debugPrint('[push] وجهةٌ لا تعرفها هذه النسخة: $kind');
+      }
+    } catch (error) {
+      // ‼️ لا يُسقط التطبيق: وجهةٌ معطوبة تُفتَح على الرئيسيّة لا على شاشةٍ بيضاء.
+      debugPrint('[push] تعذّر فتح الوجهة: $error');
     }
   }
 
