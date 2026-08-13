@@ -348,7 +348,13 @@ class TrackingService {
       if (_analyticsId != null) 'analyticsId': _analyticsId,
       // ‼️ مشتقٌّ من مرجع الطلب لا عشوائيّ: مفتاح إزالة التكرار مع الحدث
       //    الخادميّ يجب أن يكون **هو نفسه** لو أُعيد إرسال الحمولة.
-      'eventId': 'app-\$orderReference',
+      //
+      // ‼️ **ولا يُهرَّب `$` هنا أبداً.** كُتب مرّةً `\$orderReference` فخرج
+      //    النصّ حرفيّاً: قيمةٌ واحدة لكلّ الطلبات. والمفتاح مفتاحُ إزالة
+      //    تكرار — فكانت المنصّات ستعدّ كلّ شراءٍ تكراراً للأوّل وتُسقطه
+      //    بصمت. لا خطأ، لا تحذير، وتحويلاتٌ تختفي. (رُصد بالتشغيل
+      //    2026-08-13 من وثيقة السياق في قاعدة الخادم لا من فحصٍ ولا اختبار.)
+      'eventId': 'app-$orderReference',
       if (_clickIds.isNotEmpty) 'clickIds': _clickIds,
       'consent': <String, dynamic>{
         'analytics': _consent.analytics,

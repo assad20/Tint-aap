@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'dart:io';
+
 import 'package:tint_mobile/app/router/app_router.dart';
 
 /// حارس الروابط العميقة ومعرّفات النقرة.
@@ -84,6 +86,32 @@ void main() {
 
     test('الفراغ لا يُكتَب — لئلّا يمحو نقرةً سابقة صالحة', () {
       expect(filter(Uri.parse('tint://x?gclid=&fbclid=%20')), isEmpty);
+    });
+  });
+
+  group('سياق التتبّع', () {
+    test('‼️ لا حرفَ `\$` مهروبٌ في قيمةٍ تُرسَل للخادم', () {
+      // كُتب مرّةً `'app-\\$orderReference'` فخرج النصّ حرفيّاً في **كلّ**
+      // طلب. والحقل مفتاحُ إزالة تكرار: قيمةٌ واحدة تجعل المنصّات تُسقط كلّ
+      // شراءٍ بعد الأوّل بصمت. ولا فحصٌ ولا تحليلٌ يرى هذا — النصّ سليمٌ لغةً.
+      // ‼️ **فحصٌ نصّيّ لا تعبيرٌ نمطيّ.** كُتبت أوّل نسخةٍ من هذا الحارس
+      //    بتعبيرٍ نمطيّ نُسي فيه هروب `$`، فصار مِرساةَ نهايةٍ ولم يُطابق
+      //    شيئاً: **حارسٌ يمرّ دائماً وهو أخطر من لا حارس**، لأنّه يشتري
+      //    طمأنينةً كاذبة. (رُصد بإعادة العطل عمداً — وهو ما يجب أن يُفعَل
+      //    بكلّ حارسٍ قبل الوثوق به.)
+      final source =
+          File('lib/core/tracking/tracking_service.dart').readAsStringSync();
+      final offenders = source
+          .split('\n')
+          .where((line) => !line.trimLeft().startsWith('//'))
+          .where((line) => line.contains(r'\$'))
+          .map((line) => line.trim())
+          .toList();
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'قيمةٌ فيها \$ مهروب — أهو مقصود؟ $offenders',
+      );
     });
   });
 }
