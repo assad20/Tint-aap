@@ -21,6 +21,16 @@ workflows:
         script: |
           dart run flutter_launcher_icons
           dart run flutter_native_splash:create
+      - name: Guard — API base must not be empty
+        script: |
+          # ‼️ **يسقط البناء بدل أن يرفع تطبيقاً لا يصل خادمه.**
+          #    متغيّرٌ فارغ يُمرَّر كـ`--dart-define=K=` فيُبطل الافتراضيّ في
+          #    الشيفرة، ويُنتج حزمةً تُقلع وتبدو سليمة ولا تجلب شيئاً.
+          if [ -z "$TINT_API_BASE_URL" ]; then
+            echo "‼️ TINT_API_BASE_URL فارغ — راجع مجموعة المتغيّرات tint."
+            exit 1
+          fi
+          echo "قاعدة الـAPI: $TINT_API_BASE_URL"
       - name: Build AAB
         script: |
           flutter build appbundle --release \
@@ -54,6 +64,16 @@ workflows:
       - name: Install pods
         script: |
           find . -name "Podfile" -execdir pod install \;
+      - name: Guard — API base must not be empty
+        script: |
+          # ‼️ **يسقط البناء بدل أن يرفع تطبيقاً لا يصل خادمه.**
+          #    متغيّرٌ فارغ يُمرَّر كـ`--dart-define=K=` فيُبطل الافتراضيّ في
+          #    الشيفرة، ويُنتج حزمةً تُقلع وتبدو سليمة ولا تجلب شيئاً.
+          if [ -z "$TINT_API_BASE_URL" ]; then
+            echo "‼️ TINT_API_BASE_URL فارغ — راجع مجموعة المتغيّرات tint."
+            exit 1
+          fi
+          echo "قاعدة الـAPI: $TINT_API_BASE_URL"
       - name: Build IPA
         script: |
           flutter build ipa --release \
@@ -124,8 +144,17 @@ workflows:
           fi
       - name: Build for simulator (no signing)
         script: |
+          # ‼️ **متغيّرٌ فارغ لا يُمرَّر — وإلّا كان أسوأ من عدمه.**
+          #
+          #    `--dart-define=K=` يُعرِّف المفتاح بقيمةٍ فارغة، فترى
+          #    `String.fromEnvironment` مفتاحاً **مُعرَّفاً** وتُرجع الفراغ
+          #    **بدل الافتراضيّ المكتوب في الشيفرة**. والنتيجة تطبيقٌ بلا
+          #    خادم يُقلع بأرففٍ فارغة — وهو ما ظهر في لقطات المعاينة
+          #    (رُصد 2026-08-13) ويبدو كأنّه عطلُ شبكةٍ أو تصميم.
+          BASE="${TINT_API_BASE_URL:-https://tint-production-4d38.up.railway.app/api}"
+          echo "قاعدة الـAPI المستعملة: $BASE"
           flutter build ios --simulator --debug --no-codesign \
-            --dart-define=TINT_API_BASE_URL=$TINT_API_BASE_URL \
+            --dart-define=TINT_API_BASE_URL=$BASE \
             --dart-define=TINT_TABBY_PUBLIC_KEY=$TINT_TABBY_PUBLIC_KEY \
             --dart-define=TINT_TABBY_MERCHANT_CODE=$TINT_TABBY_MERCHANT_CODE \
             --dart-define=TINT_TABBY_LANG=ar
