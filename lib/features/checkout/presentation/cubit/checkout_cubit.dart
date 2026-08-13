@@ -1,4 +1,10 @@
+import 'dart:async';
+
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../../../core/tracking/tracking_events.dart';
+import '../../../../core/tracking/tracking_service.dart';
 
 import '../../../../core/models/account_models.dart';
 import '../../../../core/models/cart_item_model.dart';
@@ -91,11 +97,15 @@ class CheckoutState {
 }
 
 class CheckoutCubit extends Cubit<CheckoutState> {
-  CheckoutCubit({required CheckoutRepository repository})
+  CheckoutCubit({required CheckoutRepository repository, TrackingService? tracking})
       : _repository = repository,
+        _tracking = tracking,
         super(const CheckoutState());
 
   final CheckoutRepository _repository;
+
+  /// ‼️ **اختياريّة عمداً**: الدفع أهمّ من قياسه، ولا يفشل لأنّ القياس غائب.
+  final TrackingService? _tracking;
 
   // تُستدعى عند فتح السلّة: تجلب الوسائل المفعّلة وتختار أوّلها.
   Future<void> loadPaymentMethods() async {
@@ -216,13 +226,55 @@ class CheckoutCubit extends Cubit<CheckoutState> {
     return _repository.verifyNoon(noonOrderId);
   }
 
+  /// ‼️ **الحدثان في الكيوبت لا في الشاشة.** الاختيار يقع من الشاشة ومن
+  /// الاختيار التلقائيّ لأوّل وسيلةٍ ومن استرجاع طلبٍ سابق — ووصلُه بالشاشة
+  /// وحدها يُسقط ثلثي الحالات.
+  ///
+  /// ‼️ **و`shipping_tier` اسمُ الطريقة لا معرّفها**: GA4 يُجمّع عليه، ومعرّفٌ
+  /// مثل `std-2` يُنتج تقريراً لا يُقرأ.
   void setShippingMethod(String value) {
     emit(state.copyWith(shippingMethod: value));
+    final method = state.shippingMethods.where((m) => m.id == value);
+    if (method.isEmpty || _itemsForTracking.isEmpty) return;
+    unawaited(_tracking?.logAddShippingInfo(
+          tier: method.first.label,
+          items: _itemsForTracking,
+        ) ??
+        Future<void>.value());
   }
 
   void setPaymentMethod(String value, {String? cardBrand}) {
+    final wasSame =
+        state.paymentMethod == value && state.cardBrand == (cardBrand ?? state.cardBrand);
     emit(state.copyWith(paymentMethod: value, cardBrand: cardBrand));
+    if (_itemsForTracking.isEmpty) return;
+
+    // نقرةٌ على وسيلةٍ مختارةٍ أصلاً لا تُغيّر شيئاً — فحدثُها ضجيجٌ يُضخّم العدّ.
+    if (wasSame) return;
+
+    unawaited(_tracking?.logAddPaymentInfo(
+          paymentType: _paymentTypeFor(value),
+          items: _itemsForTracking,
+        ) ??
+        Future<void>.value());
   }
+
+  /// ‼️ **`payment_type` ما يراه المشتري لا ما يُرسَل للخادم.**
+  ///
+  /// «مدى» و«Visa / Mastercard» بطاقتان منفصلتان في الشاشة ويُرسلان المعرّف
+  /// نفسه (`paytabs`) — فإرسال المعرّف يجعل التقرير يقول «paytabs» للاثنين،
+  /// **فيضيع بالضبط التمييز الذي بُنيت الشاشة لأجله** ولا يُعرف أيّ شبكةٍ
+  /// يختارها المشتري السعوديّ. (رُصد بالتشغيل 2026-08-13: نقرتان ⇒
+  /// `payment_type=paytabs` مرّتين.)
+  String _paymentTypeFor(String methodId) =>
+      methodId == 'paytabs' ? state.cardBrand : methodId;
+
+  /// عناصر السلّة كما يفهمها القياس.
+  ///
+  /// ‼️ **تُملأ من الشاشة لا يقرؤها الكيوبت بنفسه**: السلّة كيوبتٌ آخر، وربطُ
+  /// الاثنين لأجل حدثٍ يُدخل اعتماديّةً لا يحتاجها الدفع.
+  List<AnalyticsEventItem> _itemsForTracking = const [];
+  set trackingItems(List<AnalyticsEventItem> value) => _itemsForTracking = value;
 
   Future<String> submitOrder({
     required List<CartItemModel> items,

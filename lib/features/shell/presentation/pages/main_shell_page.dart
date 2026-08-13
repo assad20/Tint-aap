@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../../cart/presentation/cubit/cart_cubit.dart';
+import '../../../../core/tracking/tracking_events.dart';
 import '../../../../core/tracking/tracking_service.dart';
 import '../../../settings/presentation/pages/tracking_consent_page.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -86,6 +90,24 @@ class _MainShellPageState extends State<MainShellPage> {
   }
 
   void _ensureLoaded(BuildContext context, int index) {
+    /// ‼️ **`view_cart` هنا لا في `initState` شاشة السلّة.**
+    ///
+    /// الشاشات تعيش في `IndexedStack`، فـ`initState` يُنفَّذ **مرّةً واحدة في عمر
+    /// التطبيق** — وغالباً والسلّة فارغة. فكان الحدث يُطلَق مرّةً أو لا يُطلَق
+    /// أبداً (رُصد على المحاكي 2026-08-13: `begin_checkout` خرج و`view_cart` لم
+    /// يخرج رغم فتح السلّة بمنتجٍ فيها).
+    ///
+    /// والفعل الذي يعنيه الحدث هو **فتح التبويب**، فهنا موضعه.
+    if (index == 3) {
+      final items = context.read<CartCubit>().state.items;
+      if (items.isNotEmpty) {
+        unawaited(context.read<TrackingService>().logViewCart([
+          for (final row in items)
+            TrackingEvents.item(row.product, quantity: row.quantity),
+        ]));
+      }
+    }
+
     switch (index) {
       case 1: // الترندات: يُعاد جلبها عند كلّ فتح (تعافٍ رخيص من فشل سابق).
         context.read<DiscoverCubit>().load();

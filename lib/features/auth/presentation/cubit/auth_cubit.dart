@@ -1,4 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../../../core/tracking/tracking_events.dart';
+import '../../../../core/tracking/tracking_service.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -49,13 +54,18 @@ class AuthState {
 }
 
 class AuthCubit extends Cubit<AuthState> {
-  AuthCubit({required AuthRepository repository})
+  AuthCubit({required AuthRepository repository, TrackingService? tracking})
       : _repository = repository,
+        _tracking = tracking,
         super(const AuthState()) {
     _init();
   }
 
   final AuthRepository _repository;
+
+  /// ‼️ **اختياريّة عمداً**: الدخول أهمّ من قياسه. فبناءُ الكيوبت في اختبارٍ أو
+  /// في سياقٍ بلا قياس يبقى ممكناً، ولا يفشل الدخول لأنّ القياس غائب.
+  final TrackingService? _tracking;
 
   Future<void> _init() async {
     final authed = await _repository.isAuthenticated();
@@ -85,6 +95,12 @@ class AuthCubit extends Cubit<AuthState> {
     try {
       final customer = await _repository.verifyOtp(phone: state.phone, code: code.trim());
       emit(state.copyWith(status: AuthStatus.authenticated, customer: customer));
+      /// ‼️ **بعد نجاح التحقّق لا عند إرسال الرمز.** ورمزٌ خاطئ لا يُطلق شيئاً —
+      /// وإلّا صار «الدخول» يُعدّ محاولاتٍ فاشلة.
+      ///
+      /// ‼️ **و`method` وسيلةُ الدخول لا هويّة الداخل**: `otp` لا رقم الجوّال —
+      /// ولا يُرسَل الجوّال في أيّ معامل.
+      unawaited(_tracking?.logLogin() ?? Future<void>.value());
     } catch (e) {
       emit(state.copyWith(status: AuthStatus.otpSent, error: _msg(e)));
     }

@@ -168,6 +168,7 @@ Future<void> main() async {
           BlocProvider(
             create: (context) => CheckoutCubit(
               repository: context.read<CheckoutRepository>(),
+              tracking: context.read<TrackingService>(),
             ),
           ),
           BlocProvider(
@@ -178,6 +179,7 @@ Future<void> main() async {
           BlocProvider(
             create: (context) => AuthCubit(
               repository: context.read<AuthRepository>(),
+              tracking: context.read<TrackingService>(),
             ),
           ),
         ],

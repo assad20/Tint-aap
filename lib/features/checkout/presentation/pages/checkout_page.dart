@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geocoding/geocoding.dart';
@@ -6,6 +8,8 @@ import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'location_picker_page.dart';
+import '../../../../core/tracking/tracking_events.dart';
+import '../../../../core/tracking/tracking_service.dart';
 import 'noon_webview_page.dart';
 import 'payment_webview_page.dart';
 import '../../../../app/config/app_config.dart';
@@ -126,7 +130,24 @@ class _CheckoutPageState extends State<CheckoutPage> {
     // منفذٌ ثانٍ للسلّة: من يصل هنا مباشرةً لا يمرّ ببانرها. المراجعة تُظهر
     // النفاد قبل إدخال العنوان لا بعد الدفع.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.read<CartCubit>().revalidateStock();
+      if (!mounted) return;
+      context.read<CartCubit>().revalidateStock();
+
+      /// ‼️ **`begin_checkout` عند فتح الشاشة لا عند الضغط على «تأكيد».**
+      ///
+      /// معناه في مخطّط GA4: «بدأ المشتري إتمام الطلب» — والبدء هو الوصول إلى
+      /// هنا. وربطُه بزرّ التأكيد يجعله مساوياً للشراء تقريباً، فيختفي أهمّ
+      /// تسرّبٍ في القمع: من بدأ ولم يُكمل.
+      final items = context.read<CartCubit>().state.items;
+      if (items.isEmpty) return;
+      final trackingItems = [
+        for (final row in items)
+          TrackingEvents.item(row.product, quantity: row.quantity),
+      ];
+      // ‼️ تُغذّى مرّةً هنا: الكيوبت يحتاجها لحدثَي الشحن والدفع، ولا يقرأ
+      //    كيوبت السلّة بنفسه — اعتماديّةٌ لا يحتاجها الدفع.
+      context.read<CheckoutCubit>().trackingItems = trackingItems;
+      unawaited(context.read<TrackingService>().logBeginCheckout(trackingItems));
     });
     final customer = context.read<AuthCubit>().state.customer;
     if (customer != null) {

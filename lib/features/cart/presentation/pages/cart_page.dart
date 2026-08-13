@@ -1,4 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
+import '../../../../core/tracking/tracking_events.dart';
+import '../../../../core/tracking/tracking_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -21,7 +26,9 @@ class _CartPageState extends State<CartPage> {
     // تكون قديمة، والصنف قد ينفد بعد إضافته. اكتشافه هنا أرحم من اكتشافه
     // بعد إدخال العنوان واختيار الشحن.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.read<CartCubit>().revalidateStock();
+      if (!mounted) return;
+      context.read<CartCubit>().revalidateStock();
+
     });
   }
 
@@ -204,8 +211,15 @@ class _CartPageState extends State<CartPage> {
                                   ],
                                 ),
                                 TextButton.icon(
-                                  onPressed: () =>
-                                      context.read<CartCubit>().remove(item.cartId),
+                                  onPressed: () {
+                                    // ‼️ **قبل الحذف لا بعده**: بعده يختفي
+                                    //    العنصر من الحالة فلا يبقى ما يُوصَف.
+                                    unawaited(context
+                                        .read<TrackingService>()
+                                        .logRemoveFromCart(item.product,
+                                            quantity: item.quantity));
+                                    context.read<CartCubit>().remove(item.cartId);
+                                  },
                                   icon: const Icon(Icons.delete_outline_rounded),
                                   label: const Text('حذف'),
                                 ),
