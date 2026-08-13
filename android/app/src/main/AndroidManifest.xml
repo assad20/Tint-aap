@@ -54,6 +54,21 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="tint" />
             </intent-filter>
+
+            <!--
+              ‼️ **بلا هذه الراية كان الـintent-filter أعلاه زينةً لا أكثر.**
+
+              Flutter تتجاهل بيانات الـintent افتراضيّاً وتبدأ من «/» دائماً،
+              فلا يصل الرابط إلى `GoRouter` أصلاً. والنتيجة أنّ
+              `tint://category/makeup` كان **يفتح الرئيسيّة** — بلا خطأ ولا
+              انهيار ولا سطرٍ في أيّ سجلّ. أي أنّ كلّ رابط حملةٍ كان سيهبط في
+              المكان الخطأ، ولا يُكتشف إلّا بشكوى مُعلِن.
+
+              رُصد بالتشغيل 2026-08-13: إقلاعٌ بارد برابطٍ عميق ⇒ الرئيسيّة.
+            -->
+            <meta-data
+                android:name="flutter_deeplinking_enabled"
+                android:value="true" />
         </activity>
         <!--
           ‼️ **أيقونة الإشعار الافتراضيّة ولونها.**
