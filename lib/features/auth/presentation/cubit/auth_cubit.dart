@@ -6,6 +6,7 @@ import '../../../../core/tracking/tracking_events.dart';
 import '../../../../core/tracking/tracking_service.dart';
 
 import '../../../../core/network/api_exception.dart';
+import '../../domain/entities/verification_channel.dart';
 import '../../domain/repositories/auth_repository.dart';
 
 enum AuthStatus {
@@ -24,6 +25,8 @@ class AuthState {
     this.email = '',
     this.customer,
     this.error,
+    this.channel = VerificationChannel.whatsapp,
+    this.delivery,
   });
 
   final AuthStatus status;
@@ -31,6 +34,12 @@ class AuthState {
   final String email;
   final AuthCustomer? customer;
   final String? error;
+
+  /// القناة التي اختارها العميل — تُرسَل صريحةً مع كلّ طلب.
+  final VerificationChannel channel;
+
+  /// ما قاله الخادم عن الإرسال الأخير — تقرأه الشاشة ولا تُخمّنه.
+  final OtpDelivery? delivery;
 
   bool get isAuthenticated => status == AuthStatus.authenticated;
   bool get isBusy => status == AuthStatus.sendingOtp || status == AuthStatus.verifying;
@@ -42,6 +51,8 @@ class AuthState {
     AuthCustomer? customer,
     String? error,
     bool clearError = false,
+    VerificationChannel? channel,
+    OtpDelivery? delivery,
   }) {
     return AuthState(
       status: status ?? this.status,
@@ -49,6 +60,8 @@ class AuthState {
       email: email ?? this.email,
       customer: customer ?? this.customer,
       error: clearError ? null : (error ?? this.error),
+      channel: channel ?? this.channel,
+      delivery: delivery ?? this.delivery,
     );
   }
 }
@@ -75,20 +88,45 @@ class AuthCubit extends Cubit<AuthState> {
     ));
   }
 
-  Future<void> requestOtp({required String phone, required String email}) async {
+  /// يطلب الرمز على القناة المختارة.
+  ///
+  /// ‼️ **الهويّة تُؤخَذ من جواب الخادم لا من الحقل.** من يدخل ببريده لا يكتب
+  /// جوّاله، والتحقّق يقع على الهويّة التي حلّها الخادم — وأخذُها من الحقل
+  /// كان يجعل «تأكيد الرمز» يبحث عن جوّالٍ فارغ.
+  Future<void> requestOtp({
+    required String phone,
+    required String email,
+    VerificationChannel? channel,
+  }) async {
+    final wanted = channel ?? state.channel;
     emit(state.copyWith(
       status: AuthStatus.sendingOtp,
       phone: phone.trim(),
       email: email.trim(),
+      channel: wanted,
       clearError: true,
     ));
     try {
-      await _repository.requestOtp(phone: phone.trim(), email: email.trim());
-      emit(state.copyWith(status: AuthStatus.otpSent));
+      final delivery = await _repository.requestOtp(
+        phone: phone.trim(),
+        email: email.trim(),
+        channel: wanted,
+      );
+      emit(state.copyWith(
+        status: AuthStatus.otpSent,
+        phone: delivery.phone.isNotEmpty ? delivery.phone : state.phone,
+        delivery: delivery,
+        // ‼️ القناة المعروضة هي التي أُرسِل بها فعلاً، لا التي طُلبت: الخادم
+        //    قد يُحوّل، وعرضُ المطلوبة يجعل المستخدم ينتظر على قناةٍ خاطئة.
+        channel: delivery.channel ?? wanted,
+      ));
     } catch (e) {
       emit(state.copyWith(status: AuthStatus.unauthenticated, error: _msg(e)));
     }
   }
+
+  void setChannel(VerificationChannel channel) =>
+      emit(state.copyWith(channel: channel, clearError: true));
 
   Future<void> verifyOtp(String code) async {
     emit(state.copyWith(status: AuthStatus.verifying, clearError: true));

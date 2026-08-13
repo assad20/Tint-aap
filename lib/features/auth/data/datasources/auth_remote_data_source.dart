@@ -6,14 +6,27 @@ class AuthRemoteDataSource {
 
   final ApiClient _apiClient;
 
-  // الوسيط: يُرسل الرمز إلى البريد (الجوّال هو الهويّة). { ok, phone, email, ttl, channel }
+  /// يطلب رمز التحقّق على **القناة التي اختارها العميل**.
+  ///
+  /// الجواب: `{ ok, phone, channel, target, usedFallback, availableChannels,
+  /// resendAfterSeconds, ttl, debugCode? }`
+  ///
+  /// ‼️ **الحقل الفارغ لا يُرسَل.** من اختار واتساب قد لا يملك بريداً، ومن
+  /// اختار البريد لا يعرف جوّاله. وإرسال مفتاحٍ بقيمةٍ فارغة يجعل الخادم
+  /// يتحقّق منه ويرفض الطلب بـ«أدخل بريداً صحيحاً» — والشاشة لا تعرض حقل
+  /// بريدٍ أصلاً. طريقٌ مسدود: خطأٌ يطلب ما لا سبيل لإدخاله.
   Future<Map<String, dynamic>> requestOtp({
     required String phone,
     required String email,
+    required String channel,
   }) {
     return _apiClient.postMap(
       ApiRoutes.authRequestOtp,
-      data: {'phone': phone, 'email': email},
+      data: {
+        if (phone.isNotEmpty) 'phone': phone,
+        if (email.isNotEmpty) 'email': email,
+        'channel': channel,
+      },
     );
   }
 

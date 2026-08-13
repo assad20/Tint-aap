@@ -1,3 +1,4 @@
+import '../../domain/entities/verification_channel.dart';
 import '../../../../core/storage/app_preferences.dart';
 import '../../../../core/storage/token_storage.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -17,8 +18,17 @@ class AuthRepositoryImpl implements AuthRepository {
   final AppPreferences _preferences;
 
   @override
-  Future<void> requestOtp({required String phone, required String email}) async {
-    await _remote.requestOtp(phone: phone, email: email);
+  Future<OtpDelivery> requestOtp({
+    required String phone,
+    required String email,
+    required VerificationChannel channel,
+  }) async {
+    final res = await _remote.requestOtp(
+      phone: phone,
+      email: email,
+      channel: channel.wire,
+    );
+    return OtpDelivery.fromJson(res);
   }
 
   @override

@@ -290,6 +290,40 @@ class OrderItemModel {
   }
 }
 
+/// شحنة الطلب كما يُرسلها الخادم للعميل.
+///
+/// ‼️ **كان الخادم يُرسلها والتطبيق يُهملها بصمت.** الموقع يعرض للمشتري رقم
+/// البوليصة ورابط التتبّع، والتطبيق يعرض شريط حالةٍ عامّاً لا أكثر — فمن يشتري
+/// من التطبيق لا يعرف رقم شحنته ولا يستطيع متابعتها عند الناقل. لا خطأ، ولا
+/// حقل ناقص في أيّ سجلّ: مجرّد بيانٍ يصل ولا يُقرأ.
+///
+/// ‼️ **ولا يُذكر اسم الناقل للعميل**: قرار التاجر أن يبقى مخفيّاً (نمط شي إن)،
+/// والخادم يُرسله لأنّ اللوحة تحتاجه. فيُقرأ هنا ولا يُعرَض.
+class OrderShipmentModel {
+  const OrderShipmentModel({
+    this.awbNumber = '',
+    this.trackingUrl = '',
+    this.status = '',
+  });
+
+  final String awbNumber;
+  final String trackingUrl;
+  final String status;
+
+  /// لا يُعرَض شيءٌ ما لم يكن هناك ما يُعرَض فعلاً.
+  bool get hasAnything => awbNumber.isNotEmpty || trackingUrl.isNotEmpty;
+
+  static OrderShipmentModel? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final row = OrderShipmentModel(
+      awbNumber: raw['awbNumber']?.toString() ?? '',
+      trackingUrl: raw['trackingUrl']?.toString() ?? '',
+      status: raw['status']?.toString() ?? '',
+    );
+    return row.hasAnything ? row : null;
+  }
+}
+
 class OrderModel {
   const OrderModel({
     required this.id,
@@ -301,6 +335,7 @@ class OrderModel {
     required this.total,
     required this.address,
     required this.paymentMethod,
+    this.shipment,
   });
 
   final String id;
@@ -312,6 +347,9 @@ class OrderModel {
   final double total;
   final String address;
   final String paymentMethod;
+
+  /// الشحنة حين يُنشئها التاجر — وإلّا `null`.
+  final OrderShipmentModel? shipment;
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     return OrderModel(
@@ -327,6 +365,7 @@ class OrderModel {
       total: double.tryParse(json['total'].toString()) ?? 0,
       address: json['address']?.toString() ?? '',
       paymentMethod: json['paymentMethod']?.toString() ?? '',
+      shipment: OrderShipmentModel.fromJson(json['shipment']),
     );
   }
 }
