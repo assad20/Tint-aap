@@ -163,6 +163,21 @@ workflows:
           sleep 10
           kill "$REC" 2>/dev/null || true
           sleep 2
+      # ‼️ **حجز الجهاز لجلسة VNC تفاعليّة — مُطفأٌ افتراضيّاً.**
+      #
+      # بلا هذا يُدمَّر الماك بعد ثانيتين من الالتقاط، فلا يبقى وقتٌ للمس
+      # المحاكي. ومع ذلك لا يُشغَّل تلقائيّاً: نصف ساعةٍ من دقائق البناء تُهدر
+      # في كلّ بناءٍ آليّ لا أحد ينظر إليه.
+      #
+      # للتفعيل: اضبط `HOLD_FOR_VNC=true` في مجموعة `tint`، وأطفئها بعدها.
+      - name: Hold machine for interactive VNC session
+        script: |
+          if [ "${HOLD_FOR_VNC:-false}" = "true" ]; then
+            echo "الجهاز محجوزٌ ٣٠ دقيقة — اتّصل بـVNC الآن وافتح المحاكي."
+            sleep 1800
+          else
+            echo "لا حجز (HOLD_FOR_VNC غير مضبوطة). للجلسة التفاعليّة اضبطها true."
+          fi
     artifacts:
       - screenshots/*.png
       - screenshots/*.mp4
