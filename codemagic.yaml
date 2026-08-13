@@ -85,6 +85,21 @@ workflows:
     scripts:
       - name: Generate platform folders if missing
         script: flutter create . --org com.tintstore --platforms=android,ios
+      # ‼️ **توحيد معرّف الحزمة — وهو أخطر سطرٍ في هذا الملفّ.**
+      #
+      # `ios/Runner.xcodeproj` غير موجود في المستودع، فـ`flutter create` يُولّده
+      # من اسم المشروع (`tint_mobile`) فيخرج المعرّف `com.tintstore.tintMobile`
+      # — **مخالفاً لأندرويد** (`com.tintstore.app`). وأثره ليس لقطةً فاشلة:
+      #   · `ios-workflow` يوقّع `com.tintstore.app` فلا يجده ⇒ فشل توقيع.
+      #   · `GoogleService-Info.plist` يُربط بمعرّفٍ لا يطابق ⇒ إشعاراتٌ صامتة.
+      #   · **والمعرّف لا يتغيّر بعد النشر أبداً** — فتثبيته الآن قرارٌ دائم.
+      - name: Force bundle identifier to match Android
+        script: |
+          set -e
+          sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER = com\.tintstore\.tintMobile/PRODUCT_BUNDLE_IDENTIFIER = com.tintstore.app/g' \
+            ios/Runner.xcodeproj/project.pbxproj
+          echo "المعرّفات بعد التوحيد:"
+          grep -o 'PRODUCT_BUNDLE_IDENTIFIER = [^;]*' ios/Runner.xcodeproj/project.pbxproj | sort -u
       - name: Get packages
         script: flutter pub get
       - name: Generate icons & splash
@@ -105,15 +120,20 @@ workflows:
       - name: Boot simulator, install, launch and capture
         script: |
           set -e
-          DEVICE=$(xcrun simctl list devices available | grep -m1 -o 'iPhone [0-9][^(]*' | sed 's/ *$//')
-          echo "الجهاز المختار: $DEVICE"
-          UDID=$(xcrun simctl list devices available | grep -m1 "$DEVICE (" | grep -Eo '[0-9A-F-]{36}')
+          # ‼️ سطرٌ واحد يستخرج UDID مباشرةً. المحاولة الأولى كانت تبحث بالاسم
+          #    ثمّ تُطابقه ثانيةً — وأيّ فرقٍ في المسافات يُنتج UDID فارغاً.
+          UDID=$(xcrun simctl list devices available | grep -m1 'iPhone' | sed -E 's/.*\(([0-9A-Fa-f-]{36})\).*/\1/')
+          echo "المحاكي: $UDID"
           xcrun simctl boot "$UDID" || true
           xcrun simctl bootstatus "$UDID" -b
           APP=$(find build/ios/iphonesimulator -maxdepth 1 -name "*.app" | head -1)
-          echo "الحزمة: $APP"
+          # ‼️ **المعرّف يُقرأ من الحزمة المبنيّة لا يُكتب بالحرف.** كتابته
+          #    يدويّاً هي ما أسقط المحاولة الأولى: السكربت أطلق
+          #    `com.tintstore.app` بينما البناء أنتج `com.tintstore.tintMobile`.
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP/Info.plist")
+          echo "الحزمة: $APP · المعرّف: $BUNDLE_ID"
           xcrun simctl install "$UDID" "$APP"
-          xcrun simctl launch "$UDID" com.tintstore.app
+          xcrun simctl launch "$UDID" "$BUNDLE_ID"
           mkdir -p screenshots
           # ‼️ انتظارٌ متدرّج لا لقطةٌ واحدة: الإقلاع يجلب الكتالوج والتخطيط من
           #    الشبكة، ولقطةٌ بعد ثانيتين تُظهر شاشةً فارغة وتُقرأ عطلاً.
@@ -122,7 +142,14 @@ workflows:
             xcrun simctl io "$UDID" screenshot "screenshots/home-${s}s.png" || true
           done
           xcrun simctl spawn "$UDID" log show --last 2m --predicate 'processImagePath CONTAINS "Runner"' > screenshots/device.log 2>&1 || true
+          # ‼️ فيديو الجلسة أنفع من أربع لقطات حين يُشتبه في تعليقٍ أو وميض.
+          xcrun simctl io "$UDID" recordVideo --codec h264 screenshots/session.mp4 &
+          REC=$!
+          sleep 10
+          kill "$REC" 2>/dev/null || true
+          sleep 2
     artifacts:
       - screenshots/*.png
+      - screenshots/*.mp4
       - screenshots/*.log
       - build/ios/iphonesimulator/*.app
