@@ -83,7 +83,7 @@ Future<void> main() async {
     remoteDataSource: AccountRemoteDataSource(apiClient),
   );
   final checkoutRepository = CheckoutRepositoryImpl(
-    remoteDataSource: CheckoutRemoteDataSource(apiClient),
+    remoteDataSource: CheckoutRemoteDataSource(apiClient, tracking: tracking),
   );
   final assistantRepository = AssistantRepositoryImpl(
     remoteDataSource: AssistantRemoteDataSource(apiClient),

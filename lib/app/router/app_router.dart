@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -25,6 +28,7 @@ import '../../features/catalog/presentation/pages/product_detail_page.dart';
 import '../../features/catalog/presentation/pages/discover_section_page.dart';
 import '../../features/catalog/presentation/pages/search_page.dart';
 import '../../features/checkout/presentation/pages/checkout_page.dart';
+import '../../core/tracking/tracking_service.dart';
 import '../../features/shell/presentation/pages/main_shell_page.dart';
 
 class AppRouter {
@@ -54,6 +58,16 @@ class AppRouter {
     errorBuilder: (context, state) => const MainShellPage(),
     redirect: (context, state) {
       final uri = state.uri;
+
+      /// ‼️ **التقاط معرّفات النقرة هنا لا في شاشة**: كلّ رابطٍ عميق يمرّ
+      /// بهذه الدالّة مهما كانت وجهته، ووصلُ الالتقاط بشاشةٍ بعينها يُضيّع
+      /// كلّ نقرةٍ تفتح شاشةً أخرى — وهي الأكثر.
+      ///
+      /// ولا يُنتظَر: الإسناد لا يجوز أن يؤخّر فتح الشاشة.
+      if (uri.queryParameters.isNotEmpty) {
+        unawaited(context.read<TrackingService>().captureClickIds(uri));
+      }
+
       if (uri.scheme != 'tint') return null;
       final normalized = normalizeDeepLink(uri);
       return normalized == state.matchedLocation ? null : normalized;

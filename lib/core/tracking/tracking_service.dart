@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io' show Platform;
 import 'dart:math';
 
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -7,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app/config/api_routes.dart';
 import '../network/api_client.dart';
+import '../utils/app_version.dart';
 import 'tracking_config.dart';
 import 'tracking_consent.dart';
 
@@ -62,6 +65,7 @@ class TrackingService {
   Future<void> initialize() async {
     try {
       _consent = await _consentStore.read();
+      await _restoreClickIds();
       _analyticsId = await _readOrCreateAnalyticsId();
 
       final raw = await _apiClient.getMap(ApiRoutes.trackingConfig);
@@ -78,6 +82,15 @@ class TrackingService {
       if (_config.storeId.isNotEmpty) {
         await FirebaseAnalytics.instance
             .setDefaultEventParameters({'store_id': _config.storeId});
+      }
+
+      /// ‼️ **يُلتقَط هنا لا عند الطلب.** `appInstanceId` نداءٌ غير متزامن إلى
+      /// الحزمة، وحمولة الـcheckout تُبنى في دالّةٍ متزامنة تمرّ بها مسارات
+      /// الدفع الخمسة. وجعلُها غير متزامنة يُغيّر خمس توقيعات لأجل حقل.
+      try {
+        _appInstanceId = await FirebaseAnalytics.instance.appInstanceId;
+      } catch (_) {
+        // غيابه يُضعف المطابقة ولا يمنع طلباً.
       }
 
       _ready = true;
@@ -212,6 +225,135 @@ class TrackingService {
       debugPrint('[tracking] تعذّر إطلاق purchase: $error');
       return false;
     }
+  }
+
+  String? _appInstanceId;
+
+  /// معرّفات النقرات الملتقَطة من رابطٍ عميق.
+  Map<String, dynamic> _clickIds = const {};
+
+  static const _clickIdsKey = 'tint_click_ids_v1';
+
+  /// ‼️ **المفاتيح المقبولة عند الخادم حرفيّاً** — وما سواها يُهمَل.
+  ///
+  /// قبولُ أيّ معاملٍ في الرابط كان سيُرسل إلى الخادم كلّ ما يُلحقه أحدٌ
+  /// برابطٍ منشور، وهو مسار حقنٍ مفتوح للعالم في حقلٍ يُبنى عليه الإسناد.
+  static const _clickKeys = <String>[
+    'gclid',
+    'gbraid',
+    'wbraid',
+    'fbclid',
+    'ttclid',
+    'sc_click_id',
+    'msclkid',
+  ];
+
+  /// يلتقط معرّفات النقرات من رابطٍ عميق ويُبلّغ الخادم.
+  ///
+  /// ‼️ **يُحفَظ على القرص لا في الذاكرة.** المستخدم ينقر إعلاناً اليوم
+  /// ويشتري بعد أيّام؛ ومعرّفٌ يعيش في الذاكرة يموت مع أوّل إغلاقٍ للتطبيق
+  /// فيُنسَب الشراء إلى «مباشر» وتبدو الحملة فاشلة وهي التي جلبته.
+  ///
+  /// ‼️ **ولا يُمحى بفراغ**: رابطٌ لاحق بلا معرّفات لا يُلغي نقرةً سابقة —
+  /// وهو نفس ما يفعله الخادم.
+  Future<void> captureClickIds(Uri uri) async {
+    if (uri.queryParameters.isEmpty) return;
+
+    final found = <String, dynamic>{};
+    for (final key in _clickKeys) {
+      final value = uri.queryParameters[key]?.trim() ?? '';
+      // ‼️ حدٌّ عند ٢٥٦: الخادم يرفض ما زاد، فيسقط النداء كلّه لأجل قيمةٍ عابثة.
+      if (value.isNotEmpty && value.length <= 256) found[key] = value;
+    }
+    if (found.isEmpty) return;
+
+    found['capturedAt'] = DateTime.now().millisecondsSinceEpoch;
+    _clickIds = {..._clickIds, ...found};
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_clickIdsKey, jsonEncode(_clickIds));
+    } catch (_) {
+      // القرص تعذّر: المعرّف يبقى في الذاكرة لهذه الجلسة على الأقلّ.
+    }
+
+    await _relayClickIds();
+  }
+
+  /// ‼️ **يُبلَّغ الخادم فوراً لا عند الشراء وحده.** الشراء قد لا يقع أبداً،
+  /// والنقرة إشارةٌ لها قيمتها في المطابقة حتّى بلا طلب. ويُقبَل النداء بلا
+  /// توكن — النقرة تسبق تسجيل الدخول غالباً.
+  Future<void> _relayClickIds() async {
+    final instanceId = _appInstanceId;
+    if (instanceId == null || instanceId.isEmpty || _clickIds.isEmpty) return;
+    if (!_config.isMeasurable || !_consent.ads) return;
+
+    try {
+      await _apiClient.postMap(ApiRoutes.trackingClickIds, data: {
+        'firebaseAppInstanceId': instanceId,
+        if (_analyticsId != null) 'analyticsId': _analyticsId,
+        'clickIds': _clickIds,
+      });
+    } catch (error) {
+      debugPrint('[tracking] تعذّر تبليغ معرّفات النقرة: $error');
+    }
+  }
+
+  Future<void> _restoreClickIds() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_clickIdsKey);
+      if (raw == null || raw.isEmpty) return;
+      final decoded = jsonDecode(raw);
+      if (decoded is Map) _clickIds = Map<String, dynamic>.from(decoded);
+    } catch (_) {
+      // نصٌّ تالف: يُتجاهَل ولا يُسقط الإقلاع.
+    }
+  }
+
+  /// سياق التتبّع كما يقبله الخادم في حمولة الـcheckout.
+  ///
+  /// ‼️ **متزامنٌ عمداً.** يُبنى من قيمٍ مُلتقَطة سلفاً، لأنّ حمولة الطلب
+  /// تُبنى في دالّةٍ واحدة تمرّ بها مسارات الدفع الخمسة — وجعلُها غير متزامنة
+  /// لأجل حقلٍ واحد يُغيّر خمس توقيعات ويفتح باب مسارٍ يُنسى.
+  ///
+  /// ‼️ **ولا يُرسَل شيءٌ إن كان القياس مُطفأً أو الموافقة مرفوضة**: السياق
+  /// كلّه بياناتُ قياس، وإرسالُه رغم الرفض يجعل الرفض شكليّاً.
+  ///
+  /// ‼️ **ولا `deviceId` هنا** (GAID): قراءته تلزمها حزمةٌ جديدة وإذن
+  /// `AD_ID` مُعلَنٌ في Play — قرارٌ لصاحب المتجر لا خيارُ تنفيذ. والخادم
+  /// يُسقطه بنفسه عند غياب الإذن، فغيابه يُضعف المطابقة ولا يكسر شيئاً.
+  Map<String, dynamic>? checkoutContext(String orderReference) {
+    if (!_ready || !_config.isMeasurable || !_consent.isDecided) return null;
+    if (!_consent.analytics && !_consent.ads) return null;
+
+    return <String, dynamic>{
+      'channel': Platform.isIOS ? 'app_ios' : 'app_android',
+      if (_appInstanceId != null && _appInstanceId!.isNotEmpty)
+        'firebaseAppInstanceId': _appInstanceId,
+      'appVersion': kAppVersion,
+      // `dart:io` تكفي: نصٌّ مثل «Android 13 (SDK 33)» — بلا حزمةٍ إضافيّة.
+      'osVersion': _shortOsVersion(),
+      if (_analyticsId != null) 'analyticsId': _analyticsId,
+      // ‼️ مشتقٌّ من مرجع الطلب لا عشوائيّ: مفتاح إزالة التكرار مع الحدث
+      //    الخادميّ يجب أن يكون **هو نفسه** لو أُعيد إرسال الحمولة.
+      'eventId': 'app-\$orderReference',
+      if (_clickIds.isNotEmpty) 'clickIds': _clickIds,
+      'consent': <String, dynamic>{
+        'analytics': _consent.analytics,
+        'ads': _consent.ads,
+        'personalization': _consent.ads,
+        if (_consent.decidedAt != null)
+          'at': _consent.decidedAt!.toUtc().toIso8601String(),
+      },
+    };
+  }
+
+  /// ‼️ الخادم يحدّه بـ٣٢ حرفاً — ونصّ النظام قد يتجاوزها على بعض الأجهزة،
+  /// فيُرفض الطلب كلّه برمز ٤٠٠ لأجل حقلٍ تشخيصيّ.
+  String _shortOsVersion() {
+    final raw = Platform.operatingSystemVersion;
+    return raw.length <= 32 ? raw : raw.substring(0, 32);
   }
 
   static const _purchasesKey = 'tint_logged_purchases_v1';

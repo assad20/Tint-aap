@@ -2,11 +2,17 @@ import '../../../../app/config/api_routes.dart';
 import '../../../../core/models/account_models.dart';
 import '../../../../core/models/cart_item_model.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/tracking/tracking_service.dart';
 
 class CheckoutRemoteDataSource {
-  CheckoutRemoteDataSource(this._apiClient);
+  CheckoutRemoteDataSource(this._apiClient, {TrackingService? tracking})
+      : _tracking = tracking;
 
   final ApiClient _apiClient;
+
+  /// ‼️ **اختياريّة عمداً**: فشل القياس لا يجوز أن يمنع طلباً، ولا أن يُلزم
+  /// كلّ اختبارٍ للـcheckout ببناء منظومة قياسٍ كاملة.
+  final TrackingService? _tracking;
 
   Map<String, dynamic> _buildOrderPayload({
     required List<CartItemModel> items,
@@ -31,8 +37,19 @@ class CheckoutRemoteDataSource {
     // ويرفض الطلب إن كان حسابه أعلى من حساب العميل — فإغفالها يعني رفض كلّ طلب COD.
     final total = subtotal + shippingAmount + codFee;
 
+    /// سياق التتبّع — **يُلتقَط لحظة وجود التطبيق ولا يُستدرَك بعدها.**
+    ///
+    /// ‼️ تأكيد الدفع يصل لاحقاً من خادم البوّابة: بلا جهازٍ ولا نسخة تطبيق
+    /// ولا موافقة. فما لم يُرسَل هنا ضاع، وكلّ طلبٍ يُنشأ اليوم بلا هذه
+    /// الحقول لا سبيل إلى إصلاحه غداً.
+    ///
+    /// ‼️ وهو **هنا** لا في `submitOrder` وحدها: خمسة مسارات دفعٍ تمرّ بهذه
+    /// الدالّة، ووصلُه في واحدٍ منها يترك أربعةً بلا إسناد.
+    final trackingContext = _tracking?.checkoutContext(orderReference);
+
     return {
       'externalOrderId': orderReference,
+      if (trackingContext != null) 'trackingContext': trackingContext,
       'salesChannel': 'mobile',
       'currency': 'SAR',
       'paymentMethod': paymentMethod,
