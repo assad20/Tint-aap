@@ -1,7 +1,7 @@
 name: tint_mobile
 description: Tint Store Flutter mobile app connected only to the Node.js middleware.
 publish_to: "none"
-version: 1.2.1+4
+version: 1.2.2+5
 
 environment:
   # نطاق موسّع ليعمل على Flutter القديم (FlutLab = Dart 3.8.1) والجديد معاً
