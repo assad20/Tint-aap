@@ -133,17 +133,32 @@ workflows:
           BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP/Info.plist")
           echo "الحزمة: $APP · المعرّف: $BUNDLE_ID"
           xcrun simctl install "$UDID" "$APP"
+          # ‼️ **تُفتح واجهة المحاكي قبل الالتقاط.** `simctl boot` وحده يُقلعه
+          #    بلا واجهة، و`simctl io … screenshot` على جهازٍ بلا واجهة يفشل
+          #    صامتاً — وهو ما أنتج أرشيفاً بلا صورةٍ واحدة في المحاولة السابقة.
+          open -a Simulator --args -CurrentDeviceUDID "$UDID" || true
+          sleep 15
           xcrun simctl launch "$UDID" "$BUNDLE_ID"
           mkdir -p screenshots
           # ‼️ انتظارٌ متدرّج لا لقطةٌ واحدة: الإقلاع يجلب الكتالوج والتخطيط من
           #    الشبكة، ولقطةٌ بعد ثانيتين تُظهر شاشةً فارغة وتُقرأ عطلاً.
+          #
+          # ‼️ **ولا `|| true` صامتة**: إخفاء الفشل هو ما جعل البناء يُعلن النجاح
+          #    وهو لم يلتقط شيئاً. الخطأ يُكتب في ملفّ يخرج مع الأرشيف.
           for s in 6 12 20 30; do
             sleep 6
-            xcrun simctl io "$UDID" screenshot "screenshots/home-${s}s.png" || true
+            xcrun simctl io booted screenshot "screenshots/home-${s}s.png" \
+              2>> screenshots/capture-errors.log || echo "فشل الالتقاط عند ${s}s" >> screenshots/capture-errors.log
           done
-          xcrun simctl spawn "$UDID" log show --last 2m --predicate 'processImagePath CONTAINS "Runner"' > screenshots/device.log 2>&1 || true
+          ls -l screenshots/ || true
+          # ‼️ المرشّح بالمعرّف لا بكلمة «Runner»: `CONTAINS "Runner"` التقط
+          #    `BackgroundShortcutRunner` — عمليّة نظامٍ — فخرج سجلٌّ بـ١٦٢١ سطراً
+          #    لا سطر واحد منها عن التطبيق.
+          xcrun simctl spawn "$UDID" log show --last 3m \
+            --predicate "processImagePath ENDSWITH \"/Runner\"" \
+            > screenshots/device.log 2>&1 || true
           # ‼️ فيديو الجلسة أنفع من أربع لقطات حين يُشتبه في تعليقٍ أو وميض.
-          xcrun simctl io "$UDID" recordVideo --codec h264 screenshots/session.mp4 &
+          xcrun simctl io booted recordVideo --codec h264 screenshots/session.mp4 &
           REC=$!
           sleep 10
           kill "$REC" 2>/dev/null || true
@@ -153,3 +168,10 @@ workflows:
       - screenshots/*.mp4
       - screenshots/*.log
       - build/ios/iphonesimulator/*.app
+    publishing:
+      email:
+        recipients:
+          - asd.ss1993nawaf@gmail.com
+        notify:
+          success: true
+          failure: true
