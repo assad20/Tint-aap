@@ -4,6 +4,7 @@ import '../../../../../app/theme/app_theme.dart';
 import '../../../../../core/models/product_model.dart';
 import '../../../../../core/widgets/tint_ui.dart';
 import '../../widgets/product_card.dart';
+import '../../widgets/product_list_impression.dart';
 
 /// رفٌّ أفقيّ — كان `_SectionCarousel` داخل `home_page.dart`.
 ///
@@ -27,38 +28,42 @@ class TintProductCarousel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-      child: Column(
-        children: [
-          TintSectionHeader(
-            title: title,
-            subtitle: subtitle,
-            trailing: TextButton(
-              onPressed: () {},
-              child: Text(
-                'عرض الكل',
-                style: TextStyle(
-                  color: accent,
-                  fontWeight: FontWeight.w800,
+    return ProductListImpression(
+      listName: title,
+      products: items,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: Column(
+          children: [
+            TintSectionHeader(
+              title: title,
+              subtitle: subtitle,
+              trailing: TextButton(
+                onPressed: () {},
+                child: Text(
+                  'عرض الكل',
+                  style: TextStyle(
+                    color: accent,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 275,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemBuilder: (context, index) => SizedBox(
-                width: 160,
-                child: ProductCard(product: items[index]),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 275,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: items.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                itemBuilder: (context, index) => SizedBox(
+                  width: 160,
+                  child: ProductCard(product: items[index]),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
