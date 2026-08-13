@@ -1,4 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
+import '../../../../core/tracking/tracking_events.dart';
+import '../../../../core/tracking/tracking_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/config/api_routes.dart';
@@ -51,10 +56,14 @@ class _ProductByIdPageState extends State<ProductByIdPage> {
         throw StateError('لا منتج في الاستجابة');
       }
       if (!mounted) return;
+      final product = ProductModel.fromJson(Map<String, dynamic>.from(raw));
       setState(() {
-        _product = ProductModel.fromJson(Map<String, dynamic>.from(raw));
+        _product = product;
         _loading = false;
       });
+      // ‼️ **بعد نجاح الجلب لا عند فتح الشاشة**: صفحةٌ فشل تحميلها ليست
+      //    «عرض منتج» — وعدّها كذلك يُضخّم القمع بمشاهداتٍ لم تقع.
+      unawaited(context.read<TrackingService>().logViewItem(product));
     } catch (_) {
       if (!mounted) return;
       setState(() {

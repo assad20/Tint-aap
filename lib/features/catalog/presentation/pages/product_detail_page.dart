@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../../../../core/tracking/tracking_events.dart';
+import '../../../../core/tracking/tracking_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -38,6 +41,12 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     // وسجلّ محلّيّ يُغذّي رفّ «شوهدت مؤخّراً» وشاشة سجلّ التصفّح — الجهاز
     // يعرف ما شاهده صاحبه بلا أن نربط سلوكاً بهويّة على الخادم.
     unawaited(context.read<AppPreferences>().pushRecentlyViewed(widget.product));
+    /// ‼️ **هنا لا في `product_by_id_page`.**
+    ///
+    /// تلك تُفتَح من رابطٍ عميق فقط — الطريق النادر. وهذه هي الشاشة التي يصلها
+    /// المشتري من البطاقة، أي **أكثر من ٩٠٪ من مشاهدات المنتج**. ووصلُ الحدث
+    /// بالنادر وحده يُنتج قمعاً يبدو سليماً ويقيس عُشر الحقيقة.
+    unawaited(context.read<TrackingService>().logViewItem(widget.product));
   }
 
   void _addToCart() {
@@ -65,6 +74,12 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     unawaited(context
         .read<CatalogRepository>()
         .recordSignal(widget.product.id, ProductSignalType.cart));
+    // ‼️ **بالكمّيّة المُضافة فعلاً (`added`) لا بالمطلوبة (`_qty`)**:
+    //    من طلب خمساً وأُضيفت اثنتان أضاف اثنتين — وحدثٌ بخمسٍ يُضخّم قيمة
+    //    السلّة في التقارير ويُفسد متوسّط الطلب.
+    unawaited(context
+        .read<TrackingService>()
+        .logAddToCart(widget.product, quantity: added));
     // رسالة لطيفة مدمجة تختفي تلقائيّاً + زرّ خفيف للسلة (نمط شي إن).
     showTintToast(
       context,

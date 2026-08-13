@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../../../../core/tracking/tracking_events.dart';
+import '../../../../core/tracking/tracking_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -204,6 +207,12 @@ class ProductCard extends StatelessWidget {
                                     .read<CatalogRepository>()
                                     .recordSignal(
                                         product.id, ProductSignalType.cart));
+                                // ‼️ حدث القمع يُطلَق **بجانب** إشارة الرواج لا
+                                //    بدلاً منها: الأولى لـGA4 والثانية لترتيب
+                                //    «الأكثر رواجاً» عندنا — غرضان مختلفان.
+                                unawaited(context
+                                    .read<TrackingService>()
+                                    .logAddToCart(product));
                                 showTintToast(
                                     context, 'تمت إضافة المنتج إلى السلة');
                               },

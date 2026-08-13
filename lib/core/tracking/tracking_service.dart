@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -29,6 +30,17 @@ class TrackingService {
   String? _analyticsId;
   bool _ready = false;
 
+  /// ‼️ **إشارةٌ تُنتظَر، لا مهلةٌ تُخمَّن.**
+  ///
+  /// كان المستهلك ينتظر ٣ ثوانٍ ثمّ يفحص مرّةً واحدة — ورحلة `config` من
+  /// الإنتاج أبطأ من ذلك، فيقع الفحص والقناة ما زالت مُطفأة **فلا تظهر شاشة
+  /// الموافقة أبداً**. بلا خطأٍ ولا تحذير.
+  ///
+  /// ومهلةٌ أطول ليست حلّاً: تراهن على شبكةٍ لا نعرفها. فالجهوزيّة تُعلَن حين
+  /// تقع فعلاً.
+  final Completer<void> _readySignal = Completer<void>();
+  Future<void> get ready => _readySignal.future;
+
   TrackingConfig get config => _config;
   TrackingConsent get consent => _consent;
 
@@ -56,6 +68,18 @@ class TrackingService {
       _config = TrackingConfig.fromJson(raw);
 
       await _applyConsentToFirebase();
+
+      /// ‼️ **`store_id` معاملٌ افتراضيّ لا يُحقَن يدويّاً.**
+      ///
+      /// معيار القبول يشترطه في **كلّ** حدث. وحقنُه في كلّ نداءٍ يعني نداءً
+      /// يُنسى؛ والأسوأ أنّ الواجهة المُهيكلة (`logAddToCart` وأخواتها) لا تمرّ
+      /// بدالّتنا العامّة أصلاً — فحقنٌ فيها وحدها كان يترك نصف الأحداث بلا متجر.
+      /// و`setDefaultEventParameters` تُلحقه بما يخرج من الحزمة كلّه.
+      if (_config.storeId.isNotEmpty) {
+        await FirebaseAnalytics.instance
+            .setDefaultEventParameters({'store_id': _config.storeId});
+      }
+
       _ready = true;
       debugPrint(
         '[tracking] القناة: ${_config.channelEnabled} · المنصّات: ${_config.platforms.length}',
@@ -63,6 +87,10 @@ class TrackingService {
     } catch (error) {
       _config = TrackingConfig.disabled;
       debugPrint('[tracking] تعذّرت قراءة الإعدادات — القياس مُطفأ: $error');
+    } finally {
+      // ‼️ **يُكمَل في كلّ الأحوال**: لو أُكمل عند النجاح وحده لانتظر
+      //    المستهلك إلى الأبد عند انقطاع الشبكة — شاشةٌ معلَّقة بلا سبب ظاهر.
+      if (!_readySignal.isCompleted) _readySignal.complete();
     }
   }
 
@@ -98,6 +126,24 @@ class TrackingService {
   bool get _mayCollect =>
       _ready && _config.isMeasurable && _consent.analytics;
 
+  /// ينفّذ نداءً مُهيكلاً **بعد المرور بالبوّابات**.
+  ///
+  /// ‼️ **بوّابةٌ واحدة للواجهتين.** أحداث التجارة في Firebase لها دوالّ
+  /// مُهيكلة (`logAddToCart` وأخواتها) لا تقبل `items` عبر `logEvent` العامّة —
+  /// وهي ترفضها بتأكيدٍ صريح: «`String` أو `num` فقط». (رُصد على المحاكي
+  /// 2026-08-13.) فلو استُدعيت مباشرةً لتخطّت بوّابة الموافقة، ولو مُرّرت عبر
+  /// العامّة لسقطت. فتمرّ من هنا: الحارس نفسه، والواجهة الصحيحة.
+  Future<void> guarded(
+    Future<void> Function(FirebaseAnalytics analytics) action,
+  ) async {
+    if (!_mayCollect) return;
+    try {
+      await action(FirebaseAnalytics.instance);
+    } catch (error) {
+      debugPrint('[tracking] تعذّر إطلاق حدث: $error');
+    }
+  }
+
   /// يُطلق حدثاً بعد المرور بالبوّابات.
   ///
   /// ‼️ **`store_id` يُضاف هنا لا في مواضع النداء**: معيار القبول يشترطه في
@@ -108,10 +154,10 @@ class TrackingService {
     try {
       await FirebaseAnalytics.instance.logEvent(
         name: name,
+        // `store_id` يأتي من `setDefaultEventParameters` — لا يُكرّر هنا.
         parameters: <String, Object>{
           for (final entry in params.entries)
             if (entry.value != null) entry.key: entry.value!,
-          'store_id': _config.storeId,
         },
       );
     } catch (error) {

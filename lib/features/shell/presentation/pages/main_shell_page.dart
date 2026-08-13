@@ -64,6 +64,10 @@ class _MainShellPageState extends State<MainShellPage> {
   Future<void> _maybeAskConsent() async {
     if (_consentAsked || !mounted) return;
     final tracking = context.read<TrackingService>();
+
+    // ‼️ **تُنتظَر الإشارة لا المهلة** — انظر `TrackingService.ready`.
+    await tracking.ready;
+    if (!mounted) return;
     if (!tracking.needsConsentDecision) return;
 
     _consentAsked = true;
@@ -78,11 +82,7 @@ class _MainShellPageState extends State<MainShellPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // ‼️ مهلةٌ قصيرة: `config` رحلةُ شبكةٍ بدأت مع الإقلاع، وسؤالٌ
-      //    قبل وصولها لا يقع أصلاً (الحارس أعلاه) فتضيع فرصة العرض.
-      Future<void>.delayed(const Duration(seconds: 3), _maybeAskConsent);
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeAskConsent());
   }
 
   void _ensureLoaded(BuildContext context, int index) {

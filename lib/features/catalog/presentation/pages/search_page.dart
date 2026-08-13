@@ -1,4 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
+import '../../../../core/tracking/tracking_events.dart';
+import '../../../../core/tracking/tracking_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/storage/app_preferences.dart';
@@ -38,8 +43,13 @@ class _SearchPageState extends State<SearchPage> {
                 TextField(
                   controller: _controller,
                   textInputAction: TextInputAction.search,
-                  onSubmitted: (value) =>
-                      context.read<SearchCubit>().search(value, preferences: _preferences),
+                  // ‼️ **عند الإرسال لا عند كلّ حرف**: حدثٌ لكلّ ضغطة مفتاح
+                  //    يُغرق GA4 بمئات الأحداث للبحث الواحد، ويجعل «أشيع
+                  //    الكلمات» أحرفاً مبتورة لا كلماتٍ يبحث عنها أحد.
+                  onSubmitted: (value) {
+                    context.read<SearchCubit>().search(value, preferences: _preferences);
+                    unawaited(context.read<TrackingService>().logSearch(value));
+                  },
                   decoration: InputDecoration(
                     hintText: 'ابحثي عن عطر، فستان، هدية...',
                     prefixIcon: const Icon(Icons.search),
