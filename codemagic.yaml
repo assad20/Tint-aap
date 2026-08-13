@@ -64,3 +64,65 @@ workflows:
             --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa
+
+  # ────────────────────────────────────────────────────────────────────────
+  # معاينة iOS على المحاكي — **بلا حساب مطوّر أبل وبلا توقيع**.
+  #
+  # ‼️ Xcode ومحاكيه مجّانيّان؛ اشتراك أبل ($99) يلزم للتوقيع والنشر على جهازٍ
+  # حقيقيّ فقط. فهذا المسار يُري الشكل الفعليّ على iOS بلا أيّ إنفاق.
+  #
+  # ‼️ وحدوده صريحة: **لقطاتٌ لا جلسة تفاعليّة** — تنظر ولا تلمس. والدفع
+  # الحقيقيّ وApple Pay والكاميرا لا تعمل على محاكٍ أصلاً.
+  # ────────────────────────────────────────────────────────────────────────
+  ios-preview:
+    name: Tint iOS (معاينة محاكي — بلا توقيع)
+    instance_type: mac_mini_m2
+    max_build_duration: 45
+    environment:
+      flutter: stable
+      groups:
+        - tint
+    scripts:
+      - name: Generate platform folders if missing
+        script: flutter create . --org com.tintstore --platforms=android,ios
+      - name: Get packages
+        script: flutter pub get
+      - name: Generate icons & splash
+        script: |
+          dart run flutter_launcher_icons
+          dart run flutter_native_splash:create
+      - name: Install pods
+        script: find . -name "Podfile" -execdir pod install \;
+      # ‼️ `--simulator` يبني لمعماريّة المحاكي، و`--no-codesign` يتخطّى التوقيع
+      #    كلّه — وهو ما يجعل هذا المسار ممكناً بلا حساب أبل.
+      - name: Build for simulator (no signing)
+        script: |
+          flutter build ios --simulator --debug --no-codesign \
+            --dart-define=TINT_API_BASE_URL=$TINT_API_BASE_URL \
+            --dart-define=TINT_TABBY_PUBLIC_KEY=$TINT_TABBY_PUBLIC_KEY \
+            --dart-define=TINT_TABBY_MERCHANT_CODE=$TINT_TABBY_MERCHANT_CODE \
+            --dart-define=TINT_TABBY_LANG=ar
+      - name: Boot simulator, install, launch and capture
+        script: |
+          set -e
+          DEVICE=$(xcrun simctl list devices available | grep -m1 -o 'iPhone [0-9][^(]*' | sed 's/ *$//')
+          echo "الجهاز المختار: $DEVICE"
+          UDID=$(xcrun simctl list devices available | grep -m1 "$DEVICE (" | grep -Eo '[0-9A-F-]{36}')
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          APP=$(find build/ios/iphonesimulator -maxdepth 1 -name "*.app" | head -1)
+          echo "الحزمة: $APP"
+          xcrun simctl install "$UDID" "$APP"
+          xcrun simctl launch "$UDID" com.tintstore.app
+          mkdir -p screenshots
+          # ‼️ انتظارٌ متدرّج لا لقطةٌ واحدة: الإقلاع يجلب الكتالوج والتخطيط من
+          #    الشبكة، ولقطةٌ بعد ثانيتين تُظهر شاشةً فارغة وتُقرأ عطلاً.
+          for s in 6 12 20 30; do
+            sleep 6
+            xcrun simctl io "$UDID" screenshot "screenshots/home-${s}s.png" || true
+          done
+          xcrun simctl spawn "$UDID" log show --last 2m --predicate 'processImagePath CONTAINS "Runner"' > screenshots/device.log 2>&1 || true
+    artifacts:
+      - screenshots/*.png
+      - screenshots/*.log
+      - build/ios/iphonesimulator/*.app
