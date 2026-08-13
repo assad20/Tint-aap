@@ -110,6 +110,18 @@ workflows:
         script: find . -name "Podfile" -execdir pod install \;
       # ‼️ `--simulator` يبني لمعماريّة المحاكي، و`--no-codesign` يتخطّى التوقيع
       #    كلّه — وهو ما يجعل هذا المسار ممكناً بلا حساب أبل.
+      # ‼️ تشخيصٌ يفصل «المتغيّر فارغ» عن «الشبكة محجوبة» — وهما يُنتجان نفس
+      #    العَرَض: تطبيقٌ يُقلع بأرففٍ فارغة و`statusCode: null`.
+      - name: Verify API endpoint before building
+        script: |
+          echo "TINT_API_BASE_URL=[${TINT_API_BASE_URL}]"
+          if [ -z "$TINT_API_BASE_URL" ]; then
+            echo "‼️ المتغيّر فارغ — سيُبنى تطبيقٌ بلا خادم. راجع مجموعة tint."
+          else
+            echo "فحص الوصول من جهاز البناء:"
+            curl -s -o /dev/null -w "  HTTP %{http_code} · %{time_total}s" --max-time 25 "${TINT_API_BASE_URL}/health" || echo "  ‼️ تعذّر الوصول من الماك نفسه"
+            echo ""
+          fi
       - name: Build for simulator (no signing)
         script: |
           flutter build ios --simulator --debug --no-codesign \
