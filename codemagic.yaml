@@ -140,6 +140,13 @@ workflows:
           sleep 15
           xcrun simctl launch "$UDID" "$BUNDLE_ID"
           mkdir -p screenshots
+          # ‼️ **مسارٌ مطلق — وهو ما أسقط ثلاث محاولات.**
+          #
+          # `simctl io … screenshot` يكتب الصورة عبر عمليّة المحاكي لا عبر هذه
+          # الصدفة، ومجلّدها الحاليّ مختلف. فالمسار النسبيّ يُحَلّ في مكانٍ آخر،
+          # ويخرج خطأٌ مُضلّل: «The folder "home-6s.png" doesn't exist» — يوحي
+          # بأنّ المجلّد ناقص بينما هو موجود، والعطل في تفسير المسار لا فيه.
+          SHOTS="$PWD/screenshots"
           # ‼️ انتظارٌ متدرّج لا لقطةٌ واحدة: الإقلاع يجلب الكتالوج والتخطيط من
           #    الشبكة، ولقطةٌ بعد ثانيتين تُظهر شاشةً فارغة وتُقرأ عطلاً.
           #
@@ -147,18 +154,18 @@ workflows:
           #    وهو لم يلتقط شيئاً. الخطأ يُكتب في ملفّ يخرج مع الأرشيف.
           for s in 6 12 20 30; do
             sleep 6
-            xcrun simctl io booted screenshot "screenshots/home-${s}s.png" \
-              2>> screenshots/capture-errors.log || echo "فشل الالتقاط عند ${s}s" >> screenshots/capture-errors.log
+            xcrun simctl io booted screenshot "$SHOTS/home-${s}s.png" \
+              2>> "$SHOTS/capture-errors.log" || echo "فشل الالتقاط عند ${s}s" >> "$SHOTS/capture-errors.log"
           done
-          ls -l screenshots/ || true
+          ls -l "$SHOTS" || true
           # ‼️ المرشّح بالمعرّف لا بكلمة «Runner»: `CONTAINS "Runner"` التقط
           #    `BackgroundShortcutRunner` — عمليّة نظامٍ — فخرج سجلٌّ بـ١٦٢١ سطراً
           #    لا سطر واحد منها عن التطبيق.
           xcrun simctl spawn "$UDID" log show --last 3m \
             --predicate "processImagePath ENDSWITH \"/Runner\"" \
-            > screenshots/device.log 2>&1 || true
+            > "$SHOTS/device.log" 2>&1 || true
           # ‼️ فيديو الجلسة أنفع من أربع لقطات حين يُشتبه في تعليقٍ أو وميض.
-          xcrun simctl io booted recordVideo --codec h264 screenshots/session.mp4 &
+          xcrun simctl io booted recordVideo --codec h264 "$SHOTS/session.mp4" &
           REC=$!
           sleep 10
           kill "$REC" 2>/dev/null || true
