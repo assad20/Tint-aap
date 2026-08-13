@@ -8,6 +8,8 @@ import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'location_picker_page.dart';
+import '../../../../app/config/api_routes.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../core/tracking/tracking_events.dart';
 import '../../../../core/tracking/tracking_service.dart';
 import 'noon_webview_page.dart';
@@ -1135,7 +1137,46 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
+  /// يُطلق `purchase` ثمّ يُعلم الخادم أنّ العميل رآه.
+  ///
+  /// ‼️ **العلامة تُرسَل فقط إن خرج الحدث.** معناها حرفيّاً «رأى العميل هذا
+  /// الشراء فلا تستدركه»، فإرسالها بلا إطلاقٍ — لأنّ المستخدم رفض القياس
+  /// مثلاً — يمنع استدراك الخادم فيضيع الشراء من الطرفين معاً.
+  Future<void> _logPurchase(BuildContext context, String orderId) async {
+    final cubit = context.read<CheckoutCubit>();
+    final items = cubit.trackingItems;
+    if (items.isEmpty) return;
+
+    final subtotal = TrackingEvents.total(items);
+    final shipping = cubit.state.shippingCostFor(subtotal);
+    final fired = await context.read<TrackingService>().logPurchase(
+          transactionId: orderId,
+          items: items,
+          // ‼️ الإيراد كما دفعه المشتري: البضاعة + الشحن + رسوم الوسيلة.
+          //    قيمةٌ بلا شحنٍ تُظهر ربحيّةً وهميّة في تقارير الإعلانات.
+          value: subtotal + shipping + cubit.state.selectedFee,
+          shipping: shipping,
+        );
+    if (!fired) return;
+
+    try {
+      await context.read<ApiClient>().postMap(
+            ApiRoutes.conversionsBrowserPurchase,
+            data: {'orderId': orderId},
+          );
+    } catch (error) {
+      // فشل العلامة لا يُخبر المشتري بشيء: طلبه نجح، وأسوأ أثرٍ هنا استدراكٌ
+      // مزدوج يعالجه الخادم بنفسه.
+      debugPrint('[tracking] تعذّر تعليم الشراء: $error');
+    }
+  }
+
   Future<void> _showSuccessDialog(BuildContext context, String orderId) async {
+    // ‼️ **هنا لا في كلّ مسار دفع.** خمسة مسارات تنتهي إلى هذه الدالّة (نقداً
+    //    وتابي وتمارا وPayTabs ونون)، ووصلُ الحدث في كلٍّ منها يعني مساراً
+    //    يُنسى — والمنسيّ لا يُصدر خطأً، يُصدر تقريراً ناقصاً يبدو صحيحاً.
+    unawaited(_logPurchase(context, orderId));
+
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(

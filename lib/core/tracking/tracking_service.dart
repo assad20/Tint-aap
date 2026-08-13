@@ -176,6 +176,66 @@ class TrackingService {
     }
   }
 
+  /// يُطلق `purchase` **مرّةً واحدة لكلّ طلب**، ويقول هل خرج فعلاً.
+  ///
+  /// ‼️ **والحارس على القرص لا في الذاكرة.** مسارات الدفع الخمسة ليست واحدة:
+  /// تابي وتمارا وPayTabs ونون تمرّ بويب‑ڤيو ورجوعٍ إلى التطبيق، وقد يُعاد
+  /// بناء العمليّة كلّها بينها. وحارسٌ في الذاكرة يضيع عندها فيُحتسب الشراء
+  /// مرّتين — وعدٌّ مزدوج في الإيراد أسوأ من غيابه: يُبنى عليه قرار إنفاق.
+  /// وحتّى بلا ذلك، مُستمع الحالة في الشاشة يُعيد النداء عند كلّ انبعاث.
+  ///
+  /// ‼️ **ويُرجع `false` عند المنع** — لا يبتلعه بصمت. فمن ينادي يحتاج أن
+  /// يعرف: علامة «رآه المتصفّح» تُرسَل للخادم **فقط إن خرج الحدث**، وإرسالها
+  /// بلا إطلاقٍ يمنع استدراك الخادم فيضيع الشراء من الطرفين معاً.
+  Future<bool> logPurchase({
+    required String transactionId,
+    required List<AnalyticsEventItem> items,
+    required double value,
+    double shipping = 0,
+    String? coupon,
+  }) async {
+    final id = transactionId.trim();
+    if (id.isEmpty || items.isEmpty) return false;
+    if (!await _markPurchaseOnce(id)) return false;
+    if (!_mayCollect) return false;
+    try {
+      await FirebaseAnalytics.instance.logPurchase(
+        transactionId: id,
+        currency: 'SAR',
+        value: value,
+        shipping: shipping,
+        coupon: (coupon != null && coupon.isNotEmpty) ? coupon : null,
+        items: items,
+      );
+      return true;
+    } catch (error) {
+      debugPrint('[tracking] تعذّر إطلاق purchase: $error');
+      return false;
+    }
+  }
+
+  static const _purchasesKey = 'tint_logged_purchases_v1';
+
+  /// `true` إن كان هذا الطلب جديداً (ويُسجَّل)، و`false` إن سبق تسجيله.
+  Future<bool> _markPurchaseOnce(String orderId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final seen = prefs.getStringList(_purchasesKey) ?? const <String>[];
+      if (seen.contains(orderId)) return false;
+      // آخر خمسين طلباً تكفي للحراسة، والقائمة لا تنمو بلا حدّ على الجهاز.
+      final next = [...seen, orderId];
+      await prefs.setStringList(
+        _purchasesKey,
+        next.length > 50 ? next.sublist(next.length - 50) : next,
+      );
+      return true;
+    } catch (_) {
+      // تعذّر القرص: الأسلم ألّا يُطلَق. شراءٌ ضائع خطأٌ في تقرير،
+      // وشراءٌ مكرّر خطأٌ في قرار.
+      return false;
+    }
+  }
+
   static const _analyticsIdKey = 'tint_analytics_id_v1';
 
   Future<String?> _readOrCreateAnalyticsId() async {

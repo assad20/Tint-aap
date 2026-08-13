@@ -275,6 +275,7 @@ class CheckoutCubit extends Cubit<CheckoutState> {
   /// الاثنين لأجل حدثٍ يُدخل اعتماديّةً لا يحتاجها الدفع.
   List<AnalyticsEventItem> _itemsForTracking = const [];
   set trackingItems(List<AnalyticsEventItem> value) => _itemsForTracking = value;
+  List<AnalyticsEventItem> get trackingItems => _itemsForTracking;
 
   Future<String> submitOrder({
     required List<CartItemModel> items,
