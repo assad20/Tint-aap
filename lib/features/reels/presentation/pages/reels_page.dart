@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/models/product_model.dart';
+import '../../../../core/widgets/tint_ui.dart';
 import '../../../account/presentation/cubit/favorites_cubit.dart';
 import '../../../cart/presentation/cubit/cart_cubit.dart';
 import '../../domain/reel_model.dart';
@@ -634,7 +635,8 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
                               borderRadius: BorderRadius.circular(14),
                               border: Border.all(color: Colors.white70, width: 1.5),
                               image: DecorationImage(
-                                image: NetworkImage(product.image),
+                                // القاعدة نفسها: مصغّرةٌ خام كانت تظهر إطاراً فارغاً.
+                                image: NetworkImage(TintNetworkImage.resolve(product.image)),
                                 fit: BoxFit.cover,
                               ),
                             ),

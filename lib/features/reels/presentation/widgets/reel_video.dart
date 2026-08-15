@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/widgets/tint_ui.dart';
 
 /// مشغّل مقطعٍ واحد داخل الشريط.
 ///
@@ -126,8 +127,14 @@ class _ReelVideoState extends State<ReelVideo> {
       children: [
         // الصورة تحت الفيديو دائماً: تملأ الحواف في المقاطع الرأسيّة الضيّقة
         // وتغطّي لحظة التهيئة.
+        /*
+          ‼️ **يمرّ بـ`TintNetworkImage.resolve` كبقيّة صور التطبيق.**
+          كان `Image.network` خاماً، فرابطٌ يشير إلى `localhost` (كما يخرج من
+          الوسيط) لا يُحلّ على الجهاز — فيسقط الغلاف ويبقى **سوادٌ تامّ** حتّى
+          يجهز الفيديو. رُصد بالتشغيل: شاشةٌ سوداء ومصغّرةٌ فارغة.
+        */
         Image.network(
-          widget.poster,
+          TintNetworkImage.resolve(widget.poster),
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => const ColoredBox(color: Colors.black),
         ),
