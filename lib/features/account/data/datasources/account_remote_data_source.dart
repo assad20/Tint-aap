@@ -10,6 +10,14 @@ class AccountRemoteDataSource {
     return _apiClient.getMap(ApiRoutes.dashboard);
   }
 
+  /// حذف الحساب — نفس المسار بفعل `DELETE`.
+  ///
+  /// ‼️ **ولا رقم في الجسم**: الخادم يحذف صاحب التوكن وحده. وإرسال رقمٍ من
+  /// التطبيق يعني بابَ حذفٍ لحساب غيرك بمعرفة رقمه.
+  Future<Map<String, dynamic>> deleteAccount() {
+    return _apiClient.deleteMap(ApiRoutes.dashboard);
+  }
+
   Future<Map<String, dynamic>> fetchRewardsBundle() {
     return _apiClient.getMap(ApiRoutes.rewards);
   }

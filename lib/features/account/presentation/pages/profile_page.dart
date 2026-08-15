@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../domain/repositories/account_repository.dart';
+import '../../../../core/network/api_exception.dart';
 
 import '../../../../core/tracking/tracking_service.dart';
 import '../../../settings/presentation/pages/tracking_consent_page.dart';
@@ -252,12 +254,115 @@ class _AccountDashboard extends StatelessWidget {
               icon: const Icon(Icons.logout_rounded),
               label: const Text('تسجيل الخروج', style: TextStyle(fontWeight: FontWeight.w800)),
             ),
+
+            /// ‼️ **حذف الحساب من داخل التطبيق — شرط أبل 5.1.1(v).**
+            ///
+            /// كلّ تطبيقٍ يسمح بإنشاء حساب يجب أن يسمح بحذفه من داخله، ورابطٌ
+            /// إلى الموقع لا يُقبَل. وتطبيقنا يُنشئ حسابات بالـOTP، فغياب هذا
+            /// الزرّ **رفضٌ مؤكّد في المراجعة** لا احتمال.
+            ///
+            /// ‼️ **وهو أسفل «تسجيل الخروج» لا فوقه، وبلا لونٍ صارخ**: زرٌّ
+            /// هدّام يُوضَع في طريق من لا يقصده يُنقَر بالخطأ — وهذا فعلٌ لا
+            /// رجعة فيه.
+            TextButton.icon(
+              onPressed: () => _confirmDelete(context),
+              style: TextButton.styleFrom(foregroundColor: TintColors.textMuted),
+              icon: const Icon(Icons.person_remove_outlined, size: 18),
+              label: const Text('حذف الحساب',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+            ),
           ],
         );
       },
     );
   }
 }
+
+/// حوار التأكيد — **يقول الحقيقة كاملة قبل الفعل**.
+  ///
+  /// ‼️ **ويُفصح عمّا يبقى لا عمّا يُمحى وحده.** الفواتير وقيود المحفظة تبقى
+  /// بحكم النظام (الفاتورة الإلكترونيّة تُلزم بحفظها سنوات)، وأبل تسمح بذلك
+  /// **بشرط الإفصاح**. وإخفاؤه يجعل الحذف وعداً كاذباً — وهو أسوأ من رفضه.
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('حذف الحساب نهائيّاً؟',
+            style: TextStyle(fontWeight: FontWeight.w900)),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('يُمحى: اسمك وبريدك وعناوينك ومفضّلتك وبطاقاتك المحفوظة '
+                'وتفضيلات الإشعارات.',
+                style: TextStyle(height: 1.7)),
+            SizedBox(height: 12),
+            Text('يبقى: فواتير طلباتك السابقة وقيود محفظتك — يُلزم بها نظام '
+                'الفاتورة الإلكترونيّة، ولا تبقى مرتبطةً باسمك.',
+                style: TextStyle(height: 1.7, color: TintColors.textMuted)),
+            SizedBox(height: 12),
+            Text('لا يمكن التراجع عن هذا الإجراء.',
+                style: TextStyle(fontWeight: FontWeight.w800)),
+          ],
+        ),
+        actions: [
+          // ‼️ **«تراجع» أوّلاً وهو المُبرَز**: حوارٌ هدّام يُبرِز فعله الهدّام
+          //    يستدرج نقرةً بالعادة لا بالقصد.
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('تراجع'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: TextButton.styleFrom(foregroundColor: TintColors.danger),
+            child: const Text('نعم، احذف حسابي',
+                style: TextStyle(fontWeight: FontWeight.w800)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    await _deleteAccount(context);
+  }
+
+  Future<void> _deleteAccount(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final repository = context.read<AccountRepository>();
+    final auth = context.read<AuthCubit>();
+    final profile = context.read<ProfileCubit>();
+
+    try {
+      await repository.deleteAccount();
+    } catch (error) {
+      /// ‼️ **رسالة الخادم تُعرَض كما هي.**
+      ///
+      /// أهمّ حالة: «لا يمكن حذف الحساب ورصيد محفظتك ٥٠ ريالاً» — وهي تقول
+      /// المبلغ وما يُفعل به. واستبدالُها بـ«تعذّر الحذف» يترك العميل يظنّ
+      /// الخدمة معطّلة بينما ماله هو السبب، ولا يعرف كم ولا كيف يستردّه.
+      if (!context.mounted) return;
+      messenger
+        ..clearSnackBars()
+        ..showSnackBar(SnackBar(
+          content: Text(_readableError(error)),
+          backgroundColor: TintColors.danger,
+        ));
+      return;
+    }
+
+    // ‼️ الخروج **بعد** نجاح الحذف لا قبله: خروجٌ مُسبق يُفقد التوكن الذي
+    //    يحتاجه النداء نفسه، فيفشل الحذف ويبقى الحساب قائماً بلا أن يعلم أحد.
+    await auth.logout();
+    if (!context.mounted) return;
+    profile.load();
+    messenger
+      ..clearSnackBars()
+      ..showSnackBar(const SnackBar(content: Text('حُذف حسابك. نأسف لفراقك 🤍')));
+  }
+
+  String _readableError(Object error) {
+    if (error is ApiException) return error.message;
+    return error.toString().replaceFirst('Exception: ', '');
+  }
 
 class _LinkRow extends StatelessWidget {
   const _LinkRow({

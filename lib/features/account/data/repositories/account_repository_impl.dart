@@ -13,6 +13,9 @@ class AccountRepositoryImpl implements AccountRepository {
 
   final AccountRemoteDataSource _remoteDataSource;
 
+  @override
+  Future<void> deleteAccount() => _remoteDataSource.deleteAccount();
+
   static const _emptyProfile = ProfileBundle(
     profile: UserProfileModel(
       name: '',

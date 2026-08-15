@@ -23,7 +23,17 @@ class AuthRemoteDataSource {
     return _apiClient.postMap(
       ApiRoutes.authRequestOtp,
       data: {
-        if (phone.isNotEmpty) 'phone': phone,
+        // ‼️ **`phone` يُرسَل دائماً ولو فارغاً — `email` لا.**
+        //
+        //    عقد الخادم يُعلن `phone` إلزاميّاً (`@IsString`) و`email`
+        //    اختياريّاً (`@IsOptional`). فإسقاط `phone` عند اختيار البريد
+        //    يُرجع «phone must be a string» — خطأٌ إنجليزيّ يقرؤه المشتري
+        //    ولا يفهم منه شيئاً، ولا يدلّه على حيلة. (رُصد بالتشغيل
+        //    2026-08-13، ولم يكشفه تحليلٌ ولا اختبار.)
+        //
+        //    وإرسال `email` فارغاً يُسقط `@IsEmail` بخطأٍ مماثل. فلكلّ حقلٍ
+        //    حكمُه، ولا يُعمَّم قياسٌ من أحدهما على الآخر.
+        'phone': phone,
         if (email.isNotEmpty) 'email': email,
         'channel': channel,
       },

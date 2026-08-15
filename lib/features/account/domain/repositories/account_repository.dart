@@ -4,6 +4,10 @@ import '../../../../core/models/product_model.dart';
 abstract class AccountRepository {
   Future<ProfileBundle> fetchProfileBundle();
 
+  /// ‼️ **شرط أبل 5.1.1(v)**: ما يُنشَأ من داخل التطبيق يُحذَف من داخله.
+  /// وغيابُه رفضٌ مؤكّد في المراجعة لا احتمال.
+  Future<void> deleteAccount();
+
   Future<RewardsBundle> fetchRewardsBundle();
 
   Future<List<OrderModel>> fetchOrders();
