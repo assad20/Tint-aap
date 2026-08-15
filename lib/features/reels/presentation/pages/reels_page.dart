@@ -72,7 +72,7 @@ class _ReelsPageState extends State<ReelsPage> {
                   unawaited(context.read<ReelsCubit>().onPageChanged(index));
                 },
                 itemBuilder: (context, index) => _ReelPage(
-                  key: ValueKey(state.items[index].id),
+                  key: ValueKey(state.items[index].key),
                   reel: state.items[index],
                   isActive: index == _index,
                   muted: state.muted,
@@ -244,7 +244,7 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
     super.dispose();
   }
 
-  ProductModel get _product => widget.reel.product;
+  ProductModel get _product => widget.reel.product!;
 
   /// ‼️ **النقر المزدوج يُضيف ولا يُبدّل.** في تيك توك النقرتان إعجابٌ دائماً؛
   /// وجعلُهما تبديلاً يعني أنّ من ينقر مرّتين على مقطعٍ أعجبه سلفاً يُلغي إعجابه
@@ -271,7 +271,15 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
         SnackBar(
           behavior: SnackBarBehavior.floating,
           backgroundColor: TintColors.charcoal,
-          duration: const Duration(seconds: 3),
+          /*
+            ‼️ **يرتفع فوق بطاقة الشراء ويقصر.**
+
+            كان يهبط في مكانه الافتراضيّ **فيغطّي زرّ «أضف إلى السلّة» نفسه** —
+            فمن أراد إضافة منتجٍ ثانٍ وجد التأكيدَ حاجزاً دون الزرّ الذي أنتجه.
+            وثلاث ثوانٍ في شريطٍ يُمرَّر كلّ ثانيتين تُقرأ «معلّقة».
+          */
+          margin: const EdgeInsets.only(bottom: 172, left: 16, right: 16),
+          duration: const Duration(milliseconds: 1800),
           content: Text(added ? 'أُضيف إلى السلّة' : 'هذا المنتج في سلّتك بالفعل'),
           action: SnackBarAction(
             label: 'السلّة',
@@ -287,8 +295,162 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
       );
   }
 
+  /// وجهة زرّ الترويج — تُقرأ من رابط البنر كما تُدار من اللوحة.
+  ///
+  /// ‼️ **الرابط المجهول لا يُعطَّل بل يُخفى زرّه.** زرٌّ ظاهرٌ لا يفعل شيئاً
+  /// يُقرأ عطلاً في التطبيق؛ وغيابُه يُقرأ «مقطعٌ للعرض لا للنقر» — وهو الصحيح.
+  void _openPromo(String href) {
+    final target = href.trim();
+    if (target.isEmpty) return;
+    if (target.startsWith('/category/') ||
+        target.startsWith('/product/') ||
+        target.startsWith('/discover/')) {
+      context.push(target);
+      return;
+    }
+    if (target.startsWith('/')) context.push(target);
+  }
+
+  Widget _buildPromo(BuildContext context) {
+    final reel = widget.reel;
+    final hasCta = reel.ctaHref.trim().isNotEmpty;
+
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (reel.eyebrow.trim().isNotEmpty)
+                Text(
+                  reel.eyebrow,
+                  style: const TextStyle(
+                    color: TintColors.tintYellow,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+              if (reel.title.trim().isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  reel.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w900,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+              if (reel.note.trim().isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  reel.note,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    height: 1.45,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 10),
+              // ‼️ وسمٌ صريح: المشاهد يستحقّ أن يعرف أنّ ما يراه ترويجٌ للمتجر
+              //    لا مقطعُ منتجٍ عاديّ — والإخفاء يُفقد الثقة حين يُكتشَف.
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  'مقطع ترويجيّ',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              if (hasCta) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () => _openPromo(reel.ctaHref),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: TintColors.sand,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          reel.ctaLabel.trim().isEmpty ? 'شاهد الآن' : reel.ctaLabel,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 14.5,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Icon(Icons.chevron_left_rounded, size: 20),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (widget.reel.isPromo) {
+      return GestureDetector(
+        onTap: _video.togglePlay,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ReelVideo(
+              handle: _video,
+              url: widget.reel.videoUrl,
+              isActive: widget.isActive,
+              muted: widget.muted,
+              poster: widget.reel.poster,
+            ),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.center,
+                  colors: [Color(0xE0000000), Color(0x00000000)],
+                ),
+              ),
+            ),
+            _buildPromo(context),
+          ],
+        ),
+      );
+    }
+
     final product = _product;
     final oldPrice = product.oldPrice;
     final discount = (oldPrice != null && oldPrice > product.price)
@@ -317,7 +479,7 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
             url: widget.reel.videoUrl,
             isActive: widget.isActive,
             muted: widget.muted,
-            poster: product.image,
+            poster: widget.reel.poster,
           ),
 
           // تدرّجٌ سفليّ: النصّ الأبيض على فيديو فاتح لا يُقرأ، والتدرّج يضمن

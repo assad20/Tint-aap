@@ -1,18 +1,41 @@
 import '../../../core/models/product_model.dart';
 
-/// مقطعٌ في شريط الفيديو — **منتجٌ ومعه رابط مقطعه، لا نوعٌ مستقلّ**.
+/// شريحةٌ في شريط الفيديو — **منتجٌ أو مقطعٌ ترويجيّ**.
 ///
-/// ‼️ **يحمل `ProductModel` كاملاً لا حقولاً منسوخة منه.** الشريط يحتاج ما
-/// تحتاجه أيّ بطاقة: إضافةٌ للسلّة، تبديلُ مفضّلة، حدثُ قياسٍ يحمل السعر
-/// والعلامة. ونسخُ الحقول كان يعني أنّ حقلاً يُضاف للبطاقة غداً (لونٌ، شارةٌ،
-/// كميّة) يصل كلّ الشاشات إلّا هذه — ولا يظهر ذلك خطأً، بل ميزةً «لم تعمل هنا».
+/// ‼️ **نوعٌ واحد بحالتين لا نوعان.** الشريط يُمرّرهما في `PageView` واحد،
+/// ويشغّلهما بمشغّلٍ واحد، ويقيسهما بالمنطق نفسه. وفصلُهما إلى نوعين كان يعني
+/// شرطاً في كلّ موضع يلمس الشريحة — ونسيانَ أحدها يُسقط الشاشة عند أوّل مقطع
+/// ترويجيّ يمرّ.
 class ReelModel {
-  const ReelModel({required this.product, required this.videoUrl});
+  const ReelModel._({
+    required this.videoUrl,
+    required this.poster,
+    this.product,
+    this.title = '',
+    this.note = '',
+    this.eyebrow = '',
+    this.ctaLabel = '',
+    this.ctaHref = '',
+    this.id = '',
+  });
 
-  final ProductModel product;
+  /// المنتج — حاضرٌ في شريحة المنتج، غائبٌ في الترويج.
+  final ProductModel? product;
+
   final String videoUrl;
+  final String poster;
 
-  String get id => product.id;
+  /// حقول الترويج — تُقرأ حين لا يكون هناك منتج.
+  final String title;
+  final String note;
+  final String eyebrow;
+  final String ctaLabel;
+  final String ctaHref;
+  final String id;
+
+  bool get isPromo => product == null;
+
+  String get key => product?.id ?? id;
 
   /// ‼️ **يُرجع `null` لا كائناً بمقطعٍ فارغ.** الترشيح يقع في الخادم، لكنّ
   /// بياناتٍ قديمة أو حقلاً حُذف يصلان بسلسلةٍ فارغة — ومشغّلٌ يُفتح على لا شيء
@@ -22,8 +45,33 @@ class ReelModel {
     final json = Map<String, dynamic>.from(raw);
     final url = (json['videoUrl'] ?? '').toString().trim();
     if (url.isEmpty) return null;
+
+    // ‼️ الافتراضُ منتجٌ عند غياب `kind`: ردود الخادم الأقدم لا تحمله، وقراءتها
+    //    ترويجاً تُسقط كلّ منتجاتها من الشريط.
+    final isPromo = json['kind'] == 'promo';
+
+    if (isPromo) {
+      final id = (json['id'] ?? '').toString().trim();
+      if (id.isEmpty) return null;
+      return ReelModel._(
+        id: id,
+        videoUrl: url,
+        poster: (json['image'] ?? '').toString(),
+        title: (json['title'] ?? '').toString(),
+        note: (json['note'] ?? '').toString(),
+        eyebrow: (json['eyebrow'] ?? '').toString(),
+        ctaLabel: (json['ctaLabel'] ?? '').toString(),
+        ctaHref: (json['ctaHref'] ?? '').toString(),
+      );
+    }
+
     final product = ProductModel.fromJson(json);
     if (product.id.isEmpty) return null;
-    return ReelModel(product: product, videoUrl: url);
+    return ReelModel._(
+      product: product,
+      videoUrl: url,
+      poster: product.image,
+      title: product.title,
+    );
   }
 }

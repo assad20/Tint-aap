@@ -84,8 +84,8 @@ class ReelsCubit extends Cubit<ReelsState> {
     /// ‼️ **تُستبعَد المكرّرات بالمعرّف.** الترتيب بـ`updatedAt` يتحرّك تحت
     /// الترقيم: منتجٌ يُحدَّث بين صفحتين ينتقل للصفحة الأولى فيصل ثانيةً هنا.
     /// وعنصرٌ مكرّر في `PageView` بمفتاحٍ مكرّر يُربك المشغّلات لا العرض وحده.
-    final seen = state.items.map((reel) => reel.id).toSet();
-    final fresh = page.items.where((reel) => seen.add(reel.id)).toList();
+    final seen = state.items.map((reel) => reel.key).toSet();
+    final fresh = page.items.where((reel) => seen.add(reel.key)).toList();
 
     emit(state.copyWith(
       items: [...state.items, ...fresh],

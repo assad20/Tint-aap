@@ -22,8 +22,46 @@ void main() {
       final reel = ReelModel.fromJson(row(video: 'https://x/v.mp4'));
       expect(reel, isNotNull);
       expect(reel!.videoUrl, 'https://x/v.mp4');
-      expect(reel.product.title, 'كريم الأفوكادو');
-      expect(reel.id, 'PRD-1');
+      expect(reel.product!.title, 'كريم الأفوكادو');
+      expect(reel.key, 'PRD-1');
+      expect(reel.isPromo, isFalse);
+    });
+
+    test('‼️ غياب `kind` يُقرأ منتجاً لا ترويجاً', () {
+      // ردود الخادم الأقدم لا تحمل الحقل، وقراءتها ترويجاً تُسقط كلّ منتجاتها.
+      final reel = ReelModel.fromJson(row(video: 'https://x/v.mp4'));
+      expect(reel!.isPromo, isFalse);
+      expect(reel.product, isNotNull);
+    });
+
+    test('المقطع الترويجيّ يُقرأ بوجهته', () {
+      final reel = ReelModel.fromJson({
+        'kind': 'promo',
+        'id': 'promo-1',
+        'title': 'عروض العناية',
+        'note': 'خصومات حتّى 40٪',
+        'ctaLabel': 'شاهد الآن',
+        'ctaHref': '/category/skin-care',
+        'image': 'https://x/cover.jpg',
+        'videoUrl': 'https://x/promo.mp4',
+      });
+      expect(reel, isNotNull);
+      expect(reel!.isPromo, isTrue);
+      expect(reel.product, isNull);
+      expect(reel.key, 'promo-1');
+      expect(reel.ctaHref, '/category/skin-care');
+    });
+
+    test('‼️ ترويجٌ بلا معرّف يُسقَط', () {
+      // المعرّف مفتاح الصفحة، والترويج يتكرّر عمداً — فبلا معرّفٍ يتصادم مع نفسه.
+      expect(
+        ReelModel.fromJson({
+          'kind': 'promo',
+          'id': '',
+          'videoUrl': 'https://x/promo.mp4',
+        }),
+        isNull,
+      );
     });
 
     test('‼️ بلا رابطٍ يُسقَط ولا يُبنى بمقطعٍ فارغ', () {

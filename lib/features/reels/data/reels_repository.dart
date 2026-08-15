@@ -30,7 +30,9 @@ class ReelsRepository {
     try {
       final data = await _apiClient.getMap(
         ApiRoutes.catalogReels,
-        queryParameters: {'page': page, 'limit': limit},
+        // ‼️ الإفصاح عن القدرة لا افتراضُها: الخادم لا يُرسل المقاطع الترويجيّة
+        //    إلّا لمن يعرف عرضها، فلا تظهر سلعةً بسعر صفر في نسخةٍ لا تقرؤها.
+        queryParameters: {'page': page, 'limit': limit, 'withPromos': 1},
       );
       final rows = data['items'];
       final items = <ReelModel>[];
