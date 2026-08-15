@@ -84,6 +84,25 @@ workflows:
             --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa
+    publishing:
+      # ‼️ **إلى TestFlight فقط — والنشر في المتجر مُطفأٌ صراحةً.**
+      #
+      # `submit_to_app_store: false` مكتوبةٌ ولو كانت الافتراضيّ: سطرٌ صريح
+      # يمنع أن يُقلبها أحدٌ سهواً، والفرق بين الحالتين أنّ الثانية تعرض
+      # التطبيق على العالم بلا رجعة.
+      #
+      # والاختبار **الداخليّ** بلا مراجعةٍ إطلاقاً: البناء يصل المختبرين خلال
+      # دقائق. أمّا الخارجيّ فيلزمه فحص أبل المختصر — ولا يبدأ إلّا بطلبك.
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        submit_to_app_store: false
+      email:
+        recipients:
+          - asd.ss1993nawaf@gmail.com
+        notify:
+          success: true
+          failure: true
 
   # ────────────────────────────────────────────────────────────────────────
   # معاينة iOS على المحاكي — **بلا حساب مطوّر أبل وبلا توقيع**.
