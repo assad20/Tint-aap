@@ -80,8 +80,21 @@ workflows:
       #
       # ‼️ **الترتيب مُلزِم**، وكلّ خطوةٍ تعتمد على التي قبلها:
       #  ١· `keychain initialize` — سلسلة مفاتيح مؤقّتة لهذا البناء وحده.
-      #  ٢· `fetch-signing-files --create` — **`--create` هي الفارق كلّه**:
-      #     تُنشئ شهادة التوزيع (٠ ← ١) والبروفايل لهذا المعرّف إن غابا.
+      #  ٢· `fetch-signing-files --create` — تُنشئ الشهادة والبروفايل إن غابا.
+      #
+      # ‼️ **و`--certificate-key` ليست تحسيناً بل شرط تكرار.**
+      #
+      # الشهادة عند أبل نصفُ الحكاية؛ نصفها الآخر مفتاحٌ خاصّ يبقى على الآلة
+      # التي أنشأتها. وآلة البناء تُدمَّر بعد كلّ بناء — فبلا مفتاحٍ ثابت تُنشئ
+      # كلّ مرّةٍ شهادةً جديدة حتّى تمتلئ حصّة الثلاث، ثمّ **تُلغي شهادةً قائمة**
+      # قد تكون لمتجرٍ آخر في الفريق نفسه.
+      #
+      # ورُصد حرفيّاً (2026-08-15): بناءٌ أنشأ شهادةً ومات بمفتاحها، فسقط الذي
+      # بعده بـ«Cannot save Signing Certificates without certificate private
+      # key» — الشهادة عند أبل ولا أحد يملك مفتاحها.
+      #
+      # فيُولَّد المفتاح **مرّةً واحدة** ويُحفظ سرّاً في `CERTIFICATE_PRIVATE_KEY`،
+      # فتُعاد الشهادة نفسها في كلّ بناء.
       #  ٣· `add-certificates` — تُدخل الشهادة في السلسلة ليجدها Xcode.
       #  ٤· `use-profiles` — تكتب إعدادات التوقيع في مشروع Xcode **وتُولّد
       #     `export_options.plist`** الذي يطلبه `flutter build ipa` أدناه.
@@ -94,6 +107,7 @@ workflows:
           keychain initialize
           app-store-connect fetch-signing-files "com.tintstore.app" \
             --type IOS_APP_STORE \
+            --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
             --create
           keychain add-certificates
           xcode-project use-profiles
