@@ -202,8 +202,13 @@ const Map<String, ({IconData icon, int index})> _tabRegistry = {
 };
 
 /// التبويبات الأربعة المكتوبة — ملاذُ الرجوع، وهي نفسها ترتيب الخادم الافتراضيّ.
+///
+/// ‼️ **«الرئيسيّة» حلّت محلّ «حسابي» هنا، وصعد الحساب إلى الترويسة.** الشعار
+/// صار يفتح شريط المقاطع وحده، فلزم للرئيسيّة مكانٌ صريح. والشريط أربعةٌ بحكم
+/// التصميم لا البيانات، فكان لا بدّ من ترقية أحدها — واختير الحساب لأنّه
+/// **أقلّها فتحاً**: الرئيسيّة تُفتح مرّاتٍ في الجلسة والحساب مرّةً عند الحاجة.
 const List<_NavItem> _defaultTabs = [
-  _NavItem(icon: Icons.person_outline_rounded, label: 'حسابي', index: 4),
+  _NavItem(icon: Icons.home_rounded, label: 'الرئيسيّة', index: 0),
   _NavItem(icon: Icons.trending_up_rounded, label: 'الترندات', index: 1),
   _NavItem(icon: Icons.grid_view_rounded, label: 'الأقسام', index: 2),
   _NavItem(icon: Icons.shopping_cart_outlined, label: 'السلة', index: 3),
@@ -226,7 +231,9 @@ List<_NavItem> _resolveTabs(BuildContext context) {
     final key = tab.actionType == 'tab' && tab.actionValue.isNotEmpty
         ? tab.actionValue
         : tab.id;
-    if (key == 'home') continue;
+    // ‼️ يُستبعَد **الحساب** لا الرئيسيّة: هو ما صعد إلى الترويسة. وتركُ
+    //    استبعاد `home` هنا كان سيُنتج شريطاً بلا رئيسيّة وبشعارٍ لا يفتحها.
+    if (key == 'account') continue;
 
     final known = _tabRegistry[key];
     if (known == null) continue; // تبويبٌ لا تعرفه هذه النسخة ⇒ يسقط بصمت.
@@ -294,30 +301,22 @@ class _BottomNav extends StatelessWidget {
             top: -28,
             child: InkWell(
               /**
-               * ‼️ **الشعار زرّان في واحد — ولم يكن ذلك خياراً بل ضرورة.**
+               * ‼️ **الشعار لشريط المقاطع وحده — بعد أن نالت الرئيسيّة تبويبها.**
                *
-               * تبويب «الرئيسيّة» يُسقَط من الشريط السفليّ عمداً
-               * (`_resolveTabs`: `if (key == 'home') continue`) لأنّ **الشعار هو
-               * زرّها**. فجعلُه يفتح شريط الفيديو دائماً كان يقطع الطريق الوحيد
-               * إلى الرئيسيّة — ميزةٌ تُضاف وتُفقد بها شاشةٌ كاملة.
-               *
-               * فالضغطة الأولى من أيّ تبويبٍ تُعيدك للرئيسيّة، والضغطة عليه
-               * **وأنت فيها** تفتح المقاطع. وهو نمطٌ مألوف (اضغط ثانيةً لمزيد)،
-               * ولا يُفقد شيئاً.
+               * كان الشعار زرّ الرئيسيّة (وتبويبها مُسقَطٌ من الشريط لأجله)،
+               * فجعلُه يفتح المقاطع دائماً كان يقطع الطريق الوحيد إليها. فصعد
+               * «حسابي» إلى الترويسة، وحلّت «الرئيسيّة» محلّه في الشريط، وتفرّغ
+               * الشعار — فلا فعلَ مزدوجاً يُخمَّن، ولا شاشةً تُفقد.
                */
-              onTap: () {
-                if (currentIndex == 0) {
-                  context.push('/reels');
-                } else {
-                  cubit.selectTab(0);
-                }
-              },
+              onTap: () => context.push('/reels'),
               borderRadius: BorderRadius.circular(999),
               child: Container(
                 width: 72,
                 height: 72,
                 decoration: BoxDecoration(
-                  color: currentIndex == 0 ? TintColors.sand : TintColors.charcoal,
+                  // ‼️ لونٌ ثابت: كان يتلوّن حين تكون الرئيسيّة نشطة لأنّه زرّها.
+                  //    وبقاؤه كذلك يعني زرّاً يبدو «نشطاً» وضغطتُه تفتح شاشةً أخرى.
+                  color: TintColors.charcoal,
                   shape: BoxShape.circle,
                   border: Border.all(color: TintColors.tintYellow, width: 4),
                   boxShadow: const [

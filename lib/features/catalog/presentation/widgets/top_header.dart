@@ -177,6 +177,19 @@ class TopHeader extends StatelessWidget {
                       ],
                     ),
                   ),
+                  /*
+                    ‼️ **«حسابي» صعد إلى هنا ليأخذ مكانَه في الشريط السفليّ زرُّ
+                    «الرئيسيّة».** الشريط أربعةٌ بحكم التصميم لا البيانات، فكان
+                    لا بدّ من ترقية أحدها. واختير الحساب لأنّه **أقلّها فتحاً**:
+                    الرئيسيّة تُفتح في كلّ جلسة مرّات، والحساب مرّةً عند الحاجة.
+                    وإبقاءُ الأكثر استعمالاً في مدى الإبهام هو القاعدة.
+                  */
+                  IconButton(
+                    onPressed: () => context.read<ShellCubit>().selectTab(4),
+                    color: fg,
+                    tooltip: 'حسابي',
+                    icon: const Icon(Icons.person_outline_rounded),
+                  ),
                 ],
               ),
               const SizedBox(height: 10),

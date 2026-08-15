@@ -18,6 +18,10 @@ import '../widgets/reel_video.dart';
 /// ‼️ **الغاية بيعٌ لا تسلية.** كلّ مقطعٍ يحمل طريقاً واحداً واضحاً إلى الشراء:
 /// زرٌّ عريض يضيف للسلّة في مكانه، وبطاقةٌ تفتح المنتج لمن يريد التفاصيل. ومقطعٌ
 /// جميل بلا طريقٍ للشراء وقتٌ يمرّ بلا أثر.
+/// ‼️ **السعران يُطبعان بالقاعدة نفسها.** طبعُ الحاليّ بكسوره والقديم بلا كسور
+/// جعل «16.31» بجانب «16» مشطوباً — أي سعرٌ قديم يبدو **أقلّ** من الحاليّ.
+String _money(double value) => value.toStringAsFixed(value % 1 == 0 ? 0 : 2);
+
 class ReelsPage extends StatefulWidget {
   const ReelsPage({super.key});
 
@@ -286,10 +290,21 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
   @override
   Widget build(BuildContext context) {
     final product = _product;
-    final hasDiscount = product.oldPrice != null && product.oldPrice! > product.price;
-    final discount = hasDiscount
-        ? (((product.oldPrice! - product.price) / product.oldPrice!) * 100).round()
+    final oldPrice = product.oldPrice;
+    final discount = (oldPrice != null && oldPrice > product.price)
+        ? (((oldPrice - product.price) / oldPrice) * 100).round()
         : 0;
+
+    /*
+      ‼️ **الخصم يُعرض حين يُقرَّب إلى 1٪ فأكثر — لا حين يوجد.**
+
+      رُصد بالتشغيل على مقطعٍ حقيقيّ: سعرٌ 16.31 وقديمٌ 16.36 أنتج شارة
+      «\u200E-0%\u200E» وسعراً مشطوباً «16» — لأنّ القديم كان يُطبع بلا كسور. فبدا للمشتري
+      **سعرٌ قديم أقلّ من الحاليّ وخصمٌ صفر**: متجرٌ يعرض هزلاً، والبيانات سليمة.
+
+      فالفرق الذي لا يُرى لا يُعلَن، والقديم يُطبع بكسوره كالحاليّ.
+    */
+    final hasDiscount = discount >= 1;
 
     return GestureDetector(
       onTap: _video.togglePlay,
@@ -386,7 +401,7 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
                     Row(
                       children: [
                         Text(
-                          '${product.price.toStringAsFixed(product.price % 1 == 0 ? 0 : 2)} ر.س',
+                          '${_money(product.price)} ر.س',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 19,
@@ -396,7 +411,7 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
                         if (hasDiscount) ...[
                           const SizedBox(width: 8),
                           Text(
-                            product.oldPrice!.toStringAsFixed(0),
+                            _money(oldPrice!),
                             style: const TextStyle(
                               color: Colors.white60,
                               fontSize: 13,
