@@ -55,7 +55,7 @@ class _ReelsPageState extends State<ReelsPage> {
               child: CircularProgressIndicator(color: Colors.white70),
             );
           }
-          if (state.isEmpty) return const _EmptyReels();
+          if (state.isEmpty) return _EmptyReels(failed: state.failed);
 
           return Stack(
             children: [
@@ -86,8 +86,13 @@ class _ReelsPageState extends State<ReelsPage> {
   }
 }
 
+/// ‼️ **رسالتان لا واحدة.** «لا مقاطع» و«تعذّر الاتّصال» ينتهيان بقائمةٍ خالية،
+/// ودمجُهما يعني أنّ منفذاً معطّلاً يُقرأ «متجرٌ بلا مقاطع» — فلا يُبلَّغ عنه أحد
+/// ولا يُصلَح. (وقع فعلاً عند أوّل تشغيل: المنفذ لم يكن منشوراً بعد.)
 class _EmptyReels extends StatelessWidget {
-  const _EmptyReels();
+  const _EmptyReels({required this.failed});
+
+  final bool failed;
 
   @override
   Widget build(BuildContext context) {
@@ -97,21 +102,43 @@ class _EmptyReels extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.slow_motion_video_rounded, color: Colors.white24, size: 56),
+            Icon(
+              failed ? Icons.wifi_off_rounded : Icons.slow_motion_video_rounded,
+              color: Colors.white24,
+              size: 56,
+            ),
             const SizedBox(height: 14),
-            const Text(
-              'لا مقاطع بعد',
-              style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w900),
+            Text(
+              failed ? 'تعذّر تحميل المقاطع' : 'لا مقاطع بعد',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+              ),
             ),
             const SizedBox(height: 6),
-            // ‼️ سببٌ لا اعتذار: الفراغ هنا ليس عطلاً بل متجرٌ لم تُرفع لمنتجاته
-            //    مقاطع بعد — وقولُ ذلك يمنع بلاغ عطلٍ لا وجود له.
-            const Text(
-              'ستظهر هنا مقاطع المنتجات فور رفعها من المتجر.',
+            Text(
+              failed
+                  ? 'تحقّق من اتّصالك ثمّ أعد المحاولة.'
+                  : 'ستظهر هنا مقاطع المنتجات فور رفعها من المتجر.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                color: Colors.white54,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 18),
+            if (failed)
+              FilledButton(
+                onPressed: () => unawaited(context.read<ReelsCubit>().load()),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: TintColors.charcoal,
+                ),
+                child: const Text('أعد المحاولة',
+                    style: TextStyle(fontWeight: FontWeight.w900)),
+              ),
             TextButton(
               onPressed: () => context.pop(),
               child: const Text('رجوع', style: TextStyle(color: TintColors.tintYellow)),

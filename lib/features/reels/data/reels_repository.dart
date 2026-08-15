@@ -6,12 +6,17 @@ import '../domain/reel_model.dart';
 
 /// صفحةٌ من شريط الفيديو.
 class ReelsPage {
-  const ReelsPage({required this.items, required this.hasMore});
+  const ReelsPage({required this.items, required this.hasMore, this.failed = false});
 
   final List<ReelModel> items;
   final bool hasMore;
 
-  static const empty = ReelsPage(items: <ReelModel>[], hasMore: false);
+  /// ‼️ **يُفرَّق الفشل عن الفراغ.** كلاهما ينتهي بقائمةٍ خالية، ورسالةٌ واحدة
+  /// لهما تعني أنّ منفذاً معطّلاً يُقرأ «لا مقاطع في المتجر» — فلا يُبلَّغ عنه
+  /// أحد ولا يُصلَح. (وقع فعلاً عند أوّل تشغيل: المنفذ لم يُنشر بعد.)
+  final bool failed;
+
+  static const empty = ReelsPage(items: <ReelModel>[], hasMore: false, failed: true);
 }
 
 class ReelsRepository {

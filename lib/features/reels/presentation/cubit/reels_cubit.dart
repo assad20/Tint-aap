@@ -11,7 +11,11 @@ class ReelsState {
     this.hasMore = true,
     this.page = 0,
     this.muted = false,
+    this.failed = false,
   });
+
+  /// تعذّر الوصول للخادم — تُفرَّق رسالتُه عن «لا مقاطع في المتجر».
+  final bool failed;
 
   final List<ReelModel> items;
   final bool isLoading;
@@ -31,6 +35,7 @@ class ReelsState {
     bool? hasMore,
     int? page,
     bool? muted,
+    bool? failed,
   }) =>
       ReelsState(
         items: items ?? this.items,
@@ -39,6 +44,7 @@ class ReelsState {
         hasMore: hasMore ?? this.hasMore,
         page: page ?? this.page,
         muted: muted ?? this.muted,
+        failed: failed ?? this.failed,
       );
 }
 
@@ -61,6 +67,7 @@ class ReelsCubit extends Cubit<ReelsState> {
       hasMore: page.hasMore,
       page: 1,
       isLoading: false,
+      failed: page.failed,
     ));
   }
 
