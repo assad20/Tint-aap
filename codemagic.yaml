@@ -56,9 +56,14 @@ workflows:
       flutter: stable
       groups:
         - tint
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.tintstore.app
+      # ‼️ **`ios_signing` أُزيلت عمداً — وهي التي أسقطت أوّل بناءٍ موقّع.**
+      #
+      # كتلة `ios_signing` تُشغّل توقيعاً تلقائيّاً يعمل **قبل** أيّ سكربت،
+      # وهو **يبحث عن بروفايل ولا يُنشئه**. وحسابنا بلا شهادة توزيع (صفر
+      # شهادات — قِيس 2026-08-15)، والبروفايل لا يُنشأ بلا شهادة يشير إليها.
+      # فسقط البناء فوراً بـ«No matching profiles found».
+      #
+      # والبديل أدناه صريح: يُنشئ الشهادة والبروفايل إن غابا (`--create`).
     scripts:
       - name: Generate platform folders if missing
         script: flutter create . --org com.tintstore --platforms=android,ios
@@ -71,6 +76,27 @@ workflows:
       - name: Install pods
         script: |
           find . -name "Podfile" -execdir pod install \;
+      # التوقيع — إنشاءٌ صريح لا بحثٌ صامت.
+      #
+      # ‼️ **الترتيب مُلزِم**، وكلّ خطوةٍ تعتمد على التي قبلها:
+      #  ١· `keychain initialize` — سلسلة مفاتيح مؤقّتة لهذا البناء وحده.
+      #  ٢· `fetch-signing-files --create` — **`--create` هي الفارق كلّه**:
+      #     تُنشئ شهادة التوزيع (٠ ← ١) والبروفايل لهذا المعرّف إن غابا.
+      #  ٣· `add-certificates` — تُدخل الشهادة في السلسلة ليجدها Xcode.
+      #  ٤· `use-profiles` — تكتب إعدادات التوقيع في مشروع Xcode **وتُولّد
+      #     `export_options.plist`** الذي يطلبه `flutter build ipa` أدناه.
+      #
+      # ‼️ ولا يُنشئ شهادةً ثانية إن وُجدت صالحة — فلا خطر على حدّ الثلاث ولا
+      #    على شهادات المتاجر الأخرى.
+      - name: Set up code signing — create certificate and profile if missing
+        script: |
+          set -e
+          keychain initialize
+          app-store-connect fetch-signing-files "com.tintstore.app" \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles
       - name: Guard — API base must not be empty
         script: |
           # ‼️ **يسقط البناء بدل أن يرفع تطبيقاً لا يصل خادمه.**
