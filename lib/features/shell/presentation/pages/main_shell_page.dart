@@ -293,7 +293,25 @@ class _BottomNav extends StatelessWidget {
           Positioned(
             top: -28,
             child: InkWell(
-              onTap: () => cubit.selectTab(0),
+              /**
+               * ‼️ **الشعار زرّان في واحد — ولم يكن ذلك خياراً بل ضرورة.**
+               *
+               * تبويب «الرئيسيّة» يُسقَط من الشريط السفليّ عمداً
+               * (`_resolveTabs`: `if (key == 'home') continue`) لأنّ **الشعار هو
+               * زرّها**. فجعلُه يفتح شريط الفيديو دائماً كان يقطع الطريق الوحيد
+               * إلى الرئيسيّة — ميزةٌ تُضاف وتُفقد بها شاشةٌ كاملة.
+               *
+               * فالضغطة الأولى من أيّ تبويبٍ تُعيدك للرئيسيّة، والضغطة عليه
+               * **وأنت فيها** تفتح المقاطع. وهو نمطٌ مألوف (اضغط ثانيةً لمزيد)،
+               * ولا يُفقد شيئاً.
+               */
+              onTap: () {
+                if (currentIndex == 0) {
+                  context.push('/reels');
+                } else {
+                  cubit.selectTab(0);
+                }
+              },
               borderRadius: BorderRadius.circular(999),
               child: Container(
                 width: 72,

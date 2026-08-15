@@ -29,6 +29,7 @@ import '../../features/catalog/presentation/pages/discover_section_page.dart';
 import '../../features/catalog/presentation/pages/search_page.dart';
 import '../../features/checkout/presentation/pages/checkout_page.dart';
 import '../../core/tracking/tracking_service.dart';
+import '../../features/reels/presentation/pages/reels_page.dart';
 import '../../features/shell/presentation/pages/main_shell_page.dart';
 
 class AppRouter {
@@ -111,6 +112,17 @@ class AppRouter {
         path: '/preview/:token',
         builder: (context, state) =>
             PreviewPage(token: state.pathParameters['token'] ?? ''),
+      ),
+      /**
+       * شريط فيديو المنتجات — **خارج القشرة عمداً**.
+       *
+       * ‼️ داخل `MainShellPage` كان الشريط السفليّ يبقى فوق المقطع فيقتطع
+       * سُدسَ الشاشة من تجربةٍ كلّ قيمتها في ملء الشاشة. وخارجها يملأ الإطار
+       * ويعود منه المستخدم بزرٍّ واحد.
+       */
+      GoRoute(
+        path: '/reels',
+        builder: (context, state) => const ReelsPage(),
       ),
       GoRoute(
         path: '/',

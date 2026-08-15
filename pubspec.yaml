@@ -33,6 +33,9 @@ dependencies:
   http: ^1.6.0
   flutter_svg: ^2.3.0
   firebase_analytics: ^12.4.6
+  # مشغّل مقاطع المنتجات (شريط الفيديو). الرسميّ من فريق Flutter: يبني على
+  # ExoPlayer في أندرويد وAVPlayer في iOS — فلا يُضيف محرّكاً ثالثاً للحزمة.
+  video_player: ^2.9.2
 
 dev_dependencies:
   flutter_test:

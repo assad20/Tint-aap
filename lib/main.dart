@@ -28,6 +28,8 @@ import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/auth/domain/repositories/auth_repository.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/cart/presentation/cubit/cart_cubit.dart';
+import 'features/reels/data/reels_repository.dart';
+import 'features/reels/presentation/cubit/reels_cubit.dart';
 import 'features/catalog/data/datasources/catalog_remote_data_source.dart';
 import 'features/catalog/data/repositories/catalog_repository_impl.dart';
 import 'features/catalog/domain/repositories/catalog_repository.dart';
@@ -115,6 +117,14 @@ Future<void> main() async {
           BlocProvider(create: (_) => ShellCubit()),
           // السلّة تحمل عميل الشبكة كي تراجع توفّر بنودها من الخادم.
           BlocProvider(create: (_) => CartCubit(apiClient: apiClient)),
+          /**
+           * شريط الفيديو — **عامٌّ لا محلّيٌّ بالشاشة**.
+           *
+           * ‼️ إنشاؤه داخل `ReelsPage` كان يعني إعادة تحميل الشريط من أوّله
+           * كلّما فتحه المستخدم: يفقد موضعه، ويُعيد جلب ما جلبه، ويُعيد تشغيل
+           * المقطع الأوّل على من كان في العاشر قبل ثوانٍ.
+           */
+          BlocProvider(create: (_) => ReelsCubit(ReelsRepository(apiClient))),
           BlocProvider(
             create: (context) => HomeStoreCubit(
               catalogRepository: context.read<CatalogRepository>(),
