@@ -93,7 +93,7 @@ workflows:
       # بعده بـ«Cannot save Signing Certificates without certificate private
       # key» — الشهادة عند أبل ولا أحد يملك مفتاحها.
       #
-      # فيُولَّد المفتاح **مرّةً واحدة** ويُحفظ سرّاً في `CERTIFICATE_PRIVATE_KEY`،
+      # فيُولَّد المفتاح **مرّةً واحدة** ويُحفظ سرّاً في `CERTIFICATE_PRIVATE_KEY_B64`،
       # فتُعاد الشهادة نفسها في كلّ بناء.
       #  ٣· `add-certificates` — تُدخل الشهادة في السلسلة ليجدها Xcode.
       #  ٤· `use-profiles` — تكتب إعدادات التوقيع في مشروع Xcode **وتُولّد
@@ -105,9 +105,21 @@ workflows:
         script: |
           set -e
           keychain initialize
+          # ‼️ **المفتاح يُخزَّن مُرمَّزاً بـbase64 ويُفكّ هنا — لا يُمرَّر نصّاً.**
+          #
+          # `--certificate-key=@env:` يقرأ المتغيّر كما هو، ومفتاح PEM نصٌّ متعدّد
+          # الأسطر. وحقلُ المتغيّرات في Codemagic طوى الأسطر فوصل سطراً واحداً —
+          # ومفتاحٌ بلا أسطره ليس مفتاحاً:
+          #   «Provided value in environment variable ... is not valid»
+          #
+          # وbase64 سطرٌ واحد بطبعه، فيعبر أيّ حقلٍ بلا تشويه.
+          printf %s "$CERTIFICATE_PRIVATE_KEY_B64" | openssl base64 -d -A > /tmp/ios_cert_key.pem
+          # يُتحقَّق منه قبل الاستعمال: خطأٌ هنا يقول «المفتاح تالف» صراحةً، بدل أن
+          # يظهر لاحقاً كفشل توقيعٍ غامض.
+          openssl rsa -in /tmp/ios_cert_key.pem -noout -check
           app-store-connect fetch-signing-files "com.tintstore.app" \
             --type IOS_APP_STORE \
-            --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
+            --certificate-key=@file:/tmp/ios_cert_key.pem \
             --create
           keychain add-certificates
           xcode-project use-profiles
