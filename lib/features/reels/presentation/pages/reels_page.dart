@@ -13,6 +13,7 @@ import '../../../../core/models/product_model.dart';
 import '../../../../core/widgets/tint_ui.dart';
 import '../../../account/presentation/cubit/favorites_cubit.dart';
 import '../../../cart/presentation/cubit/cart_cubit.dart';
+import '../../../shell/presentation/cubit/shell_cubit.dart';
 import '../../domain/reel_model.dart';
 import '../cubit/reels_cubit.dart';
 import '../widgets/reel_video.dart';
@@ -320,8 +321,16 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
             // الانتقال للسلّة من داخل الشريط: يُغلق الشريط أوّلاً وإلّا بقيت
             // الشاشة السوداء فوق السلّة.
             onPressed: () {
+              /*
+                ‼️ **بتبويب القشرة لا برابطٍ استعلاميّ.** كان `context.go('/?tab=cart')`
+                — والقشرة **لا تقرأ `?tab=` إطلاقاً**. فكان الزرّ يُغلق الشريط
+                ويقف على التبويب الذي كان مفتوحاً: ضغطةٌ تُنفَّذ ولا تصل، ولا خطأ.
+
+                ويُقرأ الكيوبت **قبل** الإغلاق: بعده يسقط سياق الشاشة.
+              */
+              final shell = context.read<ShellCubit>();
               context.pop();
-              context.go('/?tab=cart');
+              shell.selectTab(3);
             },
           ),
         ),
