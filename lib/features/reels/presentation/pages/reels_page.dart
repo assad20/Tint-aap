@@ -5,6 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:share_plus/share_plus.dart';
+
+import '../../../../app/config/app_config.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/models/product_model.dart';
 import '../../../../core/widgets/tint_ui.dart';
@@ -263,6 +266,35 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
     if (added) _burst.forward(from: 0);
   }
 
+  /**
+   * مشاركة المنتج أو العرض — بورقة النظام لا بتكاملٍ لكلّ تطبيق.
+   *
+   * ‼️ **الرابط رابطُ ويب لا `tint://`.** الرابط العميق لا يفتح إلّا عند من
+   * ثبّت التطبيق؛ ومن لم يُثبّته — وهو **كلّ من نشارك لأجله** — يرى في واتساب
+   * نصّاً لا يُنقر، أو صفحةَ خطأ. ورابط المتجر يفتح عند الجميع، ويعرض على من
+   * لا يملك التطبيق تثبيتَه.
+   */
+  Future<void> _share() async {
+    final reel = widget.reel;
+    final origin = context.read<AppConfig>().storeWebUrl;
+    final link = reel.isPromo
+        ? (reel.ctaHref.trim().isEmpty ? origin : '$origin${reel.ctaHref.trim()}')
+        : '$origin/product/${Uri.encodeComponent(_product.id)}';
+
+    final headline = reel.isPromo
+        ? (reel.title.trim().isEmpty ? 'شاهد هذا من تِنت' : reel.title.trim())
+        : '${_product.title} — ${_money(_product.price)} ر.س';
+
+    try {
+      await SharePlus.instance.share(
+        ShareParams(text: '$headline\n$link', subject: headline),
+      );
+    } catch (error) {
+      // ‼️ لا تسقط الشاشة: ورقة المشاركة قد تُرفض على أجهزةٍ مقيّدة.
+      debugPrint('[reels] تعذّرت المشاركة: $error');
+    }
+  }
+
   void _addToCart() {
     final added = context.read<CartCubit>().addProduct(_product);
     if (!mounted) return;
@@ -499,8 +531,14 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
 
           // الشريط الجانبيّ: إعجابٌ وسلّة — بعيدةٌ عن حافّة الإبهام السفليّة
           // كي لا تُضغط سهواً أثناء التمرير.
+          /*
+            ‼️ **إلى اليسار لا اليمين.** الواجهة عربيّة، والإبهام يستقرّ حيث
+            يُمسك الهاتف؛ لكنّ اليمين هنا يقع فوق نصّ العنوان والسعر الممتدّ من
+            اليمين — فكان الشريط يزاحم ما يُقرأ. واليسار يتركه فارغاً كما في
+            تيك توك ذاته.
+          */
           Positioned(
-            right: 12,
+            left: 12,
             bottom: 190,
             child: BlocBuilder<FavoritesCubit, FavoritesState>(
               builder: (context, favorites) {
@@ -520,6 +558,13 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
                       label: 'السلّة',
                       onTap: _addToCart,
                     ),
+                    const SizedBox(height: 16),
+                    _RailButton(
+                      icon: Icons.reply_rounded,
+                      color: Colors.white,
+                      label: 'مشاركة',
+                      onTap: () => unawaited(_share()),
+                    ),
                   ],
                 );
               },
@@ -534,7 +579,7 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
             child: SafeArea(
               top: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 0, 74, 14),
+                padding: const EdgeInsets.fromLTRB(74, 0, 14, 14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,

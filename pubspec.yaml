@@ -36,6 +36,8 @@ dependencies:
   # مشغّل مقاطع المنتجات (شريط الفيديو). الرسميّ من فريق Flutter: يبني على
   # ExoPlayer في أندرويد وAVPlayer في iOS — فلا يُضيف محرّكاً ثالثاً للحزمة.
   video_player: ^2.9.2
+  # ورقة المشاركة الأصليّة — واتساب وغيره من نفس الزرّ بلا تكامل لكلّ تطبيق.
+  share_plus: ^13.3.0
 
 dev_dependencies:
   flutter_test:

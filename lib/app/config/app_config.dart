@@ -1,6 +1,7 @@
 class AppConfig {
   const AppConfig({
     required this.baseUrl,
+    required this.storeWebUrl,
     required this.tabbyPublicKey,
     required this.tabbyMerchantCode,
     required this.tabbyLanguage,
@@ -8,6 +9,15 @@ class AppConfig {
   });
 
   final String baseUrl;
+
+  /**
+   * أصل المتجر على الويب — وجهة الروابط المُشارَكة.
+   *
+   * ‼️ **لا يُشتقّ من `baseUrl`**: الوسيط والمتجر مضيفان مختلفان على Railway،
+   * واشتقاقُه بحذف `/api` يُنتج رابطاً يفتح واجهةً برمجيّة لا صفحة منتج — يراه
+   * صديقُ المشتري نصّاً أبيضَ فيه JSON ويظنّ المتجر مكسوراً.
+   */
+  final String storeWebUrl;
   final String tabbyPublicKey;
   final String tabbyMerchantCode;
   final String tabbyLanguage;
@@ -33,6 +43,10 @@ class AppConfig {
         // يتغذّى من المتجر المنشور مباشرةً.
         // للتطوير المحلّيّ تجاوَزه: --dart-define=TINT_API_BASE_URL=http://10.0.2.2:5181/api
         defaultValue: 'https://tint-production-4d38.up.railway.app/api',
+      ),
+      storeWebUrl: String.fromEnvironment(
+        'TINT_STORE_WEB_URL',
+        defaultValue: 'https://resilient-courage-production-ed0e.up.railway.app',
       ),
       tabbyPublicKey: String.fromEnvironment(
         'TINT_TABBY_PUBLIC_KEY',
