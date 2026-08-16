@@ -245,6 +245,7 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
 
   @override
   void dispose() {
+    _toastTimer?.cancel();
     _burst.dispose();
     super.dispose();
   }
@@ -258,13 +259,35 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
     final favorites = context.read<FavoritesCubit>();
     _burst.forward(from: 0);
     if (favorites.state.contains(_product.id)) return;
-    await favorites.toggle(_product);
+    await _applyFavorite(favorites);
   }
 
   Future<void> _toggleFavorite() async {
-    final added = await context.read<FavoritesCubit>().toggle(_product);
-    if (!mounted) return;
-    if (added) _burst.forward(from: 0);
+    final favorites = context.read<FavoritesCubit>();
+    final wasFavorite = favorites.state.contains(_product.id);
+    final ok = await _applyFavorite(favorites);
+    if (mounted && ok && !wasFavorite) _burst.forward(from: 0);
+  }
+
+  /**
+   * ‼️ **الإعجاب لا يُصدَّق حتّى يُثبته الكيوبت.**
+   *
+   * `FavoritesCubit` تفاؤليّ: يملأ القلب فوراً ثمّ **يُرجعه** إن رفض الخادم —
+   * وأشيع الرفض أنّ الزائر **غير مسجّل الدخول**. فكان القلب يمتلئ ثمّ يفرغ بلا
+   * كلمة، فيظنّ المشاهد الزرّ مكسوراً ويُعيد الضغط. (بلاغ المالك بالتشغيل.)
+   *
+   * فيُقارَن الحال بعد الطلب بما كان: إن لم يتغيّر شيءٌ فالسبب يُقال صراحةً.
+   */
+  Future<bool> _applyFavorite(FavoritesCubit favorites) async {
+    final before = favorites.state.contains(_product.id);
+    await favorites.toggle(_product);
+    if (!mounted) return false;
+    final after = favorites.state.contains(_product.id);
+    if (after == before) {
+      _showToast('سجّل الدخول لحفظ مفضّلتك');
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -296,45 +319,31 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
     }
   }
 
+  /**
+   * ————— تأكيد الإضافة —————
+   *
+   * ‼️ **رسالةٌ تفنى بنفسها لا `SnackBar`.** كان `ScaffoldMessenger` يعرضها
+   * فتبقى معلّقةً على الشاشة (بلاغ المالك مرّتين): الشريط شاشةٌ مستقلّة فوق
+   * القشرة، ورسالتُه تُدار من `ScaffoldMessenger` أعلى منه فلا تتبع دورة
+   * حياته. ورسالةٌ تُدار من مكانٍ آخر لا يملك أحدٌ إخفاءها في وقتها.
+   *
+   * وهذه ملكُ الشاشة: مؤقّتٌ واحد يُخفيها، ويُعاد ضبطه عند كلّ إضافة.
+   */
+  Timer? _toastTimer;
+  String _toast = '';
+
+  void _showToast(String text) {
+    setState(() => _toast = text);
+    _toastTimer?.cancel();
+    _toastTimer = Timer(const Duration(milliseconds: 1600), () {
+      if (mounted) setState(() => _toast = '');
+    });
+  }
+
   void _addToCart() {
     final added = context.read<CartCubit>().addProduct(_product);
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: TintColors.charcoal,
-          /*
-            ‼️ **يرتفع فوق بطاقة الشراء ويقصر.**
-
-            كان يهبط في مكانه الافتراضيّ **فيغطّي زرّ «أضف إلى السلّة» نفسه** —
-            فمن أراد إضافة منتجٍ ثانٍ وجد التأكيدَ حاجزاً دون الزرّ الذي أنتجه.
-            وثلاث ثوانٍ في شريطٍ يُمرَّر كلّ ثانيتين تُقرأ «معلّقة».
-          */
-          margin: const EdgeInsets.only(bottom: 172, left: 16, right: 16),
-          duration: const Duration(milliseconds: 1800),
-          content: Text(added ? 'أُضيف إلى السلّة' : 'هذا المنتج في سلّتك بالفعل'),
-          action: SnackBarAction(
-            label: 'السلّة',
-            textColor: TintColors.tintYellow,
-            // الانتقال للسلّة من داخل الشريط: يُغلق الشريط أوّلاً وإلّا بقيت
-            // الشاشة السوداء فوق السلّة.
-            onPressed: () {
-              /*
-                ‼️ **بتبويب القشرة لا برابطٍ استعلاميّ.** كان `context.go('/?tab=cart')`
-                — والقشرة **لا تقرأ `?tab=` إطلاقاً**. فكان الزرّ يُغلق الشريط
-                ويقف على التبويب الذي كان مفتوحاً: ضغطةٌ تُنفَّذ ولا تصل، ولا خطأ.
-
-                ويُقرأ الكيوبت **قبل** الإغلاق: بعده يسقط سياق الشاشة.
-              */
-              final shell = context.read<ShellCubit>();
-              context.pop();
-              shell.selectTab(3);
-            },
-          ),
-        ),
-      );
+    _showToast(added ? 'أُضيف إلى السلّة' : 'هذا المنتج في سلّتك بالفعل');
   }
 
   /// وجهة زرّ الترويج — تُقرأ من رابط البنر كما تُدار من اللوحة.
@@ -538,6 +547,33 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
 
           _HeartBurst(controller: _burst),
 
+          // الرسالة فوق بطاقة الشراء لا عليها — التأكيد لا يحجب الزرّ الذي أنتجه.
+          if (_toast.isNotEmpty)
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 178,
+              child: IgnorePointer(
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: TintColors.charcoal.withValues(alpha: 0.94),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      _toast,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
           // الشريط الجانبيّ: إعجابٌ وسلّة — بعيدةٌ عن حافّة الإبهام السفليّة
           // كي لا تُضغط سهواً أثناء التمرير.
           /*
@@ -561,11 +597,24 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
                       onTap: () => unawaited(_toggleFavorite()),
                     ),
                     const SizedBox(height: 16),
-                    _RailButton(
-                      icon: Icons.shopping_bag_outlined,
-                      color: Colors.white,
-                      label: 'السلّة',
-                      onTap: _addToCart,
+                    /*
+                      ‼️ **يفتح السلّة ولا يُضيف.** كان يُضيف — وهو تكرارٌ حرفيّ
+                      لزرّ «أضف إلى السلّة» العريض تحته، فبقي الشريط **بلا طريقٍ
+                      إلى السلّة** إلّا من إشعارٍ يختفي بعد ثانيتين. فمن جمع
+                      منتجاته لم يجد كيف يراها. (بلاغ المالك بالتشغيل.)
+                    */
+                    BlocBuilder<CartCubit, CartState>(
+                      builder: (context, cart) => _RailButton(
+                        icon: Icons.shopping_bag_outlined,
+                        color: Colors.white,
+                        label: 'السلّة',
+                        badge: cart.items.length,
+                        onTap: () {
+                          final shell = context.read<ShellCubit>();
+                          context.pop();
+                          shell.selectTab(3);
+                        },
+                      ),
                     ),
                     const SizedBox(height: 16),
                     _RailButton(
@@ -715,7 +764,11 @@ class _RailButton extends StatelessWidget {
     required this.color,
     required this.label,
     required this.onTap,
+    this.badge = 0,
   });
+
+  /// عدد بنود السلّة — يُظهر للمشتري أنّ ما أضافه محفوظ قبل أن يفتحها.
+  final int badge;
 
   final IconData icon;
   final Color color;
@@ -737,6 +790,21 @@ class _RailButton extends StatelessWidget {
             ),
             child: Icon(icon, color: color, size: 24),
           ),
+          if (badge > 0)
+            Positioned(
+              top: -2,
+              left: -2,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: TintColors.sand,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text('$badge',
+                    style: const TextStyle(
+                        color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
+              ),
+            ),
           const SizedBox(height: 4),
           Text(
             label,
