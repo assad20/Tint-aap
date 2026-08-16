@@ -67,6 +67,21 @@ workflows:
     scripts:
       - name: Generate platform folders if missing
         script: flutter create . --org com.tintstore --platforms=android,ios
+      # !! **توحيد معرّف الحزمة — ولا يكفي وجودها في مسار المعاينة.**
+      #
+      # `ios/Runner.xcodeproj` غير موجود في المستودع، فـ`flutter create`
+      # يُولّده من اسم المشروع (`tint_mobile`) فيخرج `com.tintstore.tintMobile`.
+      # وهذا المسار يجلب بروفايلاً لـ`com.tintstore.app`، فلا يتطابقان:
+      #   «"Runner" requires a provisioning profile»
+      #
+      # !! ونُسيت هنا لأنّها كُتبت في `ios-preview` وحده — والمعاينة لا توقّع
+      #    فلم يظهر أثر الاختلاف فيها إطلاقاً.
+      - name: Force bundle identifier to match Android
+        script: |
+          set -e
+          sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER = com\.tintstore\.tintMobile/PRODUCT_BUNDLE_IDENTIFIER = com.tintstore.app/g' \
+            ios/Runner.xcodeproj/project.pbxproj
+          grep -o "PRODUCT_BUNDLE_IDENTIFIER = [^;]*" ios/Runner.xcodeproj/project.pbxproj | sort -u
       - name: Get packages
         script: flutter pub get
       - name: Generate icons & splash
@@ -122,7 +137,6 @@ workflows:
             --certificate-key=@file:/tmp/ios_cert_key.pem \
             --create
           keychain add-certificates
-          xcode-project use-profiles
       - name: Guard — API base must not be empty
         script: |
           # ‼️ **يسقط البناء بدل أن يرفع تطبيقاً لا يصل خادمه.**
@@ -149,6 +163,11 @@ workflows:
             --dart-define=TINT_TABBY_PUBLIC_KEY=$TINT_TABBY_PUBLIC_KEY \
             --dart-define=TINT_TABBY_MERCHANT_CODE=$TINT_TABBY_MERCHANT_CODE \
             --dart-define=TINT_TABBY_LANG=ar
+          # !! **تُطبَّق إعدادات التوقيع بعد `flutter build` لا قبله.**
+          #    البناء يُعيد توليد المشروع ويُرقّي الـPodfile، فيمحو ما كُتب
+          #    قبله. ورُصد: «Upgrading Podfile» ثمّ «requires a provisioning
+          #    profile» رغم نجاح خطوة التوقيع.
+          xcode-project use-profiles
           xcode-project build-ipa \
             --project "ios/Runner.xcodeproj" \
             --scheme "Runner"
