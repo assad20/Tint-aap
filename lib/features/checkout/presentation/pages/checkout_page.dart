@@ -838,6 +838,13 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
     }
   }
 
+  /// المبلغ كما يراه المشتري في ملخّص الطلب — بنيةٌ واحدة لا نسخةٌ لكلّ مزوّد.
+  ///
+  /// ‼️ **هو الإجماليّ النهائيّ نفسه** (سلّة + رسم الوسيلة) لا مجموع السلّة
+  /// وحده: رقمٌ في الورقة يخالف الرقم في الشاشة تحتها يهدم الثقة التي فُتحت
+  /// الورقة لأجلها.
+  String _amountLabel(double total) => '${total.toStringAsFixed(2)} ﷼';
+
   /// PayTabs — بطاقة.
   ///
   /// ‼️ تختلف عن تابي وتمارا في العودة: PayTabs تُرسل **POST بنموذج** إلى
@@ -883,18 +890,17 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
           : '${context.read<AppConfig>().origin}/checkout/paytabs/result';
 
       if (!mounted) return;
-      final outcome = await Navigator.of(context).push<PaymentWebviewOutcome>(
-        MaterialPageRoute(
-          builder: (_) => PaymentWebviewPage(
-            title: 'الدفع بالبطاقة',
-            checkoutUrl: redirectUrl,
-            // النجاح والفشل يمرّان بنفس الصفحة، والخادم هو من يفصل — فنُغلق
-            // عندها ثمّ نسأل.
-            successUrl: resultUrl,
-            cancelUrl: '',
-            failureUrl: '',
-          ),
-        ),
+      final outcome = await PaymentWebviewPage.present(
+        context,
+        title: 'الدفع بالبطاقة',
+        secureLabel: 'دفعٌ آمن عبر PayTabs',
+        amountLabel: _amountLabel(cartState.total + cubit.state.selectedFee),
+        checkoutUrl: redirectUrl,
+        // النجاح والفشل يمرّان بنفس الصفحة، والخادم هو من يفصل — فنُغلق
+        // عندها ثمّ نسأل.
+        successUrl: resultUrl,
+        cancelUrl: '',
+        failureUrl: '',
       );
 
       if (!mounted) return;
@@ -953,16 +959,15 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
       }
 
       if (!mounted) return;
-      final outcome = await Navigator.of(context).push<PaymentWebviewOutcome>(
-        MaterialPageRoute(
-          builder: (_) => PaymentWebviewPage(
-            title: 'الدفع عبر تمارا',
-            checkoutUrl: checkoutUrl,
-            successUrl: returnUrls['success']?.toString() ?? '',
-            cancelUrl: returnUrls['cancel']?.toString() ?? '',
-            failureUrl: returnUrls['failure']?.toString() ?? '',
-          ),
-        ),
+      final outcome = await PaymentWebviewPage.present(
+        context,
+        title: 'الدفع عبر تمارا',
+        secureLabel: 'دفعٌ آمن عبر تمارا',
+        amountLabel: _amountLabel(cartState.total + cubit.state.selectedFee),
+        checkoutUrl: checkoutUrl,
+        successUrl: returnUrls['success']?.toString() ?? '',
+        cancelUrl: returnUrls['cancel']?.toString() ?? '',
+        failureUrl: returnUrls['failure']?.toString() ?? '',
       );
 
       if (!mounted) return;
@@ -1069,17 +1074,16 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
       }
 
       if (!mounted) return;
-      final outcome = await Navigator.of(context).push<PaymentWebviewOutcome>(
-        MaterialPageRoute(
-          builder: (_) => PaymentWebviewPage(
-            title: 'الدفع عبر Tabby',
-            jsBridgeName: 'tabbyMobileSDK',
-            checkoutUrl: checkoutUrl,
-            successUrl: returnUrls['success']?.toString() ?? '',
-            cancelUrl: returnUrls['cancel']?.toString() ?? '',
-            failureUrl: returnUrls['failure']?.toString() ?? '',
-          ),
-        ),
+      final outcome = await PaymentWebviewPage.present(
+        context,
+        title: 'الدفع عبر Tabby',
+        secureLabel: 'دفعٌ آمن عبر Tabby',
+        amountLabel: _amountLabel(cartState.total + state.selectedFee),
+        jsBridgeName: 'tabbyMobileSDK',
+        checkoutUrl: checkoutUrl,
+        successUrl: returnUrls['success']?.toString() ?? '',
+        cancelUrl: returnUrls['cancel']?.toString() ?? '',
+        failureUrl: returnUrls['failure']?.toString() ?? '',
       );
 
       if (!mounted) return;

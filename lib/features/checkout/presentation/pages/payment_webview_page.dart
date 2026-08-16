@@ -30,6 +30,8 @@ class PaymentWebviewPage extends StatefulWidget {
     required this.cancelUrl,
     required this.failureUrl,
     this.jsBridgeName,
+    this.secureLabel,
+    this.amountLabel,
   });
 
   final String title;
@@ -40,6 +42,56 @@ class PaymentWebviewPage extends StatefulWidget {
 
   /// اسم قناة الجسر إن كان للمزوّد واحدة (تابي: `tabbyMobileSDK`).
   final String? jsBridgeName;
+
+  /// سطر الطمأنة في الترويسة — «دفعٌ آمن عبر …».
+  ///
+  /// ‼️ **يُعاد ذكر اسم المزوّد هنا عمداً وإن قُرئ في الشاشة السابقة.** شاشة
+  /// «إتمام الطلب» تقول «دفع آمن ببطاقة مدى عبر PayTabs»، ثمّ يختفي الاسم
+  /// تماماً عند فتح صفحته — فينقطع الخيط بين ما قرأه المشتري وما يراه.
+  final String? secureLabel;
+
+  /// المبلغ كما يراه المشتري في الطلب — يبقى أمام عينه وهو يدفع.
+  final String? amountLabel;
+
+  /// يعرض صفحة المزوّد **ورقةً تصعد من الأسفل** فوق شاشة الطلب.
+  ///
+  /// ‼️ **لماذا ورقةٌ لا صفحةٌ مستقلّة؟** الانتقال إلى شاشةٍ كاملة يقطع الصلة
+  /// بالطلب: يرى المشتري نموذج بطاقةٍ يملأ الشاشة لا يربطه بالمتجر شيء — وهو
+  /// أوّل ما يُقرأ احتيالاً. وبالورقة يبقى طرفُ شاشة الطلب ظاهراً فوقها، فيقرأ
+  /// أنّه لم يُنقَل إلى مكانٍ آخر بل فُتحت نافذةٌ فوق طلبه.
+  ///
+  /// ‼️ **والغلق بالسحب يعود `closed` لا `cancelled`** — والفرق ليس تسمية:
+  /// المُستدعي يسأل الخادم عن `closed` ولا يسأله عن `cancelled`. وقد يسحب
+  /// المشتري الورقة بعد أن أتمّ الدفع، فعدُّ ذلك إلغاءً يُضيّع طلباً مدفوعاً.
+  static Future<PaymentWebviewOutcome> present(
+    BuildContext context, {
+    required String title,
+    required String checkoutUrl,
+    required String successUrl,
+    required String cancelUrl,
+    required String failureUrl,
+    String? jsBridgeName,
+    String? secureLabel,
+    String? amountLabel,
+  }) async {
+    final outcome = await showModalBottomSheet<PaymentWebviewOutcome>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => PaymentWebviewPage(
+        title: title,
+        checkoutUrl: checkoutUrl,
+        successUrl: successUrl,
+        cancelUrl: cancelUrl,
+        failureUrl: failureUrl,
+        jsBridgeName: jsBridgeName,
+        secureLabel: secureLabel,
+        amountLabel: amountLabel,
+      ),
+    );
+    return outcome ?? PaymentWebviewOutcome.closed;
+  }
 
   @override
   State<PaymentWebviewPage> createState() => _PaymentWebviewPageState();
@@ -134,39 +186,140 @@ class _PaymentWebviewPageState extends State<PaymentWebviewPage> {
 
   @override
   Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+
+    /// ‼️ **الارتفاع 0.92 لا نصف الشاشة.**
+    ///
+    /// صفحة المزوّد صفحةُ ويبٍ كاملة: اسمٌ على البطاقة · رقمٌ · شهرٌ وسنةٌ ورمز ·
+    /// مبلغٌ · زرّان · مبدّل لغة. وورقةٌ قصيرة تجعلها تُمرَّر **داخل نفسها**،
+    /// فيصير على المشتري تمريران متداخلان — أسوأ من الصفحة الكاملة لا أفضل.
+    /// والغاية أن يبقى طرفُ شاشة الطلب ظاهراً فوقها، لا أن تُحشر الصفحة.
+    final maxHeight = media.size.height * 0.92;
+
+    /// ‼️ **الورقة تنكمش للوحة المفاتيح ولا تُدفَع تحتها.**
+    ///
+    /// إدخال البطاقة يستدعي اللوحة حتماً. وارتفاعٌ ثابت يُبقي الحقول خلفها
+    /// فيكتب المشتري في حقلٍ لا يراه. وبانكماش الإطار تصغر نافذة العرض فتُمرّر
+    /// الصفحة نفسها إلى الحقل المُركَّز — وهو سلوك المتصفّح الطبيعيّ، فلا نُعيد
+    /// بناءه بحسابات موضعٍ من عندنا.
+    final height = (maxHeight - media.viewInsets.bottom)
+        .clamp(media.size.height * 0.45, maxHeight);
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _finish(PaymentWebviewOutcome.closed);
       },
-      child: Scaffold(
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          foregroundColor: TintColors.charcoal,
-          elevation: 0.5,
-          title: Text(
-            widget.title,
-            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+      child: Padding(
+        padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
+        child: SizedBox(
+          height: height,
+          child: Material(
+            color: Colors.white,
+            clipBehavior: Clip.antiAlias,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              children: [
+                // مقبضٌ يقول «هذه ورقةٌ تُسحَب» قبل أن يجرّبها المشتري.
+                Container(
+                  width: 44,
+                  height: 4,
+                  margin: const EdgeInsets.only(top: 10, bottom: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                _header(),
+                const Divider(height: 1),
+                Expanded(
+                  child: Stack(
+                    children: [
+                      WebViewWidget(controller: _controller),
+                      if (_loading)
+                        const Positioned.fill(
+                          child: ColoredBox(
+                            color: Colors.white,
+                            child: Center(child: CircularProgressIndicator()),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-          leading: IconButton(
+        ),
+      ),
+    );
+  }
+
+  /// ترويسة الورقة: من أنت، وكم تدفع، ومن يعالج الدفع.
+  ///
+  /// ‼️ الثلاثة معاً لا أحدها: الترويسة القديمة كانت عنواناً و✕ فقط، فلا مبلغ
+  /// يُطمئن ولا اسم مزوّدٍ يُفسّر لماذا تبدّل شكل الصفحة فجأة.
+  Widget _header() {
+    final secure = widget.secureLabel?.trim();
+    final amount = widget.amountLabel?.trim();
+
+    return Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(4, 0, 16, 8),
+      child: Row(
+        children: [
+          IconButton(
             icon: const Icon(Icons.close_rounded),
+            color: TintColors.charcoal,
             // ‼️ الإغلاق اليدويّ ليس إلغاءً مؤكّداً: قد يكون المشتري أتمّ
             // الدفع ثمّ أغلق. المُستدعي يسأل الخادم في الحالتين.
             onPressed: () => _finish(PaymentWebviewOutcome.closed),
           ),
-        ),
-        body: Stack(
-          children: [
-            WebViewWidget(controller: _controller),
-            if (_loading)
-              const Positioned.fill(
-                child: ColoredBox(
-                  color: Colors.white,
-                  child: Center(child: CircularProgressIndicator()),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 15,
+                    color: TintColors.charcoal,
+                  ),
                 ),
+                if (secure != null && secure.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.lock_rounded, size: 12, color: Colors.black54),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            secure,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 11.5, color: Colors.black54),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (amount != null && amount.isNotEmpty)
+            Text(
+              amount,
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 15,
+                color: TintColors.charcoal,
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }
