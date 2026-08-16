@@ -178,7 +178,18 @@ workflows:
       # دقائق. أمّا الخارجيّ فيلزمه فحص أبل المختصر — ولا يبدأ إلّا بطلبك.
       app_store_connect:
         auth: integration
-        submit_to_testflight: true
+        # !! **مُطفأة: هذه تُقدّم النسخة لمراجعة أبل للاختبار *الخارجيّ*.**
+        #
+        # والاختبار **الداخليّ** لا يحتاجها إطلاقاً — الرفع وحده يُتيح النسخة
+        # للمختبرين الداخليّين خلال دقائق بلا مراجعة.
+        #
+        # ورُصد (2026-08-16): البناء نجح ورُفعت النسخة وعُولجت، ثمّ سقط
+        # `post-processing` عند هذه الخطوة لنقص «Beta App Review Information»
+        # (اسم · هاتف · بريد). فيبدو البناء فاشلاً وهو ناجح.
+        #
+        # تُعاد إلى `true` يوم تُدعى مختبرون من خارج الفريق، بعد ملء المعلومات
+        # في App Store Connect ← TestFlight ← Test Information.
+        submit_to_testflight: false
         submit_to_app_store: false
       email:
         recipients:
