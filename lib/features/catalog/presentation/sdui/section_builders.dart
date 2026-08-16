@@ -291,6 +291,22 @@ SectionRegistry buildDefaultSectionRegistry({
         }
         return TintCircleCategories(
           items: circles,
+          /*
+            ‼️ **كانت تُبنى بلا `onTap` — والودجة تُعطّل الضغط حين يغيب:**
+            `onTap: onTap == null ? null : ...`. فالدوائر تُرسم وتُقرأ ويُنقر
+            عليها **ولا شيء يحدث**، بلا خطأ ولا سجلّ. (بلاغ المالك بالتشغيل.)
+
+            والوجهة تُقرأ من `href` بنفس مُحوّل الروابط القديمة الذي يستعمله
+            سلايدر البنرات — فلا قاعدةَ ثانية تتباعد عنه.
+          */
+          onTap: onAction == null
+              ? null
+              : (item) {
+                  final action = SduiAction.legacyFromHref(item.href);
+                  if (action == null) return;
+                  tracker?.recordClick(section.listName, section.type);
+                  onAction(action, execute: true);
+                },
           // الحدّ ٢..٦ في الويب — ويُطبَّق داخل الودجة أيضاً حمايةً من قيمةٍ قديمة.
           columns: _int(section.settings['mobileColumns']) ?? 4,
           beigeBackground: section.settings['beigeBackground'] == true,
