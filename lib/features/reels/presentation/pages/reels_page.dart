@@ -12,6 +12,7 @@ import '../../../../app/theme/app_theme.dart';
 import '../../../../core/models/product_model.dart';
 import '../../../../core/widgets/tint_ui.dart';
 import '../../../account/presentation/cubit/favorites_cubit.dart';
+import '../../data/reel_stats_reporter.dart';
 import '../../../cart/presentation/cubit/cart_cubit.dart';
 import '../../../shell/presentation/cubit/shell_cubit.dart';
 import '../../domain/reel_model.dart';
@@ -38,17 +39,26 @@ class _ReelsPageState extends State<ReelsPage> {
   final PageController _controller = PageController();
   int _index = 0;
 
+  /// ‼️ **يُلتقَط في initState لا في dispose.** البحث عن السلف داخل dispose
+  /// غير آمن — الودجت تُفكَّك حينها — فيُحفَظ المرجع مبكّراً.
+  late final ReelStatsReporter _stats;
+
   @override
   void initState() {
     super.initState();
     // شريطٌ داكن يملأ الشاشة: أيقونات النظام تُقلب فاتحةً وإلّا اختفت في السواد.
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
+    _stats = context.read<ReelStatsReporter>();
     unawaited(context.read<ReelsCubit>().load());
   }
 
   @override
   void dispose() {
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
+    /// ‼️ **تُفرَغ الدفعة الأخيرة عند الخروج.** المؤقّت يُرسل كلّ خمس ثوانٍ،
+    /// ومن يشاهد مقطعاً ثمّ يغلق الشريط فوراً كانت مشاهدته تُفقَد — وهي
+    /// بالضبط مشاهدةُ من لم يُعجبه ما رأى، أي أنّ الرقم كان يميل للأعلى.
+    unawaited(_stats.flush());
     _controller.dispose();
     super.dispose();
   }
@@ -238,13 +248,57 @@ class _ReelPage extends StatefulWidget {
 
 class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixin {
   final ReelVideoHandle _video = ReelVideoHandle();
+
+  /// ‼️ **المشاهدة تُحتسب بعد ثانيتين من العرض لا بمجرّد الظهور.**
+  ///
+  /// شريطٌ رأسيّ يمرّ فيه الإصبع على خمسة مقاطع في ثانية، وعدُّ الظهور يجعل
+  /// الرقم عدّاد تمريرٍ لا عدّاد مشاهدة — فتتساوى المقاطع كلّها وتصير المقارنة
+  /// بينها بلا معنى، وهي الغاية الوحيدة من العدّاد.
+  static const Duration _viewThreshold = Duration(seconds: 2);
+
+  Timer? _viewTimer;
+
+  /// ‼️ **مرّةً واحدة لكلّ بطاقة.** الرجوع إلى المقطع نفسه بالتمرير صعوداً
+  /// وهبوطاً كان سيضاعف الرقم بلا مشاهدةٍ جديدة.
+  bool _viewCounted = false;
+
+  late final ReelStatsReporter _stats = context.read<ReelStatsReporter>();
   late final AnimationController _burst = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 620),
   );
 
   @override
+  void initState() {
+    super.initState();
+    _syncViewTimer();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ReelPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isActive != widget.isActive) _syncViewTimer();
+  }
+
+  /// يبدأ عدّ الثانيتين متى صار المقطع هو المعروض، ويُلغيه متى غادره الإصبع.
+  ///
+  /// ‼️ **والترويجيّ وحده يُقاس.** مقاطع المنتجات تعني وثيقةً لكلّ (يوم · منتج)
+  /// في قاعدةٍ بسقفٍ ضيّق — وهو التضخّم الذي أسقطها مرّتين.
+  void _syncViewTimer() {
+    _viewTimer?.cancel();
+    _viewTimer = null;
+    if (!widget.isActive || _viewCounted || !widget.reel.isPromo) return;
+
+    _viewTimer = Timer(_viewThreshold, () {
+      if (!mounted || !widget.isActive) return;
+      _viewCounted = true;
+      _stats.view(widget.reel.promoId);
+    });
+  }
+
+  @override
   void dispose() {
+    _viewTimer?.cancel();
     _toastTimer?.cancel();
     _burst.dispose();
     super.dispose();
@@ -353,6 +407,9 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
   void _openPromo(String href) {
     final target = href.trim();
     if (target.isEmpty) return;
+
+    /// ‼️ يُسجَّل قبل الانتقال لا بعده: بعده تُبنى شاشةٌ جديدة وقد تُفكَّك هذه.
+    _stats.click(widget.reel.promoId);
     if (target.startsWith('/category/') ||
         target.startsWith('/product/') ||
         target.startsWith('/discover/')) {

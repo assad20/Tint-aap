@@ -17,6 +17,7 @@ class ReelModel {
     this.ctaLabel = '',
     this.ctaHref = '',
     this.id = '',
+    this.promoId = '',
   });
 
   /// المنتج — حاضرٌ في شريحة المنتج، غائبٌ في الترويج.
@@ -32,6 +33,15 @@ class ReelModel {
   final String ctaLabel;
   final String ctaHref;
   final String id;
+
+  /// هويّة المقطع الترويجيّ الثابتة — **مفتاح قياسه**.
+  ///
+  /// ‼️ **و[id] لا يصلح لذلك**: يُلحق به الخادم لاحقة موضعٍ حين يُذيَّل الشريط
+  /// (`-at-end-N`)، ويسقط على اسم المقطع حين لا يُقرأ مُعرّفه — فإعادةُ تسمية
+  /// من اللوحة تقطع سلسلة الأرقام، والمقطع الواحد يُنتج مفاتيح بعدد مواضعه.
+  ///
+  /// ‼️ ويبقى فارغاً على وسيطٍ أقدم لا يبثّه — فلا يُقاس، ولا ينكسر شيء.
+  final String promoId;
 
   bool get isPromo => product == null;
 
@@ -52,9 +62,11 @@ class ReelModel {
 
     if (isPromo) {
       final id = (json['id'] ?? '').toString().trim();
+      final promoId = (json['promoId'] ?? '').toString().trim();
       if (id.isEmpty) return null;
       return ReelModel._(
         id: id,
+        promoId: promoId,
         videoUrl: url,
         poster: (json['image'] ?? '').toString(),
         title: (json['title'] ?? '').toString(),

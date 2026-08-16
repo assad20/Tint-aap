@@ -41,6 +41,7 @@ import 'features/checkout/data/datasources/checkout_remote_data_source.dart';
 import 'features/checkout/data/repositories/checkout_repository_impl.dart';
 import 'features/checkout/domain/repositories/checkout_repository.dart';
 import 'features/checkout/presentation/cubit/checkout_cubit.dart';
+import 'features/reels/data/reel_stats_reporter.dart';
 import 'features/shell/presentation/cubit/shell_cubit.dart';
 
 Future<void> main() async {
@@ -78,6 +79,10 @@ Future<void> main() async {
   final tracking = TrackingService(apiClient);
   unawaited(tracking.initialize());
 
+  /// عدّاد مشاهدات المقاطع الترويجيّة — **واحدٌ للتطبيق كلّه لا لكلّ بطاقة**:
+  /// التجميع هو غايته، وراصدٌ لكلّ شاشةٍ يُعيدنا إلى نداءٍ لكلّ مشاهدة.
+  final reelStats = ReelStatsReporter(apiClient);
+
   final catalogRepository = CatalogRepositoryImpl(
     remoteDataSource: CatalogRemoteDataSource(apiClient),
   );
@@ -103,6 +108,7 @@ Future<void> main() async {
         RepositoryProvider.value(value: appPreferences),
         RepositoryProvider.value(value: tokenStorage),
         RepositoryProvider.value(value: apiClient),
+        RepositoryProvider.value(value: reelStats),
         // ‼️ يُحقَن كخدمةٍ واحدة: أيّ شاشةٍ تُنشئ نسخةً ثانية تتخطّى
         //    بوّابة الموافقة وقيد القناة معاً.
         RepositoryProvider.value(value: tracking),
