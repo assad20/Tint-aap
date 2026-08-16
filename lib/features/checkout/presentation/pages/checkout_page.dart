@@ -13,6 +13,8 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/tracking/tracking_events.dart';
 import '../../../../core/tracking/tracking_service.dart';
 import 'noon_webview_page.dart';
+import '../../../../core/storage/app_preferences.dart';
+import '../../../reels/data/reel_stats_reporter.dart';
 import 'payment_webview_page.dart';
 import '../../../../app/config/app_config.dart';
 import '../../../../app/theme/app_theme.dart';
@@ -1146,6 +1148,41 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
   /// ‼️ **العلامة تُرسَل فقط إن خرج الحدث.** معناها حرفيّاً «رأى العميل هذا
   /// الشراء فلا تستدركه»، فإرسالها بلا إطلاقٍ — لأنّ المستخدم رفض القياس
   /// مثلاً — يمنع استدراك الخادم فيضيع الشراء من الطرفين معاً.
+  /// ينسب هذا الطلب إلى آخر مقطعٍ ترويجيّ نُقر زرّه — إن كان قريباً.
+  ///
+  /// ‼️ **نافذة النسبة سبعة أيّام، وآخر نقرةٍ تأخذها.** أطولُ منها ينسب إلى
+  /// المقطع شراءً قرّره المشتري لسببٍ آخر، وأقصرُ منها يُسقط مشترياً عاد بعد
+  /// يومين وهو المعتاد في متجرٍ يُتصفَّح ليلاً ويُشترى منه نهاراً.
+  ///
+  /// ‼️ **ولا يمرّ بمسار الطلب ولا بموافقة الإعلانات.** حقنُه في إنشاء الطلب
+  /// يعني لمس أخطر شيفرةٍ في النظام لأجل رقمٍ في تقرير؛ وربطُه بموافقة التتبّع
+  /// يُصفّر رقم متجرٍ لم يقبل زوّاره الإعلانات — وهذا عدّادٌ مجمّع بلا هويّة
+  /// أحد، لا تتبّعٌ عبر المواقع.
+  ///
+  /// والثمن المُعلَن: الرقم يأتي من الجهاز، فيُقرأ **اتّجاهاً لا محاسبةً**.
+  Future<void> _attributeReelOrder(BuildContext context) async {
+    final preferences = context.read<AppPreferences>();
+    final reelId = preferences.lastReelClickId;
+    if (reelId == null || reelId.isEmpty) return;
+
+    const window = Duration(days: 7);
+    final clickedAt = preferences.lastReelClickAt;
+    final age = DateTime.now().millisecondsSinceEpoch - clickedAt;
+    if (clickedAt <= 0 || age > window.inMilliseconds) {
+      await preferences.clearReelClick();
+      return;
+    }
+
+    final cubit = context.read<CheckoutCubit>();
+    final subtotal = TrackingEvents.total(cubit.trackingItems);
+    final value = subtotal +
+        cubit.state.shippingCostFor(subtotal) +
+        cubit.state.selectedFee;
+
+    await context.read<ReelStatsReporter>().order(reelId, value);
+    await preferences.clearReelClick();
+  }
+
   Future<void> _logPurchase(BuildContext context, String orderId) async {
     final cubit = context.read<CheckoutCubit>();
     final items = cubit.trackingItems;
@@ -1180,6 +1217,7 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
     //    وتابي وتمارا وPayTabs ونون)، ووصلُ الحدث في كلٍّ منها يعني مساراً
     //    يُنسى — والمنسيّ لا يُصدر خطأً، يُصدر تقريراً ناقصاً يبدو صحيحاً.
     unawaited(_logPurchase(context, orderId));
+    unawaited(_attributeReelOrder(context));
 
     await showDialog<void>(
       context: context,

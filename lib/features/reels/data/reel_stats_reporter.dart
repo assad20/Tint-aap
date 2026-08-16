@@ -34,13 +34,49 @@ class ReelStatsReporter {
 
   void click(String reelId) => _add(reelId, clicks: 1);
 
-  void _add(String reelId, {int views = 0, int clicks = 0}) {
+  void like(String reelId) => _add(reelId, likes: 1);
+
+  void share(String reelId) => _add(reelId, shares: 1);
+
+  /// طلبٌ يُنسَب إلى مقطع — **يُرسَل فوراً لا مع الدفعة.**
+  ///
+  /// ‼️ لحظة نجاح الطلب يغادر المستخدم الشاشة غالباً، ودفعةٌ تنتظر خمس ثوانٍ
+  /// كانت تُفقَد. وهو حدثٌ نادر (طلبٌ لا مشاهدة) فلا كلفة في إفراده.
+  Future<void> order(String reelId, double value) async {
+    final id = reelId.trim();
+    if (id.isEmpty) return;
+    try {
+      await _api.postMap('/catalog/sdui-events', data: {
+        'events': [
+          {
+            'listName': 'reel:$id',
+            'sectionType': 'reel',
+            'type': 'order',
+            'count': 1,
+            'value': value.round(),
+          },
+        ],
+      });
+    } catch (error) {
+      debugPrint('[reels] تعذّر إرسال نسبة الطلب: $error');
+    }
+  }
+
+  void _add(
+    String reelId, {
+    int views = 0,
+    int clicks = 0,
+    int likes = 0,
+    int shares = 0,
+  }) {
     final id = reelId.trim();
     if (id.isEmpty) return;
 
     final entry = _pending.putIfAbsent(id, _ReelCounts.new);
     entry.views += views;
     entry.clicks += clicks;
+    entry.likes += likes;
+    entry.shares += shares;
 
     _timer ??= Timer(_window, flush);
   }
@@ -61,6 +97,12 @@ class ReelStatsReporter {
       }
       if (counts.clicks > 0) {
         events.add(_event(id, 'click', counts.clicks));
+      }
+      if (counts.likes > 0) {
+        events.add(_event(id, 'like', counts.likes));
+      }
+      if (counts.shares > 0) {
+        events.add(_event(id, 'share', counts.shares));
       }
     });
     if (events.isEmpty) return;
@@ -85,4 +127,6 @@ class ReelStatsReporter {
 class _ReelCounts {
   int views = 0;
   int clicks = 0;
+  int likes = 0;
+  int shares = 0;
 }

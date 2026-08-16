@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../../../app/config/app_config.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/models/product_model.dart';
+import '../../../../core/storage/app_preferences.dart';
 import '../../../../core/widgets/tint_ui.dart';
 import '../../../account/presentation/cubit/favorites_cubit.dart';
 import '../../data/reel_stats_reporter.dart';
@@ -263,6 +264,11 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
   bool _viewCounted = false;
 
   late final ReelStatsReporter _stats = context.read<ReelStatsReporter>();
+
+  /// أُعجب صاحب هذا الجهاز بهذا المقطع الترويجيّ؟ — يُقرأ محلّيّاً.
+  late bool _promoLiked =
+      widget.reel.isPromo &&
+      context.read<AppPreferences>().likedReel(widget.reel.promoId);
   late final AnimationController _burst = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 620),
@@ -410,6 +416,8 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
 
     /// ‼️ يُسجَّل قبل الانتقال لا بعده: بعده تُبنى شاشةٌ جديدة وقد تُفكَّك هذه.
     _stats.click(widget.reel.promoId);
+    /// تُحفظ النقرة ليُنسَب إليها طلبٌ لاحق — انظر `ReelStatsReporter.order`.
+    unawaited(context.read<AppPreferences>().rememberReelClick(widget.reel.promoId));
     if (target.startsWith('/category/') ||
         target.startsWith('/product/') ||
         target.startsWith('/discover/')) {
@@ -417,6 +425,54 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
       return;
     }
     if (target.startsWith('/')) context.push(target);
+  }
+
+  /// ‼️ **إعجابٌ يُضيف ولا يُلغى** — نفس قاعدة النقر المزدوج في مقاطع المنتجات.
+  ///
+  /// الخادم يعُدّ ولا يُنقص، فإطفاء القلب محلّيّاً كان يترك جهازاً يقول «لم
+  /// أُعجب» ورقماً يقول «أُعجب». ومن أعجبه المقطع لا يبحث عادةً عن التراجع.
+  Future<void> _likePromo() async {
+    _burst.forward(from: 0);
+    if (_promoLiked) return;
+
+    setState(() => _promoLiked = true);
+    _stats.like(widget.reel.promoId);
+    await context.read<AppPreferences>().rememberLikedReel(widget.reel.promoId);
+  }
+
+  /// رفّ المقطع الترويجيّ — **إعجابٌ ومشاركةٌ فقط، بلا سلّة.**
+  ///
+  /// ‼️ لا زرّ سلّة هنا: الترويج ليس سلعةً تُضاف، وزرٌّ يُشبه زرّ المنتج ثمّ لا
+  /// يفعل شيئاً وعدٌ مكسور. وموضعه اليسار كرفّ المنتجات تماماً — تنافرُ الموضع
+  /// بين شريحةٍ وأخرى يجعل الإصبع يبحث في كلّ مقطع.
+  Widget _buildPromoRail() {
+    return Positioned(
+      left: 12,
+      bottom: 190,
+      child: Column(
+        children: [
+          _RailButton(
+            icon: _promoLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+            color: _promoLiked ? TintColors.danger : Colors.white,
+            label: 'أعجبني',
+            onTap: () => unawaited(_likePromo()),
+          ),
+          const SizedBox(height: 16),
+          _RailButton(
+            icon: Icons.reply_rounded,
+            color: Colors.white,
+            label: 'مشاركة',
+            onTap: () {
+              /// ‼️ يُسجَّل عند فتح الورقة لا عند إتمام المشاركة: النظام لا
+              /// يُخبرنا أأتمّها المستخدم أم ألغاها، وانتظارُ ما لا يصل يعني
+              /// عدّاداً صفريّاً دائماً.
+              _stats.share(widget.reel.promoId);
+              unawaited(_share());
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildPromo(BuildContext context) {
@@ -554,6 +610,9 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
               ),
             ),
             _buildPromo(context),
+            _buildPromoRail(),
+            // ومضة القلب نفسها التي في مقاطع المنتجات — لا نسخةٌ ثانية منها.
+            _HeartBurst(controller: _burst),
           ],
         ),
       );

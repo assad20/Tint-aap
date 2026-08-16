@@ -20,6 +20,48 @@ class AppPreferences {
     await _prefs.setString('active_home_nav', value);
   }
 
+  /// المقاطع الترويجيّة التي أعجبت صاحب هذا الجهاز.
+  ///
+  /// ‼️ **محلّيٌّ لا خادميّ عمداً.** الإعجاب بمقطعٍ ترويجيّ ليس تفضيلاً يُستعاد
+  /// على جهازٍ آخر ولا يدخل توصيةً — غايته أن يبقى القلب مضيئاً لمن أضاءه،
+  /// وأن يُعَدّ مرّةً على الخادم. وربطُه بحساب العميل كان يعني تخزين سلوك
+  /// مشاهدةٍ باسمه مقابل لا شيء.
+  bool likedReel(String promoId) =>
+      _prefs.getStringList('liked_reels')?.contains(promoId) ?? false;
+
+  /// ‼️ **يُضيف ولا يُبدّل.** الخادم لا يُنقص عدّاده، فإطفاء القلب محلّيّاً كان
+  /// يُنتج جهازاً يقول «لم أُعجب» ورقماً يقول «أُعجب» — وهو تناقضٌ لا يُكتشف.
+  Future<void> rememberLikedReel(String promoId) async {
+    final id = promoId.trim();
+    if (id.isEmpty) return;
+    final current = _prefs.getStringList('liked_reels') ?? <String>[];
+    if (current.contains(id)) return;
+    await _prefs.setStringList('liked_reels', [...current, id]);
+  }
+
+  /// آخر مقطعٍ ترويجيّ نُقر زرّه — ووقتُه، لنسبة الطلب إليه.
+  ///
+  /// ‼️ **نقرةٌ واحدة تُحفظ لا سجلٌّ كامل.** «آخر نقرة» هي نموذج النسبة
+  /// المختار، وسجلُّ كلّ النقرات كان يعني تخزين سلوك تصفّحٍ على الجهاز مقابل
+  /// رقمٍ لا يستعمله.
+  String? get lastReelClickId => _prefs.getString('last_reel_click_id');
+
+  int get lastReelClickAt => _prefs.getInt('last_reel_click_at') ?? 0;
+
+  Future<void> rememberReelClick(String promoId) async {
+    final id = promoId.trim();
+    if (id.isEmpty) return;
+    await _prefs.setString('last_reel_click_id', id);
+    await _prefs.setInt('last_reel_click_at', DateTime.now().millisecondsSinceEpoch);
+  }
+
+  /// ‼️ **تُمحى بعد النسبة لا تُترك.** طلبٌ ثانٍ بعد أسبوعٍ كان سيُنسَب إلى
+  /// النقرة نفسها مرّةً أخرى، فيبدو المقطع أضعافَ ما باع.
+  Future<void> clearReelClick() async {
+    await _prefs.remove('last_reel_click_id');
+    await _prefs.remove('last_reel_click_at');
+  }
+
   List<String> get recentSearches =>
       _prefs.getStringList('recent_searches') ?? <String>[];
 
