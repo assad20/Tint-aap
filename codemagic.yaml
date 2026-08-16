@@ -137,6 +137,7 @@ workflows:
             --certificate-key=@file:/tmp/ios_cert_key.pem \
             --create
           keychain add-certificates
+          xcode-project use-profiles
       - name: Guard — API base must not be empty
         script: |
           # ‼️ **يسقط البناء بدل أن يرفع تطبيقاً لا يصل خادمه.**
@@ -149,28 +150,21 @@ workflows:
           echo "قاعدة الـAPI: $TINT_API_BASE_URL"
       - name: Build IPA
         script: |
-          # !! **البناء بلا توقيع، ثمّ الأرشفة والتصدير بأداة Codemagic.**
+          # !! **العودة إلى `flutter build ipa` — والالتفاف السابق كان علاج عَرَض.**
           #
-          # `flutter build ipa` يفحص سلسلة المفاتيح بنفسه بحثاً عن هويّة
-          # **تطوير**، ويرفض قبل أن يبدأ إن لم يجدها:
-          #   «No development certificates available to code sign app»
+          # فشل هذا الأمر أوّلاً بـ«No development certificates available»، فظُنّ
+          # أنّه يرفض شهادة التوزيع. والسبب الحقيقيّ أنّ معرّف الحزمة كان
+          # `com.tintstore.tintMobile` فلم تجد `use-profiles` بروفايلاً يطابقه،
+          # فبقي التوقيع **تلقائيّاً** — وعندها يبحث Flutter عن هويّة تطوير.
           #
-          # ونحن أنشأنا شهادة **توزيع** — وهي الصحيحة لـTestFlight ولا تصلح
-          # لفحص Flutter. فيُبنى بـ`--no-codesign` (فلا فحص أصلاً)، ثمّ
-          # `xcode-project build-ipa` تُؤرشف وتُصدّر بالبروفايل الذي جُلب.
-          flutter build ios --release --no-codesign \
+          # ومع المعرّف الصحيح يصير التوقيع **يدويّاً** ببروفايلٍ مُعيَّن، فلا
+          # يبحث Flutter عن شيء. و`use-profiles` تُولّد `export_options.plist`.
+          flutter build ipa --release \
             --dart-define=TINT_API_BASE_URL=$TINT_API_BASE_URL \
             --dart-define=TINT_TABBY_PUBLIC_KEY=$TINT_TABBY_PUBLIC_KEY \
             --dart-define=TINT_TABBY_MERCHANT_CODE=$TINT_TABBY_MERCHANT_CODE \
-            --dart-define=TINT_TABBY_LANG=ar
-          # !! **تُطبَّق إعدادات التوقيع بعد `flutter build` لا قبله.**
-          #    البناء يُعيد توليد المشروع ويُرقّي الـPodfile، فيمحو ما كُتب
-          #    قبله. ورُصد: «Upgrading Podfile» ثمّ «requires a provisioning
-          #    profile» رغم نجاح خطوة التوقيع.
-          xcode-project use-profiles
-          xcode-project build-ipa \
-            --project "ios/Runner.xcodeproj" \
-            --scheme "Runner"
+            --dart-define=TINT_TABBY_LANG=ar \
+            --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
