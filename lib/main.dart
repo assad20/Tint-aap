@@ -116,7 +116,7 @@ Future<void> main() async {
         providers: [
           BlocProvider(create: (_) => ShellCubit()),
           // السلّة تحمل عميل الشبكة كي تراجع توفّر بنودها من الخادم.
-          BlocProvider(create: (_) => CartCubit(apiClient: apiClient)),
+          BlocProvider(create: (_) => CartCubit(apiClient: apiClient)..restore()),
           /**
            * شريط الفيديو — **عامٌّ لا محلّيٌّ بالشاشة**.
            *

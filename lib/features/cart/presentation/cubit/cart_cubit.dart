@@ -1,3 +1,8 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/config/api_routes.dart';
@@ -68,6 +73,91 @@ class CartCubit extends Cubit<CartState> {
 
   /// اختياريّ كي تبقى السلّة قابلةً للاستعمال في الاختبارات بلا شبكة.
   final ApiClient? _apiClient;
+
+  static const _storageKey = 'tint_cart_v1';
+
+  /**
+   * ————— بقاء السلّة بعد إغلاق التطبيق —————
+   *
+   * ‼️ كانت السلّة في الذاكرة وحدها: من يجمع خمسة منتجات ثمّ يُغلق التطبيق
+   * ليردّ على مكالمة يعود فيجدها فارغة — فيُعيد الجمع أو يترك الشراء. ولا
+   * خطأ يظهر، بل «متجرٌ نسي ما اخترتُه».
+   *
+   * ‼️ **والحفظ في `onChange` لا في كلّ دالّة**: السلّة تتغيّر من ستّة مواضع
+   * (إضافة · زيادة · إنقاص · حذف · إفراغ · إسقاط غير المتوفّر)، وحفظٌ يُضاف
+   * في خمسةٍ منها وينسى السادس يُنتج سلّةً تنسى حذفاً وتتذكّر إضافة.
+   */
+  /// ‼️ **الكتابات تُسلسَل.** تعديلان متتاليان (إضافة ثمّ إضافة) يُطلقان
+  /// كتابتين متزامنتين، وقد تصل الأقدم بعد الأحدث فتُحفظ سلّةٌ ناقصة — سباقٌ
+  /// لا يظهر إلّا حين يضغط المشتري بسرعة، وهو أشيع ما يفعل.
+  Future<void> _writes = Future<void>.value();
+
+  @override
+  void onChange(Change<CartState> change) {
+    super.onChange(change);
+    final next = change.nextState;
+    _writes = _writes.then((_) => _persist(next));
+  }
+
+  Future<void> _persist(CartState next) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (next.items.isEmpty) {
+        await prefs.remove(_storageKey);
+        return;
+      }
+      await prefs.setString(
+        _storageKey,
+        jsonEncode([
+          for (final row in next.items)
+            {
+              'cartId': row.cartId,
+              'quantity': row.quantity,
+              'variant': row.variant,
+              'product': row.product.toJson(),
+            },
+        ]),
+      );
+    } catch (error) {
+      // ‼️ لا يُسقط السلّة: تعذّر الحفظ يعني سلّةً لا تصمد بعد الإغلاق، لا
+      //    سلّةً معطّلة. والمشتري يُكمل شراءه الآن.
+      debugPrint('[cart] تعذّر حفظ السلّة: $error');
+    }
+  }
+
+  /**
+   * تُستعاد عند الإقلاع.
+   *
+   * ‼️ **الأسعار والكميّات المحفوظة قديمة عمداً ولا تُصدَّق**: مراجعة التوفّر
+   * (`refreshAvailability`) تُشغَّل عند فتح السلّة وقبل الدفع، فتُصحّح ما تغيّر.
+   * وحذفُ كلّ ما مضى عليه وقتٌ كان يُفرغ السلّة لأجل سعرٍ تغيّر بريال.
+   */
+  Future<void> restore() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_storageKey);
+      if (raw == null || raw.isEmpty) return;
+      final rows = jsonDecode(raw);
+      if (rows is! List) return;
+      final items = <CartItemModel>[];
+      for (final row in rows) {
+        if (row is! Map) continue;
+        final product = row['product'];
+        if (product is! Map) continue;
+        items.add(CartItemModel(
+          cartId: (row['cartId'] ?? '').toString(),
+          quantity: int.tryParse('${row['quantity']}') ?? 1,
+          variant: (row['variant'] ?? 'افتراضي').toString(),
+          product: ProductModel.fromJson(Map<String, dynamic>.from(product)),
+        ));
+      }
+      if (items.isEmpty || isClosed) return;
+      emit(state.copyWith(items: items));
+    } catch (error) {
+      // بيانات محفوظة تالفة (تغيّر شكل المنتج بين إصدارين) لا تمنع الإقلاع.
+      debugPrint('[cart] تعذّرت استعادة السلّة: $error');
+    }
+  }
 
   void increment(String cartId) {
     final cap = state.availableFor(cartId);
