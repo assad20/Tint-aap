@@ -135,12 +135,23 @@ workflows:
           echo "قاعدة الـAPI: $TINT_API_BASE_URL"
       - name: Build IPA
         script: |
-          flutter build ipa --release \
+          # !! **البناء بلا توقيع، ثمّ الأرشفة والتصدير بأداة Codemagic.**
+          #
+          # `flutter build ipa` يفحص سلسلة المفاتيح بنفسه بحثاً عن هويّة
+          # **تطوير**، ويرفض قبل أن يبدأ إن لم يجدها:
+          #   «No development certificates available to code sign app»
+          #
+          # ونحن أنشأنا شهادة **توزيع** — وهي الصحيحة لـTestFlight ولا تصلح
+          # لفحص Flutter. فيُبنى بـ`--no-codesign` (فلا فحص أصلاً)، ثمّ
+          # `xcode-project build-ipa` تُؤرشف وتُصدّر بالبروفايل الذي جُلب.
+          flutter build ios --release --no-codesign \
             --dart-define=TINT_API_BASE_URL=$TINT_API_BASE_URL \
             --dart-define=TINT_TABBY_PUBLIC_KEY=$TINT_TABBY_PUBLIC_KEY \
             --dart-define=TINT_TABBY_MERCHANT_CODE=$TINT_TABBY_MERCHANT_CODE \
-            --dart-define=TINT_TABBY_LANG=ar \
-            --export-options-plist=/Users/builder/export_options.plist
+            --dart-define=TINT_TABBY_LANG=ar
+          xcode-project build-ipa \
+            --project "ios/Runner.xcodeproj" \
+            --scheme "Runner"
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
