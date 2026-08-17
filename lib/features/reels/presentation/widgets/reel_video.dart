@@ -133,11 +133,25 @@ class _ReelVideoState extends State<ReelVideo> {
           الوسيط) لا يُحلّ على الجهاز — فيسقط الغلاف ويبقى **سوادٌ تامّ** حتّى
           يجهز الفيديو. رُصد بالتشغيل: شاشةٌ سوداء ومصغّرةٌ فارغة.
         */
-        Image.network(
-          TintNetworkImage.resolve(widget.poster),
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => const ColoredBox(color: Colors.black),
-        ),
+        /*
+          ‼️ **تُرفَع بعد جهوز المقطع، ولا تبقى تحته.**
+
+          وظيفتها تغطية اللحظة قبل أوّل إطار — وبعدها يغطّيها الفيديو كاملاً
+          فلا تُرى. لكنّها كانت تبقى **مرسومةً** تحته طوال التشغيل، وعلى أجهزةٍ
+          يُركَّب فيها الفيديو في سطحٍ منفصل (SurfaceView) تمتزج الطبقتان:
+          يظهر المقطع باهتاً في المساحة التي يشغلها السطح، ومشبعاً خارجها —
+          مستطيلٌ فاتحٌ بحوافّ حادّة في منتصف الشاشة.
+
+          ‼️ **بلاغُ مالكٍ على جهازٍ حقيقيّ، ولم يتكرّر على المحاكي** — ولذلك
+          لا يُزال بالتجربة بل بإزالة سببه المحتمل: طبقةٌ لا وظيفة لها بعد
+          الجهوز أصلاً. وإبقاؤها كان يكلّف رسماً لا يراه أحد في أحسن الأحوال.
+        */
+        if (!_ready)
+          Image.network(
+            TintNetworkImage.resolve(widget.poster),
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => const ColoredBox(color: Colors.black),
+          ),
         if (_ready && controller != null)
           FittedBox(
             fit: BoxFit.cover,
