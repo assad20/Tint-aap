@@ -20,6 +20,18 @@ class AppPreferences {
     await _prefs.setString('active_home_nav', value);
   }
 
+  /// آخر مقطعٍ ترويجيّ رآه صاحب هذا الجهاز — تُقارَن به علامة «جديد».
+  ///
+  /// ‼️ **مُعرّفٌ لا تاريخ.** الساعة على الجهاز يضبطها المستخدم، وتقديمُها
+  /// يوماً كان يُخفي كلّ جديدٍ يصل بعده.
+  String get seenReelId => _prefs.getString('seen_reel_id') ?? '';
+
+  Future<void> setSeenReelId(String promoId) async {
+    final id = promoId.trim();
+    if (id.isEmpty) return;
+    await _prefs.setString('seen_reel_id', id);
+  }
+
   /// المقاطع الترويجيّة التي أعجبت صاحب هذا الجهاز.
   ///
   /// ‼️ **محلّيٌّ لا خادميّ عمداً.** الإعجاب بمقطعٍ ترويجيّ ليس تفضيلاً يُستعاد

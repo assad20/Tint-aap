@@ -41,6 +41,7 @@ import 'features/checkout/data/datasources/checkout_remote_data_source.dart';
 import 'features/checkout/data/repositories/checkout_repository_impl.dart';
 import 'features/checkout/domain/repositories/checkout_repository.dart';
 import 'features/checkout/presentation/cubit/checkout_cubit.dart';
+import 'features/reels/data/reel_badge.dart';
 import 'features/reels/data/reel_stats_reporter.dart';
 import 'features/shell/presentation/cubit/shell_cubit.dart';
 
@@ -83,6 +84,11 @@ Future<void> main() async {
   /// التجميع هو غايته، وراصدٌ لكلّ شاشةٍ يُعيدنا إلى نداءٍ لكلّ مشاهدة.
   final reelStats = ReelStatsReporter(apiClient);
 
+  /// علامة «جديد» على شعار الشريط — **بلا `await`**: نبضةٌ تتأخّر ثانيةً لا
+  /// تضرّ، وانتظارُ ردّها يؤخّر أوّل إطارٍ يراه المستخدم.
+  final reelBadge = ReelBadge(api: apiClient, preferences: appPreferences);
+  unawaited(reelBadge.refresh());
+
   final catalogRepository = CatalogRepositoryImpl(
     remoteDataSource: CatalogRemoteDataSource(apiClient),
   );
@@ -109,6 +115,7 @@ Future<void> main() async {
         RepositoryProvider.value(value: tokenStorage),
         RepositoryProvider.value(value: apiClient),
         RepositoryProvider.value(value: reelStats),
+        RepositoryProvider.value(value: reelBadge),
         // ‼️ يُحقَن كخدمةٍ واحدة: أيّ شاشةٍ تُنشئ نسخةً ثانية تتخطّى
         //    بوّابة الموافقة وقيد القناة معاً.
         RepositoryProvider.value(value: tracking),

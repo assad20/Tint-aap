@@ -25,6 +25,7 @@ import '../../../account/presentation/cubit/orders_cubit.dart';
 import '../../../account/presentation/cubit/profile_cubit.dart';
 import '../../../account/presentation/cubit/rewards_cubit.dart';
 import '../../../account/presentation/pages/profile_page.dart';
+import '../../../reels/data/reel_badge.dart';
 import '../cubit/shell_cubit.dart';
 
 class MainShellPage extends StatefulWidget {
@@ -308,9 +309,15 @@ class _BottomNav extends StatelessWidget {
                * «حسابي» إلى الترويسة، وحلّت «الرئيسيّة» محلّه في الشريط، وتفرّغ
                * الشعار — فلا فعلَ مزدوجاً يُخمَّن، ولا شاشةً تُفقد.
                */
-              onTap: () => context.push('/reels'),
+              onTap: () {
+                // ‼️ تُطفأ النبضة قبل الانتقال لا بعده: العودة تجد الشريط
+                //    ساكناً، ولو أُجّلت لظهرت نبضةٌ لمقطعٍ شاهده للتوّ.
+                unawaited(context.read<ReelBadge>().markSeen());
+                context.push('/reels');
+              },
               borderRadius: BorderRadius.circular(999),
-              child: Container(
+              child: _ReelPulse(
+                child: Container(
                 width: 72,
                 height: 72,
                 decoration: BoxDecoration(
@@ -330,10 +337,111 @@ class _BottomNav extends StatelessWidget {
                 alignment: Alignment.center,
                 child: const TintBrandLogo(isLight: true, compact: true),
               ),
+              ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// نبضةٌ خلف شعار الشريط متى وصل مقطعٌ لم يُشاهَد.
+///
+/// ‼️ **حلقةٌ تخرج من تحت الزرّ لا وميضٌ عليه.** تلوينُ الزرّ نفسه كان يجعله
+/// يبدو «نشطاً» — وهو ليس تبويباً — فيظنّ المشتري أنّه في شاشة المقاطع أصلاً.
+///
+/// ‼️ **وتحترم إيقاف الحركة في النظام.** من أطفأ الحركات في إعدادات هاتفه
+/// أطفأها لسببٍ (دوار، صداع، تشتّت)، وتجاوزُه لأجل علامةٍ تسويقيّة لا يجوز —
+/// فتبقى له نقطةٌ ساكنة تقول الشيء نفسه.
+class _ReelPulse extends StatefulWidget {
+  const _ReelPulse({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_ReelPulse> createState() => _ReelPulseState();
+}
+
+class _ReelPulseState extends State<_ReelPulse> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2300),
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduced = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+
+    return ValueListenableBuilder<bool>(
+      valueListenable: context.read<ReelBadge>().hasNew,
+      builder: (context, hasNew, child) {
+        final animate = hasNew && !reduced;
+
+        if (animate && !_controller.isAnimating) {
+          _controller.repeat();
+        } else if (!animate && _controller.isAnimating) {
+          _controller.stop();
+          _controller.value = 0;
+        }
+
+        return _buildStack(hasNew: hasNew, reduced: reduced, animate: animate);
+      },
+    );
+  }
+
+  Widget _buildStack({
+    required bool hasNew,
+    required bool reduced,
+    required bool animate,
+  }) {
+    return Stack(
+      alignment: Alignment.center,
+      clipBehavior: Clip.none,
+      children: [
+        if (hasNew && reduced)
+          // البديل الساكن: نقطةٌ تقول «جديد» بلا حركة.
+          Positioned(
+            top: 2,
+            right: 6,
+            child: Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: TintColors.tintYellow,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+            ),
+          ),
+        if (animate)
+          AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) {
+              final t = Curves.easeOut.transform(_controller.value);
+              return IgnorePointer(
+                child: Container(
+                  width: 72 + (72 * 0.55 * t),
+                  height: 72 + (72 * 0.55 * t),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: TintColors.tintYellow.withValues(alpha: 0.85 * (1 - t)),
+                      width: 3,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        widget.child,
+      ],
     );
   }
 }
