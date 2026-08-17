@@ -288,17 +288,19 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
 
   /// يبدأ عدّ الثانيتين متى صار المقطع هو المعروض، ويُلغيه متى غادره الإصبع.
   ///
-  /// ‼️ **والترويجيّ وحده يُقاس.** مقاطع المنتجات تعني وثيقةً لكلّ (يوم · منتج)
-  /// في قاعدةٍ بسقفٍ ضيّق — وهو التضخّم الذي أسقطها مرّتين.
+  /// ‼️ **والنوعان يُقاسان — بعد قياس الكتالوج.** كان الترويجيّ وحده يُقاس خوفاً
+  /// من وثيقةٍ لكلّ (يوم · منتج) في قاعدةٍ بسقفٍ ضيّق. والعدّ على الإنتاج أظهر
+  /// **منتجاً واحداً له مقطع**؛ وحتّى مئتان تعني 36 ألف وثيقة في نافذة الاحتفاظ
+  /// كلّها — فالخوف كان من رقمٍ لا وجود له.
   void _syncViewTimer() {
     _viewTimer?.cancel();
     _viewTimer = null;
-    if (!widget.isActive || _viewCounted || !widget.reel.isPromo) return;
+    if (!widget.isActive || _viewCounted || widget.reel.statsKey.isEmpty) return;
 
     _viewTimer = Timer(_viewThreshold, () {
       if (!mounted || !widget.isActive) return;
       _viewCounted = true;
-      _stats.view(widget.reel.promoId);
+      _stats.view(widget.reel.statsKey);
     });
   }
 
@@ -326,6 +328,9 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
     final favorites = context.read<FavoritesCubit>();
     final wasFavorite = favorites.state.contains(_product.id);
     final ok = await _applyFavorite(favorites);
+    // ‼️ يُعَدّ عند الإضافة لا عند الإلغاء: العدّاد لا يُنقَص، والسؤال «كم مرّةً
+    //    أُعجب الناس» لا «كم قلبٍ مضيءٌ الآن».
+    if (ok && !wasFavorite) _stats.like(widget.reel.statsKey);
     if (mounted && ok && !wasFavorite) _burst.forward(from: 0);
   }
 
@@ -400,7 +405,12 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
     });
   }
 
+  /// ‼️ **«أضف إلى السلّة» هي نقرة مقطع المنتج** — نظيرةُ زرّ الترويج تماماً:
+  /// كلاهما الفعل الذي يقصده المشاهد بعد أن أقنعه المقطع. وعدُّ فتح صفحة
+  /// المنتج نقرةً كان يخلط التصفّح بالنيّة.
   void _addToCart() {
+    _stats.click(widget.reel.statsKey);
+    unawaited(context.read<AppPreferences>().rememberReelClick(widget.reel.statsKey));
     final added = context.read<CartCubit>().addProduct(_product);
     if (!mounted) return;
     _showToast(added ? 'أُضيف إلى السلّة' : 'هذا المنتج في سلّتك بالفعل');
@@ -415,9 +425,9 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
     if (target.isEmpty) return;
 
     /// ‼️ يُسجَّل قبل الانتقال لا بعده: بعده تُبنى شاشةٌ جديدة وقد تُفكَّك هذه.
-    _stats.click(widget.reel.promoId);
+    _stats.click(widget.reel.statsKey);
     /// تُحفظ النقرة ليُنسَب إليها طلبٌ لاحق — انظر `ReelStatsReporter.order`.
-    unawaited(context.read<AppPreferences>().rememberReelClick(widget.reel.promoId));
+    unawaited(context.read<AppPreferences>().rememberReelClick(widget.reel.statsKey));
     if (target.startsWith('/category/') ||
         target.startsWith('/product/') ||
         target.startsWith('/discover/')) {
@@ -436,7 +446,7 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
     if (_promoLiked) return;
 
     setState(() => _promoLiked = true);
-    _stats.like(widget.reel.promoId);
+    _stats.like(widget.reel.statsKey);
     await context.read<AppPreferences>().rememberLikedReel(widget.reel.promoId);
   }
 
@@ -466,7 +476,7 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
               /// ‼️ يُسجَّل عند فتح الورقة لا عند إتمام المشاركة: النظام لا
               /// يُخبرنا أأتمّها المستخدم أم ألغاها، وانتظارُ ما لا يصل يعني
               /// عدّاداً صفريّاً دائماً.
-              _stats.share(widget.reel.promoId);
+              _stats.share(widget.reel.statsKey);
               unawaited(_share());
             },
           ),
@@ -737,7 +747,10 @@ class _ReelPageState extends State<_ReelPage> with SingleTickerProviderStateMixi
                       icon: Icons.reply_rounded,
                       color: Colors.white,
                       label: 'مشاركة',
-                      onTap: () => unawaited(_share()),
+                      onTap: () {
+                        _stats.share(widget.reel.statsKey);
+                        unawaited(_share());
+                      },
                     ),
                   ],
                 );
