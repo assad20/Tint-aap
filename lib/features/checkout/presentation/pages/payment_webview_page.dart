@@ -60,9 +60,22 @@ class PaymentWebviewPage extends StatefulWidget {
   /// أوّل ما يُقرأ احتيالاً. وبالورقة يبقى طرفُ شاشة الطلب ظاهراً فوقها، فيقرأ
   /// أنّه لم يُنقَل إلى مكانٍ آخر بل فُتحت نافذةٌ فوق طلبه.
   ///
-  /// ‼️ **والغلق بالسحب يعود `closed` لا `cancelled`** — والفرق ليس تسمية:
-  /// المُستدعي يسأل الخادم عن `closed` ولا يسأله عن `cancelled`. وقد يسحب
+  /// ‼️ **والإغلاق اليدويّ يعود `closed` لا `cancelled`** — والفرق ليس تسمية:
+  /// المُستدعي يسأل الخادم عن `closed` ولا يسأله عن `cancelled`. وقد يُغلق
   /// المشتري الورقة بعد أن أتمّ الدفع، فعدُّ ذلك إلغاءً يُضيّع طلباً مدفوعاً.
+  ///
+  /// ‼️ **ولا تُغلَق بسحبٍ ولا بلمس ما فوقها** — وهذا **نقضٌ مقصود** لما كان
+  /// مكتوباً هنا: كان السحب طريقَ خروجٍ معتبَراً.
+  ///
+  /// والسبب بلاغٌ من جهازٍ حقيقيّ على صفحة تابي. الورقة ٩٢٪ من الشاشة، فما
+  /// فوقها حاجزٌ يُغلقها بلمسة. وعند تعديل الجوّال تجتمع ثلاثة في لحظة: لوحة
+  /// المفاتيح تفتح ⇒ الورقة تنكمش ⇒ **يتّسع الحاجز تحت الإبهام**، والمشتري
+  /// يسحب ليصل إلى الحقل ⇒ **فيُقرأ سحبه إغلاقاً**. فتنغلق الورقة، ويُسأل
+  /// الخادم، وتابي لم تُصرّح بعد ⇒ «لم يكتمل الدفع» **وطلبٌ لا يُنشأ**.
+  ///
+  /// والحارس السابق (`closed` لا `cancelled`) يحمي من **سوء تفسير** الإغلاق،
+  /// ولا يمنع وقوعه عرضاً. والأولى ألّا يقع: يبقى الخروج بـ✕ في الترويسة أو
+  /// بزرّ الرجوع — كلاهما فعلٌ مقصود، وكلاهما ما زال يعيد `closed`.
   static Future<PaymentWebviewOutcome> present(
     BuildContext context, {
     required String title,
@@ -79,6 +92,9 @@ class PaymentWebviewPage extends StatefulWidget {
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
+      // ‼️ دفعةٌ جارية لا تُقطَع بلمسةٍ عارضة — انظر شرح `present` أعلاه.
+      isDismissible: false,
+      enableDrag: false,
       builder: (_) => PaymentWebviewPage(
         title: title,
         checkoutUrl: checkoutUrl,
@@ -214,37 +230,56 @@ class _PaymentWebviewPageState extends State<PaymentWebviewPage> {
         padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
         child: SizedBox(
           height: height,
+          /// ‼️ **بلا `clipBehavior` — وهذا سببُ التجمّد لا زينةٍ حُذفت.**
+          ///
+          /// `WebView` على أندرويد **عرضُ منصّةٍ** لا ودجةُ رسم. وقصُّ عرض
+          /// منصّةٍ يُجبر فلاتر على مسارٍ بطيء: طبقةٌ تُحفَظ ونسيجٌ يُنسَخ **في
+          /// كلّ إطار** ما دامت الصفحة تتحرّك. وصفحة الدفع مليئةٌ بجافاسكربت،
+          /// فيمتلئ الخيط الرئيسيّ ويقول أندرويد `isn't responding`.
+          ///
+          /// والقصّ كان بلا أثرٍ بصريّ أصلاً: الزوايا المستديرة في **أعلى**
+          /// الورقة حيث الترويسة البيضاء المُعتِمة، والـWebView تحتها.
           child: Material(
             color: Colors.white,
-            clipBehavior: Clip.antiAlias,
             shape: const RoundedRectangleBorder(
               borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
             ),
             child: Column(
               children: [
-                // مقبضٌ يقول «هذه ورقةٌ تُسحَب» قبل أن يجرّبها المشتري.
+                // ‼️ **شريطٌ يقول «ورقةٌ لا شاشة» — ولا يقول «تُسحَب».**
+                //
+                // كان مقبضاً بعرض 44، وهي لغة المقابض المعروفة. ومذ صار السحب
+                // معطَّلاً (انظر `present`) يصير المقبض وعداً لا يُوفى: يسحب
+                // المشتري فلا يحدث شيء، فيظنّ الشاشة معلَّقة وسط دفعة. فبقي
+                // الشريط أوسعَ وأخفت — إشارةُ حدٍّ لا دعوةُ سحب.
                 Container(
-                  width: 44,
-                  height: 4,
+                  width: 72,
+                  height: 3,
                   margin: const EdgeInsets.only(top: 10, bottom: 6),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.18),
+                    color: Colors.black.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
                 _header(),
                 const Divider(height: 1),
+                /// ‼️ **بديلٌ لا طبقةٌ فوقه.**
+                ///
+                /// كان مؤشّر التحميل يُرسَم **فوق** الـWebView في `Stack` —
+                /// وطبقةٌ فوق عرض منصّةٍ تُكلّف ما يُكلّفه القصّ: تركيبٌ في كلّ
+                /// إطار بينما الصفحة تُحمّل، وهي أثقل لحظةٍ في العمر كلّه.
+                ///
+                /// و`Offstage` لا `if`: بناء الـWebView من جديد بعد التحميل
+                /// يُعيد تحميل الصفحة من أوّلها.
                 Expanded(
                   child: Stack(
                     children: [
-                      WebViewWidget(controller: _controller),
+                      Offstage(
+                        offstage: _loading,
+                        child: WebViewWidget(controller: _controller),
+                      ),
                       if (_loading)
-                        const Positioned.fill(
-                          child: ColoredBox(
-                            color: Colors.white,
-                            child: Center(child: CircularProgressIndicator()),
-                          ),
-                        ),
+                        const Center(child: CircularProgressIndicator()),
                     ],
                   ),
                 ),
