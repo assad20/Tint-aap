@@ -69,13 +69,14 @@ bool _handleSduiAction(
   }
 
   final cubit = context.read<HomeStoreCubit>();
-  for (final category in cubit.state.topNav) {
-    if (category.id == action.value) {
-      if (execute) cubit.setActiveTopNav(category.name);
-      return true;
-    }
-  }
-  return false;
+  // ‼️ **الشجرة كاملةً لا المستوى الأعلى وحده.**
+  //
+  // كان البحث في `topNav` فقط، وهي أقسام الشريط. وأكثرُ ما في شبكة الرئيسيّة
+  // أبناءٌ («قهوة» تحت «سوبر ماركت») ⇒ يعود `false` ⇒ **لا يُركَّب `onTap`
+  // أصلاً** ⇒ يُضغط المربّع ولا يحدث شيء، بلا خطأٍ ولا سطر سجلّ.
+  if (!cubit.canOpenCategory(action.value)) return false;
+  if (execute) cubit.openCategoryById(action.value);
+  return true;
 }
 
 /// ‼️ **يُبنى داخل `build` لا خارجه** — بخلاف ما كان: المُنفِّذ يحتاج

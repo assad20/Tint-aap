@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -21,6 +22,8 @@ class HomeStoreState {
     this.heroSlides = const [],
     this.categoryProducts = const [],
     this.categoryBanners = const [],
+    this.activeCategorySlug = '',
+    this.openableExtras = const {},
     this.isCategoryLoading = false,
     this.homeLayout,
     this.appNavigation,
@@ -39,6 +42,22 @@ class HomeStoreState {
   // بنرات القسم المختار (موضع `category:<slug>`) — تُعرض أعلى الشاشة كما في
   // تبويب «الأقسام»، فاختيار قسم من القائمة العلويّة يُظهر سلايدره أيضاً.
   final List<String> categoryBanners;
+
+  /// مُعرّف القسم المعروض فعلاً — وقد **لا يساوي** [activeTopNav].
+  ///
+  /// ‼️ فتحُ قسمٍ ابن («قهوة») يُبرز أباه في الشريط («سوبر ماركت») ويعرض
+  /// منتجات الابن. فالاسم المُبرَز مرساةٌ للعميل، وهذا المُعرّف هو المعروض —
+  /// وحارسُ الجلب يُقارن به لا بالاسم، وإلّا لأسقط نتيجةً صحيحة لأنّ الاسم
+  /// لم يتغيّر بين ابنَين لأبٍ واحد.
+  final String activeCategorySlug;
+
+  /// أقسامٌ **خارج شجرة التنقّل** ثبت أنّها تُفتَح — مُعرّفها ← اسمها المعروض.
+  ///
+  /// ‼️ لوحةُ الإدارة تسمح بإخفاء قسمٍ **من القائمة وحدها** وبيعُه قائم. وقسمٌ
+  /// كهذا لا يصل شجرة التنقّل، فوضعُه في شبكة الرئيسيّة كان يُنتج مربّعاً
+  /// صامتاً — نفس العطل الذي أُصلح، من بابٍ آخر.
+  final Map<String, String> openableExtras;
+
   final bool isCategoryLoading;
 
   /// تخطيط الرئيسيّة من اللوحة (SDUI). `null` ⇒ تُعرَض **الرئيسيّة الرسميّة**
@@ -58,6 +77,8 @@ class HomeStoreState {
     List<HeroSlideModel>? heroSlides,
     List<ProductModel>? categoryProducts,
     List<String>? categoryBanners,
+    String? activeCategorySlug,
+    Map<String, String>? openableExtras,
     bool? isCategoryLoading,
     CmsPageModel? homeLayout,
     AppNavigationModel? appNavigation,
@@ -75,6 +96,8 @@ class HomeStoreState {
       heroSlides: heroSlides ?? this.heroSlides,
       categoryProducts: categoryProducts ?? this.categoryProducts,
       categoryBanners: categoryBanners ?? this.categoryBanners,
+      activeCategorySlug: activeCategorySlug ?? this.activeCategorySlug,
+      openableExtras: openableExtras ?? this.openableExtras,
       isCategoryLoading: isCategoryLoading ?? this.isCategoryLoading,
       homeLayout: clearHomeLayout ? null : (homeLayout ?? this.homeLayout),
       appNavigation: appNavigation ?? this.appNavigation,
@@ -214,6 +237,8 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
       if (state.activeTopNav != kHomeNav) {
         await _loadCategory(state.activeTopNav);
       }
+      // ‼️ **بعد وصول التخطيط والتنقّل معاً** — يحتاج الاثنين ليعرف ما ينقص.
+      unawaited(_probeExtraCategories());
     } catch (error) {
       // خطأ غير متوقّع: أبقِ اللقطة المعروضة إن وُجدت.
       emit(state.copyWith(
@@ -337,11 +362,152 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
       emit(state.copyWith(
         categoryProducts: const [],
         categoryBanners: const [],
+        activeCategorySlug: '',
         isCategoryLoading: false,
       ));
     } else {
       await _loadCategory(value);
     }
+  }
+
+  /// هل يستطيع التطبيق فتح هذا القسم؟ — **سؤالٌ بلا أثر**.
+  ///
+  /// ‼️ يُسأل قبل رسم الزرّ (انظر `tapFor`)، فلا يجوز أن يُبدّل حالةً ولا أن
+  /// يجلب شيئاً.
+  bool canOpenCategory(String id) {
+    final target = id.trim();
+    if (target.isEmpty) return false;
+    if (state.topNav.any((c) => c.id == target)) return true;
+    if (_pathToCategory(target).isNotEmpty) return true;
+    // قسمٌ مخفيٌّ من القائمة وثبت بالفحص أنّه يُفتَح.
+    return state.openableExtras.containsKey(target);
+  }
+
+  /// يفتح قسماً بمعرّفه **أيّاً كان موضعه في الشجرة** — أباً كان أو ابناً.
+  ///
+  /// ‼️ **العلّة التي عالجها**: كان البحث في `topNav` وحدها — وهي المستوى
+  /// الأعلى فقط. فتسعةٌ من اثني عشر قسماً في شبكة الرئيسيّة («قهوة» ·
+  /// «منتجات ورقيّة» · «الصحة العامة» …) أبناءٌ لا تظهر هناك، فيعود المُنفِّذ
+  /// `false` ⇒ **لا يُركَّب `onTap` أصلاً** ⇒ يُضغط المربّع ولا يحدث شيء، بلا
+  /// خطأٍ ولا سطر سجلّ. (بلاغ المالك بالتشغيل — والدليل أنّ «ديرما رولر»
+  /// كانت تعمل وحدها لأنّها في الشريط.)
+  ///
+  /// ‼️ **والشريط يُبرز الأب**: «قهوة» ليست فيه، فيُضاء «سوبر ماركت» وتُعرض
+  /// منتجات «قهوة». وإبرازُ لا شيء كان يترك العميل بلا مرساة.
+  Future<bool> openCategoryById(String id) async {
+    final target = id.trim();
+    if (target.isEmpty) return false;
+
+    // قسمٌ في الشريط يُفتَح بمساره القديم كما هو — لا نُغيّر ما يعمل.
+    for (final category in state.topNav) {
+      if (category.id == target) {
+        await setActiveTopNav(category.name);
+        return true;
+      }
+    }
+
+    final path = _pathToCategory(target);
+    if (path.isEmpty) {
+      // ‼️ **خارج الشجرة**: لا أبَ يُبرَز، فيُعرَض اسم القسم نفسه في الشريط.
+      //    ولن يُضيء تبويباً — وهذا أصدق من إضاءة تبويبٍ لا علاقة له بالمعروض.
+      final label = state.openableExtras[target];
+      if (label == null) return false;
+      await _appPreferences.setActiveHomeNav(label);
+      emit(state.copyWith(activeTopNav: label, activeCategorySlug: target));
+      await _fetchCategoryPage(target);
+      return true;
+    }
+
+    // الجذر يُبرَز باسمه في الشريط إن كان له نظير هناك، وإلّا بعنوانه كما هو.
+    final root = path.first;
+    final barName = state.topNav
+        .firstWhere(
+          (c) => c.id == root.id || c.id == root.actionValue,
+          orElse: () => CategoryModel(id: '', name: root.label, image: ''),
+        )
+        .name;
+
+    await _appPreferences.setActiveHomeNav(barName);
+    emit(state.copyWith(activeTopNav: barName, activeCategorySlug: target));
+    await _fetchCategoryPage(target);
+    return true;
+  }
+
+  /// يفحص أقسام تخطيط الرئيسيّة التي **ليست في شجرة التنقّل**، ويُثبت ما
+  /// يُفتَح منها فعلاً.
+  ///
+  /// ‼️ **يُسأل الكتالوج مرّةً لا عند كلّ نقرة**: المُنفِّذ يُسأل قبل رسم الزرّ
+  /// وهو نداءٌ متزامن، فلا مكان لفحصٍ شبكيّ فيه. والفحص هنا **مجّانيّ في
+  /// الحالة الشائعة**: متجرٌ كلّ أقسامه في القائمة لا يُنتج نداءً واحداً.
+  Future<void> _probeExtraCategories() async {
+    final layout = state.homeLayout;
+    if (layout == null) return;
+
+    final candidates = <String, String>{};
+    for (final section in layout.sections) {
+      for (final item in section.items) {
+        final action = item['action'];
+        String id = '';
+        if (action is Map && action['type']?.toString() == 'category') {
+          id = action['value']?.toString().trim() ?? '';
+        }
+        if (id.isEmpty) {
+          final href = item['href']?.toString() ?? '';
+          const prefix = '/category/';
+          if (href.startsWith(prefix)) id = href.substring(prefix.length).trim();
+        }
+        if (id.isEmpty) continue;
+        if (state.topNav.any((c) => c.id == id)) continue;
+        if (_pathToCategory(id).isNotEmpty) continue;
+        if (state.openableExtras.containsKey(id)) continue;
+
+        final label = (item['name'] ?? item['title'] ?? item['label'])
+                ?.toString()
+                .trim() ??
+            '';
+        candidates[id] = label.isEmpty ? id : label;
+      }
+    }
+    if (candidates.isEmpty) return;
+
+    // ‼️ سقفٌ صريح: تخطيطٌ مُفسَد لا يُطلق عشرات النداءات عند كلّ إقلاع.
+    final probes = candidates.entries.take(12);
+    final confirmed = <String, String>{};
+    for (final entry in probes) {
+      try {
+        final page = await _catalogRepository.fetchCategoryPage(entry.key);
+        if (page.products.isNotEmpty || page.banners.isNotEmpty) {
+          confirmed[entry.key] = entry.value;
+        }
+      } catch (_) {
+        // قسمٌ لا يردّ ⇒ يبقى صامتاً كما كان. ولا يُرمى: هذا فحصٌ خلفيّ.
+      }
+    }
+    if (confirmed.isEmpty || isClosed) return;
+    emit(state.copyWith(
+      openableExtras: {...state.openableExtras, ...confirmed},
+    ));
+  }
+
+  /// مسار القسم من جذر شجرة التنقّل إليه — فارغٌ إن لم يكن فيها.
+  List<AppNavItem> _pathToCategory(String id) {
+    final roots = state.appNavigation?.drawer ?? const <AppNavItem>[];
+    final trail = <AppNavItem>[];
+
+    List<AppNavItem>? walk(List<AppNavItem> nodes) {
+      for (final node in nodes) {
+        trail.add(node);
+        final isTarget = node.id == id ||
+            (node.actionType == 'category' && node.actionValue == id);
+        if (isTarget) return List<AppNavItem>.of(trail);
+        final found = walk(node.children);
+        if (found != null) return found;
+        trail.removeLast();
+      }
+      return null;
+    }
+
+    return walk(roots) ?? const <AppNavItem>[];
   }
 
   Future<void> _loadCategory(String name) async {
@@ -355,17 +521,23 @@ class HomeStoreCubit extends Cubit<HomeStoreState> {
       emit(state.copyWith(
         categoryProducts: const [],
         categoryBanners: const [],
+        activeCategorySlug: '',
         isCategoryLoading: false,
       ));
       return;
     }
+    emit(state.copyWith(activeCategorySlug: slug));
+    await _fetchCategoryPage(slug);
+  }
+
+  Future<void> _fetchCategoryPage(String slug) async {
     emit(state.copyWith(isCategoryLoading: true));
     // fetchCategoryPage لا fetchCategoryProducts: الأخيرة ترمي بنرات القسم،
     // فكان اختيار قسم من القائمة العلويّة يعرض شبكةً بلا سلايدر بينما تبويب
     // «الأقسام» يعرضه — والبنرات نفسها مربوطة بالأقسام أصلاً من اللوحة.
     final page = await _catalogRepository.fetchCategoryPage(slug);
-    // نتجاهل النتيجة إن تغيّر التبويب أثناء الجلب.
-    if (state.activeTopNav != name) return;
+    // نتجاهل النتيجة إن تغيّر القسم المطلوب أثناء الجلب.
+    if (state.activeCategorySlug != slug) return;
     emit(state.copyWith(
       categoryProducts: page.products,
       categoryBanners: page.banners,
