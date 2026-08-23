@@ -146,7 +146,15 @@ class _MainShellPageState extends State<MainShellPage> {
           endDrawer: StoreDrawer(
             onOpenCategory: (item) {
               // ‼️ تبديل تبويبٍ لا مسار: الأقسام تُعرَض داخل القشرة.
-              context.read<HomeStoreCubit>().setActiveTopNav(item.label);
+              //
+              // ‼️ **بالمُعرّف لا بالعنوان**: كان `setActiveTopNav(item.label)`
+              // يبحث عن الاسم في الشريط العلويّ وحده، فيفتح الآباء ويصمت عن
+              // الأبناء — والقائمة شجرةٌ كلّها أبناء. وهي نفس علّة شبكة
+              // الرئيسيّة، فعُولجت في موضعٍ واحد.
+              final id = item.actionValue.trim().isNotEmpty
+                  ? item.actionValue.trim()
+                  : item.id;
+              context.read<HomeStoreCubit>().openCategoryById(id);
               context.read<ShellCubit>().selectTab(0);
             },
           ),
@@ -167,17 +175,45 @@ class _MainShellPageState extends State<MainShellPage> {
                   ),
                 ),
               ),
+              /// ‼️ **دائريٌّ مُصغَّر لا زرٌّ ممتدّ.**
+              ///
+              /// كان `FloatingActionButton.extended` بعرض ~١٦٠ بكسل يطفو فوق
+              /// المحتوى — يحجب صفَّ منتجاتٍ كاملاً في شبكةٍ من أربعة أعمدة.
+              /// والدائرة تحجب ربع ما كان يحجبه، وتبقى في متناول الإبهام.
+              ///
+              /// ‼️ **والاسم بقي داخلها**: أيقونةٌ وحدها تُقرأ زرَّ إضافةٍ أو
+              /// مشاركة، فلا يعرف من لم يجرّبها ماذا تفعل. و«اسألي» فعلٌ يدعو،
+              /// ويسع الدائرة — بخلاف «مستشار تِنت».
               Positioned(
                 left: 20,
-                bottom: 96,
-                child: FloatingActionButton.extended(
-                  onPressed: () => context.push('/assistant'),
-                  backgroundColor: TintColors.sand,
-                  foregroundColor: Colors.white,
-                  icon: const Icon(Icons.auto_awesome_rounded),
-                  label: const Text(
-                    'مستشار تنت',
-                    style: TextStyle(fontWeight: FontWeight.w800),
+                bottom: 100,
+                child: Tooltip(
+                  message: 'مستشار تِنت الذكيّ',
+                  child: SizedBox(
+                    width: 56,
+                    height: 56,
+                    child: FloatingActionButton(
+                      onPressed: () => context.push('/assistant'),
+                      backgroundColor: TintColors.sand,
+                      foregroundColor: Colors.white,
+                      elevation: 3,
+                      shape: const CircleBorder(),
+                      child: const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.auto_awesome_rounded, size: 20),
+                          SizedBox(height: 1),
+                          Text(
+                            'اسألي',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w800,
+                              height: 1.1,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
