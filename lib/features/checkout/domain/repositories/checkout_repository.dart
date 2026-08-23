@@ -1,3 +1,4 @@
+import '../../../../core/models/apple_pay_config_model.dart';
 import '../../../../core/models/account_models.dart';
 import '../../../../core/models/cart_item_model.dart';
 import '../../../../core/models/payment_method_model.dart';
@@ -33,6 +34,21 @@ abstract class CheckoutRepository {
 
   /// تمارا: التأكيد — يُنادى عند العودة وعند الإغلاق اليدويّ معاً.
   Future<Map<String, dynamic>> confirmTamaraPayment(String orderId);
+
+  /// آبل باي: إعداد الشريحة من الخادم — و`available` وحده يقرّر ظهور الزرّ.
+  Future<ApplePayConfigModel> fetchApplePayConfig();
+
+  /// آبل باي: تنفيذ الدفع بتوكن الشريحة → ردّ الخادم كما هو (`orderId` دليلُه).
+  Future<Map<String, dynamic>> payWithApplePay({
+    required List<CartItemModel> items,
+    required AddressModel address,
+    required String shippingMethod,
+    required double shippingCost,
+    required String orderReference,
+    required Map<String, dynamic> applePayToken,
+    required String sheetTotal,
+    String? buyerEmail,
+  });
 
   /// PayTabs: إنشاء صفحة الدفع → {cartId, tranRef, redirectUrl}.
   Future<Map<String, dynamic>> createPayTabsSession({

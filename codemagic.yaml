@@ -13,8 +13,27 @@ workflows:
       android_signing:
         - tint_keystore   # ارفع keystore في Codemagic > Code signing identities
     scripts:
-      - name: Generate platform folders if missing
-        script: flutter create . --org com.tintstore --platforms=android,ios
+      # ‼️ **لا `flutter create` بعد اليوم — والمشروع مُودَعٌ في المستودع.**
+      #
+      # كان يُولّد `ios/Runner.xcodeproj` في كلّ بناء لأنّه لم يكن مُتعقّباً،
+      # فيُمحى معه **كلّ ما يُكتب في المشروع**: الصلاحيّات (آبل باي)، وربط
+      # ملفّات التوقيع، وأيّ قدرةٍ تُضاف مستقبلاً. ولذلك وُجد `sed` أدناه
+      # لإصلاح معرّف الحزمة بعد كلّ توليد.
+      #
+      # وحارسٌ يتحقّق بدل توليدٍ يمحو: غيابُ المشروع خطأ يُوقف البناء ولا
+      # يُصلَح صامتاً بنسخةٍ افتراضيّة تُنتج تطبيقاً بلا صلاحيّات.
+      - name: Verify platform projects exist
+        script: |
+          set -e
+          test -f ios/Runner.xcodeproj/project.pbxproj || {
+            echo "✗ ios/Runner.xcodeproj غير موجود — لا يُولَّد هنا، يُودَع في المستودع."; exit 1; }
+          test -d android || { echo "✗ مجلّد android مفقود."; exit 1; }
+      # ‼️ **معرّف الحزمة مثبَّتٌ في المشروع المُودَع** — لا يُصلَح بـ`sed` هنا.
+      #
+      # كان يُولَّد في كلّ بناء من اسم المشروع (`tint_mobile`) فيخرج
+      # `com.tintstore.tintMobile` مخالفاً لأندرويد، فيُصحَّح بعد كلّ توليد.
+      # ومذ صار المشروع مُودَعاً صار `com.tintstore.app` مكتوباً فيه —
+      # **والمعرّف لا يتغيّر بعد النشر أبداً**، فتثبيته أصدق من إصلاحه.
       - name: Get packages
         script: flutter pub get
       - name: Generate icons & splash
@@ -65,23 +84,27 @@ workflows:
       #
       # والبديل أدناه صريح: يُنشئ الشهادة والبروفايل إن غابا (`--create`).
     scripts:
-      - name: Generate platform folders if missing
-        script: flutter create . --org com.tintstore --platforms=android,ios
-      # !! **توحيد معرّف الحزمة — ولا يكفي وجودها في مسار المعاينة.**
+      # ‼️ **لا `flutter create` بعد اليوم — والمشروع مُودَعٌ في المستودع.**
       #
-      # `ios/Runner.xcodeproj` غير موجود في المستودع، فـ`flutter create`
-      # يُولّده من اسم المشروع (`tint_mobile`) فيخرج `com.tintstore.tintMobile`.
-      # وهذا المسار يجلب بروفايلاً لـ`com.tintstore.app`، فلا يتطابقان:
-      #   «"Runner" requires a provisioning profile»
+      # كان يُولّد `ios/Runner.xcodeproj` في كلّ بناء لأنّه لم يكن مُتعقّباً،
+      # فيُمحى معه **كلّ ما يُكتب في المشروع**: الصلاحيّات (آبل باي)، وربط
+      # ملفّات التوقيع، وأيّ قدرةٍ تُضاف مستقبلاً. ولذلك وُجد `sed` أدناه
+      # لإصلاح معرّف الحزمة بعد كلّ توليد.
       #
-      # !! ونُسيت هنا لأنّها كُتبت في `ios-preview` وحده — والمعاينة لا توقّع
-      #    فلم يظهر أثر الاختلاف فيها إطلاقاً.
-      - name: Force bundle identifier to match Android
+      # وحارسٌ يتحقّق بدل توليدٍ يمحو: غيابُ المشروع خطأ يُوقف البناء ولا
+      # يُصلَح صامتاً بنسخةٍ افتراضيّة تُنتج تطبيقاً بلا صلاحيّات.
+      - name: Verify platform projects exist
         script: |
           set -e
-          sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER = com\.tintstore\.tintMobile/PRODUCT_BUNDLE_IDENTIFIER = com.tintstore.app/g' \
-            ios/Runner.xcodeproj/project.pbxproj
-          grep -o "PRODUCT_BUNDLE_IDENTIFIER = [^;]*" ios/Runner.xcodeproj/project.pbxproj | sort -u
+          test -f ios/Runner.xcodeproj/project.pbxproj || {
+            echo "✗ ios/Runner.xcodeproj غير موجود — لا يُولَّد هنا، يُودَع في المستودع."; exit 1; }
+          test -d android || { echo "✗ مجلّد android مفقود."; exit 1; }
+      # ‼️ **معرّف الحزمة مثبَّتٌ في المشروع المُودَع** — لا يُصلَح بـ`sed` هنا.
+      #
+      # كان يُولَّد في كلّ بناء من اسم المشروع (`tint_mobile`) فيخرج
+      # `com.tintstore.tintMobile` مخالفاً لأندرويد، فيُصحَّح بعد كلّ توليد.
+      # ومذ صار المشروع مُودَعاً صار `com.tintstore.app` مكتوباً فيه —
+      # **والمعرّف لا يتغيّر بعد النشر أبداً**، فتثبيته أصدق من إصلاحه.
       - name: Get packages
         script: flutter pub get
       - name: Generate icons & splash
@@ -216,23 +239,27 @@ workflows:
       groups:
         - tint
     scripts:
-      - name: Generate platform folders if missing
-        script: flutter create . --org com.tintstore --platforms=android,ios
-      # ‼️ **توحيد معرّف الحزمة — وهو أخطر سطرٍ في هذا الملفّ.**
+      # ‼️ **لا `flutter create` بعد اليوم — والمشروع مُودَعٌ في المستودع.**
       #
-      # `ios/Runner.xcodeproj` غير موجود في المستودع، فـ`flutter create` يُولّده
-      # من اسم المشروع (`tint_mobile`) فيخرج المعرّف `com.tintstore.tintMobile`
-      # — **مخالفاً لأندرويد** (`com.tintstore.app`). وأثره ليس لقطةً فاشلة:
-      #   · `ios-workflow` يوقّع `com.tintstore.app` فلا يجده ⇒ فشل توقيع.
-      #   · `GoogleService-Info.plist` يُربط بمعرّفٍ لا يطابق ⇒ إشعاراتٌ صامتة.
-      #   · **والمعرّف لا يتغيّر بعد النشر أبداً** — فتثبيته الآن قرارٌ دائم.
-      - name: Force bundle identifier to match Android
+      # كان يُولّد `ios/Runner.xcodeproj` في كلّ بناء لأنّه لم يكن مُتعقّباً،
+      # فيُمحى معه **كلّ ما يُكتب في المشروع**: الصلاحيّات (آبل باي)، وربط
+      # ملفّات التوقيع، وأيّ قدرةٍ تُضاف مستقبلاً. ولذلك وُجد `sed` أدناه
+      # لإصلاح معرّف الحزمة بعد كلّ توليد.
+      #
+      # وحارسٌ يتحقّق بدل توليدٍ يمحو: غيابُ المشروع خطأ يُوقف البناء ولا
+      # يُصلَح صامتاً بنسخةٍ افتراضيّة تُنتج تطبيقاً بلا صلاحيّات.
+      - name: Verify platform projects exist
         script: |
           set -e
-          sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER = com\.tintstore\.tintMobile/PRODUCT_BUNDLE_IDENTIFIER = com.tintstore.app/g' \
-            ios/Runner.xcodeproj/project.pbxproj
-          echo "المعرّفات بعد التوحيد:"
-          grep -o 'PRODUCT_BUNDLE_IDENTIFIER = [^;]*' ios/Runner.xcodeproj/project.pbxproj | sort -u
+          test -f ios/Runner.xcodeproj/project.pbxproj || {
+            echo "✗ ios/Runner.xcodeproj غير موجود — لا يُولَّد هنا، يُودَع في المستودع."; exit 1; }
+          test -d android || { echo "✗ مجلّد android مفقود."; exit 1; }
+      # ‼️ **معرّف الحزمة مثبَّتٌ في المشروع المُودَع** — لا يُصلَح بـ`sed` هنا.
+      #
+      # كان يُولَّد في كلّ بناء من اسم المشروع (`tint_mobile`) فيخرج
+      # `com.tintstore.tintMobile` مخالفاً لأندرويد، فيُصحَّح بعد كلّ توليد.
+      # ومذ صار المشروع مُودَعاً صار `com.tintstore.app` مكتوباً فيه —
+      # **والمعرّف لا يتغيّر بعد النشر أبداً**، فتثبيته أصدق من إصلاحه.
       - name: Get packages
         script: flutter pub get
       - name: Generate icons & splash

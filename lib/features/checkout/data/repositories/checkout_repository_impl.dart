@@ -1,3 +1,4 @@
+import '../../../../core/models/apple_pay_config_model.dart';
 import '../../../../core/models/account_models.dart';
 import '../../../../core/models/cart_item_model.dart';
 import '../../../../core/models/payment_method_model.dart';
@@ -75,6 +76,44 @@ class CheckoutRepositoryImpl implements CheckoutRepository {
   @override
   Future<Map<String, dynamic>> confirmTamaraPayment(String orderId) {
     return _remoteDataSource.confirmTamaraPayment(orderId);
+  }
+
+  /// ‼️ **لا يرمي**: نقطةٌ لا تردّ ⇒ `available: false` ⇒ يختفي زرّ آبل باي
+  /// وحده. وإسقاطُ شاشة الدفع كلّها لأجل وسيلةٍ واحدة يمنع الشراء ببقيّتها.
+  @override
+  Future<ApplePayConfigModel> fetchApplePayConfig() async {
+    try {
+      return ApplePayConfigModel.fromJson(
+        await _remoteDataSource.fetchApplePayConfig(),
+      );
+    } catch (_) {
+      return ApplePayConfigModel.empty;
+    }
+  }
+
+  /// ‼️ **ويرمي هنا بخلاف ما فوقه**: هذه لحظةُ دفعٍ بعد بصمة العميل، وابتلاعُ
+  /// خطئها يعني شريحةً تُغلق بلا طلبٍ وبلا سبب.
+  @override
+  Future<Map<String, dynamic>> payWithApplePay({
+    required List<CartItemModel> items,
+    required AddressModel address,
+    required String shippingMethod,
+    required double shippingCost,
+    required String orderReference,
+    required Map<String, dynamic> applePayToken,
+    required String sheetTotal,
+    String? buyerEmail,
+  }) {
+    return _remoteDataSource.payWithApplePay(
+      items: items,
+      address: address,
+      shippingMethod: shippingMethod,
+      shippingCost: shippingCost,
+      orderReference: orderReference,
+      applePayToken: applePayToken,
+      sheetTotal: sheetTotal,
+      buyerEmail: buyerEmail,
+    );
   }
 
   @override

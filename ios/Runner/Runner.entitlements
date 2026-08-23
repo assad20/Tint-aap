@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+		‼️ صلاحيّة آبل باي — ومُعرّف التاجر هو نفسه الذي يستعمله الويب:
+		`merchant.sa.tint.platform`، وشهادة معالجته نشطةٌ على بروفايل PayTabs
+		رقم 98726. فالتوكن الخارج من شريحة iOS يفكّه من يفكّ توكن الويب.
+
+		‼️ ولا تكفي وحدها: يجب أن تكون قدرة **Apple Pay Payment Processing**
+		مفعَّلةً على `com.tintstore.app` في حساب أبل ومربوطةً بهذا المُعرّف —
+		وإلّا وُقّع التطبيق ببروفايلٍ لا يحملها، فتُرفض الشريحة على الجهاز
+		برسالةٍ عامّة لا تدلّ على السبب.
+	-->
+	<key>com.apple.developer.in-app-payments</key>
+	<array>
+		<string>merchant.sa.tint.platform</string>
+	</array>
+</dict>
+</plist>

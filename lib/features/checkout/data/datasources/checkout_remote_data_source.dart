@@ -200,6 +200,44 @@ class CheckoutRemoteDataSource {
     return _apiClient.postMap(ApiRoutes.tamaraConfirm, data: {'orderId': orderId});
   }
 
+  /// آبل باي: إعداد الشريحة من الخادم.
+  Future<Map<String, dynamic>> fetchApplePayConfig() {
+    return _apiClient.getMap(ApiRoutes.applePayConfig);
+  }
+
+  /// آبل باي: تنفيذ الدفع بتوكن الشريحة.
+  ///
+  /// ‼️ **`sheetTotal` يُرسَل ليُقارَن لا ليُصدَّق**: هو ما رآه المشتري فوق
+  /// بصمته. والخادم يرفض إن خالف تسعيرَه لحظتها — ولو كان الفرق لصالحنا.
+  Future<Map<String, dynamic>> payWithApplePay({
+    required List<CartItemModel> items,
+    required AddressModel address,
+    required String shippingMethod,
+    required double shippingCost,
+    required String orderReference,
+    required Map<String, dynamic> applePayToken,
+    required String sheetTotal,
+    String? buyerEmail,
+  }) {
+    return _apiClient.postMap(
+      ApiRoutes.applePayPay,
+      data: {
+        'lang': 'ar',
+        'sheetTotal': sheetTotal,
+        'applePayToken': applePayToken,
+        'order': _buildOrderPayload(
+          items: items,
+          address: address,
+          shippingMethod: shippingMethod,
+          shippingCost: shippingCost,
+          paymentMethod: 'ApplePay',
+          orderReference: orderReference,
+          buyerEmail: buyerEmail,
+        ),
+      },
+    );
+  }
+
   /// PayTabs: إنشاء صفحة الدفع → {cartId, tranRef, redirectUrl}.
   Future<Map<String, dynamic>> createPayTabsSession({
     required List<CartItemModel> items,

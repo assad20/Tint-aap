@@ -1,3 +1,4 @@
+import '../../../../core/models/apple_pay_config_model.dart';
 import 'dart:async';
 
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -22,6 +23,7 @@ class CheckoutState {
     this.methods = const [],
     this.methodsLoading = true,
     this.shippingMethods = const [],
+    this.applePay = ApplePayConfigModel.empty,
     this.lastOrderId,
     this.errorMessage,
   });
@@ -44,6 +46,9 @@ class CheckoutState {
   // طرق الشحن من الخادم — لا تُكتب في التطبيق. كانت مثبَّتةً بأسعارٍ تخالف
   // إعدادات المتجر، فيرفض الخادم كلّ طلبٍ اختير فيه الخيار الأرخص.
   final List<ShippingMethodModel> shippingMethods;
+
+  /// إعداد شريحة آبل باي من الخادم — `available: false` يُخفي الزرّ.
+  final ApplePayConfigModel applePay;
 
   ShippingMethodModel? get selectedShipping {
     for (final m in shippingMethods) {
@@ -79,6 +84,7 @@ class CheckoutState {
     List<PaymentMethodModel>? methods,
     bool? methodsLoading,
     List<ShippingMethodModel>? shippingMethods,
+    ApplePayConfigModel? applePay,
     String? lastOrderId,
     String? errorMessage,
   }) {
@@ -90,6 +96,7 @@ class CheckoutState {
       methods: methods ?? this.methods,
       methodsLoading: methodsLoading ?? this.methodsLoading,
       shippingMethods: shippingMethods ?? this.shippingMethods,
+      applePay: applePay ?? this.applePay,
       lastOrderId: lastOrderId ?? this.lastOrderId,
       errorMessage: errorMessage,
     );
@@ -124,6 +131,15 @@ class CheckoutCubit extends Cubit<CheckoutState> {
       emit(state.copyWith(methods: const [], methodsLoading: false));
     }
     await loadShippingMethods();
+    // ‼️ **بعدها لا معها**: آبل باي وسيلةٌ زائدة، وتأخيرُها لا يؤخّر الشاشة —
+    //    ولا يجوز أن يُبطئ فشلُها ظهورَ بقيّة الوسائل.
+    unawaited(_loadApplePay());
+  }
+
+  Future<void> _loadApplePay() async {
+    final config = await _repository.fetchApplePayConfig();
+    if (isClosed) return;
+    emit(state.copyWith(applePay: config));
   }
 
   // تُستدعى مع وسائل الدفع: الطريقة المختارة تُصحَّح إلى أوّل طريقةٍ يعرفها
@@ -197,6 +213,31 @@ class CheckoutCubit extends Cubit<CheckoutState> {
       shippingCost: state.shippingCostFor(
           items.fold<double>(0, (sum, i) => sum + i.lineTotal)),
       orderReference: orderReference,
+      buyerEmail: buyerEmail,
+    );
+  }
+
+  /// آبل باي: يُنفَّذ الدفع بتوكن الشريحة.
+  ///
+  /// ‼️ **الشحن من الخادم لا من الشريحة**: كلفة الشحن تُحسب هنا كما تُحسب لكلّ
+  /// وسيلة، وأيّ رقمٍ يخالف ما رآه المشتري يرفضه الخادم بمقارنة `sheetTotal`.
+  Future<Map<String, dynamic>> payWithApplePay({
+    required List<CartItemModel> items,
+    required AddressModel address,
+    required String orderReference,
+    required Map<String, dynamic> applePayToken,
+    required String sheetTotal,
+    String? buyerEmail,
+  }) {
+    return _repository.payWithApplePay(
+      items: items,
+      address: address,
+      shippingMethod: state.shippingMethod,
+      shippingCost: state.shippingCostFor(
+          items.fold<double>(0, (sum, i) => sum + i.lineTotal)),
+      orderReference: orderReference,
+      applePayToken: applePayToken,
+      sheetTotal: sheetTotal,
       buyerEmail: buyerEmail,
     );
   }

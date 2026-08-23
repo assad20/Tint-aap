@@ -27,6 +27,7 @@ import '../../../account/presentation/pages/addresses_form_page.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../cart/presentation/cubit/cart_cubit.dart';
 import '../cubit/checkout_cubit.dart';
+import '../widgets/apple_pay_section.dart';
 import '../widgets/payment_mark.dart';
 import '../widgets/tabby_promo_snippet.dart';
 
@@ -1302,6 +1303,64 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
   /// الورقة لأجلها.
   String _amountLabel(double total) => '${total.toStringAsFixed(2)} ﷼';
 
+  /// آبل باي — **الشريحة هي التأكيد**.
+  ///
+  /// ‼️ **يُنادى بعد بصمة العميل لا قبلها**: الحزمة تفتح الشريحة، ولا يصل هذا
+  /// إلّا ومعه توكنٌ موقَّع. فلا زرَّ تأكيدٍ ثانياً بعده.
+  ///
+  /// ‼️ **و`orderId` هو دليل النجاح** — لا رمز HTTP ولا ردٌّ بلا خطأ. فالخادم
+  /// لا يُصدر معرّف طلبٍ إلّا بعد أن يستعلم عن العمليّة من PayTabs ويجدها
+  /// مقبولة، وردٌّ ٢٠٠ بحالة «قيد المعالجة» ليس دفعاً.
+  Future<void> _payWithApplePay(
+    BuildContext context,
+    CheckoutState state,
+    Map<String, dynamic> token,
+    String sheetTotal,
+  ) async {
+    final cart = context.read<CartCubit>();
+    final cubit = context.read<CheckoutCubit>();
+
+    // ‼️ **نفس حرّاس الزرّ الرئيسيّ**: الشريحة لا تُعفي من مراجعة المخزون ولا
+    //    من اكتمال العنوان — والدفع وقع فعلاً، فالطلب يجب أن يُنشأ.
+    if (cart.state.items.isEmpty) {
+      _showSnackBar(context, 'سلّتك فارغة — أضف منتجاً قبل إتمام الطلب.');
+      return;
+    }
+    final a = widget.address;
+    if (a.recipient.isEmpty || a.mobile.isEmpty || a.city.isEmpty || a.details.isEmpty) {
+      _showSnackBar(context, 'أكملي عنوان التوصيل قبل المتابعة.');
+      return;
+    }
+
+    final orderReference = 'TN-AP-${DateTime.now().millisecondsSinceEpoch}';
+    try {
+      final result = await cubit.payWithApplePay(
+        items: cart.state.items,
+        address: widget.address,
+        orderReference: orderReference,
+        applePayToken: token,
+        sheetTotal: sheetTotal,
+        buyerEmail: widget.tabbyEmailController.text.trim().isEmpty
+            ? null
+            : widget.tabbyEmailController.text.trim(),
+      );
+      if (!context.mounted) return;
+
+      final orderId = result['orderId']?.toString() ?? '';
+      if (orderId.isEmpty) {
+        _showSnackBar(
+          context,
+          result['message']?.toString() ?? 'لم تُقبل العمليّة عبر آبل باي.',
+        );
+        return;
+      }
+      _showSuccessDialog(context, orderId);
+    } catch (error) {
+      if (!context.mounted) return;
+      _showSnackBar(context, _readableError(error));
+    }
+  }
+
   /// PayTabs — بطاقة.
   ///
   /// ‼️ تختلف عن تابي وتمارا في العودة: PayTabs تُرسل **POST بنموذج** إلى
@@ -1769,6 +1828,19 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
                 ],
               ),
               const SizedBox(height: 18),
+              /// ‼️ **فوق الزرّ لا بين الوسائل** — كما في الويب.
+              ///
+              /// آبل باي ليست «وسيلةً تُختار ثمّ يُضغط تأكيد»: الشريحة **هي**
+              /// التأكيد. ووضعُها في قائمة الوسائل يُنتج خطوتين لفعلٍ واحد،
+              /// ويُخفيها خلف اختيارٍ لا يعرف العميل أنّه يحتاجه.
+              ApplePaySection(
+                config: state.applePay,
+                amount: grandTotal,
+                label: state.applePay.displayName,
+                enabled: !state.isSubmitting,
+                onToken: (token, sheetTotal) =>
+                    _payWithApplePay(context, state, token, sheetTotal),
+              ),
               TintPrimaryButton(
                 label: state.isSubmitting
                     ? (state.paymentMethod == 'tabby'

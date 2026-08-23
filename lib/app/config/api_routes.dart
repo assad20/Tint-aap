@@ -91,6 +91,10 @@ abstract final class ApiRoutes {
   // صفحة النتيجة — فالشاشة تراقب **صفحة النتيجة** لا عنوان عودةٍ مباشر.
   static const paytabsSession = '/payments/paytabs/sessions';
   static const paytabsConfirm = '/payments/paytabs/confirm';
+  /// آبل باي — **نفس نقاط الويب حرفيّاً**: العقد قناتيٌّ محايد، فالتوكن
+  /// الخارج من شريحة iOS يصل الخادم كما يصله توكن المتصفّح ولا يُقرأ منه شيء.
+  static const applePayConfig = '/payments/paytabs/applepay';
+  static const applePayPay = '/payments/paytabs/applepay/pay';
   static const noonInitiate = '/payments/noon/initiate';
   static const noonVerify = '/payments/noon/order'; // + /<noonOrderId>
   static const assistantChat = '/assistant/chat';
