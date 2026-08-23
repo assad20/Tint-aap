@@ -123,4 +123,28 @@ class AccountRepositoryImpl implements AccountRepository {
       return const <AddressModel>[];
     }
   }
+
+  /// ‼️ **بلا `catch` بخلاف الجلب — عن قصد.**
+  ///
+  /// فشلُ قراءةٍ يُحتمَل بقائمةٍ فارغة، أمّا فشلُ حفظٍ فيجب أن يصل العميل:
+  /// ابتلاعُه يعني شاشةً تقول «حُفظ» وعنواناً لا وجود له عند الخادم — ثمّ
+  /// طلباً يُشحن إلى مكانٍ خاطئ.
+  @override
+  Future<List<AddressModel>> saveAddress(AddressModel address, {required bool isNew}) async {
+    final body = address.toJson()..remove('id');
+    final list = isNew
+        ? await _remoteDataSource.createAddress(body)
+        : await _remoteDataSource.updateAddress(address.id, body);
+    return _readAddresses(list);
+  }
+
+  @override
+  Future<List<AddressModel>> deleteAddress(String id) async {
+    return _readAddresses(await _remoteDataSource.deleteAddress(id));
+  }
+
+  List<AddressModel> _readAddresses(List<dynamic> raw) => raw
+      .whereType<Map<String, dynamic>>()
+      .map(AddressModel.fromJson)
+      .toList(growable: false);
 }

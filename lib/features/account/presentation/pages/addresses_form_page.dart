@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../app/theme/app_theme.dart';
+import '../../../../core/location/delivery_location.dart';
 import '../../../../core/models/account_models.dart';
 import '../../../../core/widgets/tint_ui.dart';
 import '../cubit/addresses_cubit.dart';
 
+/// محرّر العنوان — **واحدٌ للحساب وللدفع معاً**.
+///
+/// ‼️ **ولا يُنسَخ في شاشة الدفع**: محرّران للشيء نفسه يتباعدان مع أوّل تعديل،
+/// فيحفظ أحدهما دبّوس الخريطة والآخر لا — والطلب يُشحن بما حفظه الأضعف.
 class AddressFormPage extends StatefulWidget {
   const AddressFormPage({
     super.key,
@@ -20,51 +26,197 @@ class AddressFormPage extends StatefulWidget {
 class _AddressFormPageState extends State<AddressFormPage> {
   late final TextEditingController nameController;
   late final TextEditingController mobileController;
+  late final TextEditingController cityController;
   late final TextEditingController neighborhoodController;
   late final TextEditingController detailsController;
-  String city = 'الرياض';
+
   String title = 'المنزل';
+  double? lat;
+  double? lng;
+  bool isDefault = false;
+  bool _saving = false;
+
+  /// ‼️ **تغيّر الحيّ يجعل التفاصيل قديمةً لا خاطئة** — و«مالك بن خلف» شارعٌ
+  /// في الحيّ السابق. فلا تُمحى (لا تعرفها خريطة، ومحوُها يُضيّع ما لا يُستعاد)
+  /// **ولا تُترك بلا إشارة**: تُوسَم للمراجعة حتّى يلمسها العميل.
+  bool _detailsStale = false;
+
+  /// ‼️ **الافتراضيّ الوحيد لا يُنزَع من هنا**: نزعُه يترك الحساب بلا افتراضيّ،
+  /// فيختار الدفعُ «أوّل ما في القائمة» صامتاً — وهو ترتيبٌ لا يملكه العميل.
+  bool _lockedDefault = false;
 
   @override
   void initState() {
     super.initState();
-    final address = context.read<AddressesCubit>().findById(widget.addressId);
+    final cubit = context.read<AddressesCubit>();
+    final address = cubit.findById(widget.addressId);
+
     title = address?.title ?? 'المنزل';
-    city = address?.city ?? 'الرياض';
+    lat = address?.lat;
+    lng = address?.lng;
+    isDefault = address?.isDefault ?? cubit.state.items.isEmpty;
+    _lockedDefault = (address?.isDefault ?? false) &&
+        cubit.state.items.where((item) => item.isDefault).length == 1;
+
     nameController = TextEditingController(text: address?.recipient);
     mobileController = TextEditingController(text: address?.mobile);
+    cityController = TextEditingController(text: address?.city ?? 'الرياض');
     neighborhoodController = TextEditingController(text: address?.neighborhood);
     detailsController = TextEditingController(text: address?.details);
+  }
+
+  Future<void> _pickLocation() async {
+    final picked = await pickDeliveryLocation(
+      context,
+      initialLat: lat,
+      initialLng: lng,
+    );
+    if (picked == null || !mounted) return;
+
+    /// ‼️ **الدبّوس يقود النصّ ولا يتبعه.**
+    ///
+    /// كان يملأ الحقلَ الفارغ فقط «لئلّا يُمحى ما كتبه العميل» — وأثرُه في
+    /// التعديل أنّ **شيئاً لا يتغيّر أبداً**: الحقول مملوءةٌ سلفاً، فتُنقَل
+    /// النقطة إلى حيٍّ آخر ويبقى الاسم القديم. والنتيجة عنوانٌ يناقض
+    /// إحداثيّاته — وهو أسوأ من الاثنين.
+    ///
+    /// ونقلُ الدبّوس فعلٌ مقصود، فالمدينة والحيّ يتبعانه. أمّا **تفاصيل
+    /// العنوان** (الشارع والمبنى والدور) فتبقى بيد العميل: لا تعرفها خريطة،
+    /// ومحوُها يُضيّع ما لا يُستعاد.
+    final previousCity = cityController.text.trim();
+    final previousHood = neighborhoodController.text.trim();
+    final newCity = picked.city?.trim() ?? '';
+    final newHood = picked.neighborhood?.trim() ?? '';
+
+    setState(() {
+      lat = picked.lat;
+      lng = picked.lng;
+      if (newCity.isNotEmpty) cityController.text = newCity;
+      if (newHood.isNotEmpty) neighborhoodController.text = newHood;
+    });
+
+    if (!picked.hasAddress) {
+      // ‼️ **يُقال ولا يُترك للصمت**: الترميز العكسيّ لا يعمل على كلّ جهاز،
+      //    وسكوتُنا يجعل العميل يظنّ الخريطة معطّلة وقد نُقل الدبّوس فعلاً.
+      _snack('نُقل الدبّوس ✅ — تعذّر استنباط الاسم، اكتبي المدينة والحيّ.');
+      return;
+    }
+
+    final changed = (newCity.isNotEmpty && newCity != previousCity) ||
+        (newHood.isNotEmpty && newHood != previousHood);
+    if (changed && detailsController.text.trim().isNotEmpty) {
+      setState(() => _detailsStale = true);
+    }
+    _snack(changed
+        ? 'حُدّثت المدينة والحيّ — راجعي تفاصيل العنوان.'
+        : 'تمّ تحديد الموقع ✅');
+  }
+
+  void _snack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
+  }
+
+  Future<void> _save() async {
+    final city = cityController.text.trim();
+    final neighborhood = neighborhoodController.text.trim();
+    final details = detailsController.text.trim();
+    final recipient = nameController.text.trim();
+    final mobile = mobileController.text.trim();
+
+    if (recipient.isEmpty || mobile.isEmpty || city.isEmpty || details.isEmpty) {
+      _snack('أكملي اسم المستلم وجوّاله والمدينة وتفاصيل العنوان.');
+      return;
+    }
+
+    setState(() => _saving = true);
+    final navigator = Navigator.of(context);
+    final cubit = context.read<AddressesCubit>();
+    try {
+      final saved = await cubit.upsert(
+        AddressModel(
+          // ‼️ فارغٌ للجديد: **المُعرّف من الخادم** لا من ساعة الجهاز. ومُعرّفٌ
+          //    محلّيّ يُنتج عنواناً يفشل أوّل تعديلٍ عليه بـ404 بلا سببٍ ظاهر.
+          id: widget.addressId ?? '',
+          title: title,
+          recipient: recipient,
+          mobile: mobile,
+          city: city,
+          neighborhood: neighborhood,
+          details: details,
+          isDefault: isDefault,
+          lat: lat,
+          lng: lng,
+        ),
+      );
+      if (!mounted) return;
+      // يعود بالعنوان المحفوظ: شاشة الدفع تختاره فوراً بلا إعادة جلب.
+      navigator.pop(saved);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      _snack('تعذّر حفظ العنوان — تحقّقي من الاتّصال وحاولي مجدداً.');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.addressId != null;
+    final hasPin = lat != null && lng != null;
 
     return TintPageScaffold(
       title: isEdit ? 'تعديل العنوان' : 'إضافة عنوان جديد',
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         children: [
-          SizedBox(
-            height: 180,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: TintNetworkImage(
-                    url: 'https://images.unsplash.com/photo-1524661135-423995f22d0b?w=600&q=80',
-                    fit: BoxFit.cover,
-                    borderRadius: BorderRadius.circular(28),
-                  ),
+          /// ‼️ **الخريطة أوّل ما يُعرَض، ومكانها كان صورة مخزون أجنبيّة.**
+          ///
+          /// على الجوّال الموقع أدقّ من الوصف وأسرع: دبّوسٌ واحد يُغني عن ثلاثة
+          /// حقول، والمندوب يصل به لا بـ«خلف المسجد».
+          InkWell(
+            onTap: _pickLocation,
+            borderRadius: BorderRadius.circular(18),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: hasPin ? const Color(0xFFF2FBF6) : Colors.white,
+                border: Border.all(
+                  color: hasPin ? const Color(0xFFA8DFC2) : TintColors.line,
+                  width: 1.5,
                 ),
-                const Center(
-                  child: CircleAvatar(
-                    radius: 28,
-                    backgroundColor: Colors.white,
-                    child: Icon(Icons.location_on, color: Colors.red),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    hasPin ? Icons.where_to_vote_rounded : Icons.add_location_alt_outlined,
+                    color: hasPin ? TintColors.success : TintColors.sand,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          hasPin ? 'الموقع محدَّد على الخريطة' : 'حدّدي الموقع على الخريطة',
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                        ),
+                        Text(
+                          // ‼️ الإحداثيّات تُعرَض: هي **الدليل الوحيد** أنّ
+                          //    الدبّوس تحرّك حين لا يتغيّر اسم الحيّ.
+                          hasPin
+                              ? '${lat!.toStringAsFixed(5)}، ${lng!.toStringAsFixed(5)} — اضغطي لتحريكه'
+                              : 'يصل المندوب بالدبّوس أسرع من الوصف',
+                          style: const TextStyle(color: TintColors.textMuted, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_left_rounded, color: TintColors.textMuted),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -75,9 +227,7 @@ class _AddressFormPageState extends State<AddressFormPage> {
                   alignment: Alignment.centerRight,
                   child: Text(
                     'تسمية العنوان',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.w800),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -98,62 +248,89 @@ class _AddressFormPageState extends State<AddressFormPage> {
                       .toList(),
                 ),
                 const SizedBox(height: 14),
-                TextField(
+                _LabeledField(
+                  label: 'اسم المستلم',
                   controller: nameController,
-                  decoration: const InputDecoration(hintText: 'الاسم بالكامل'),
+                  hint: 'الاسم الذي يسأل عنه المندوب',
                 ),
-                const SizedBox(height: 10),
-                TextField(
+                _LabeledField(
+                  label: 'جوّال المستلم',
                   controller: mobileController,
-                  decoration: const InputDecoration(hintText: 'رقم الجوال'),
+                  hint: '05xxxxxxxx',
+                  keyboardType: TextInputType.phone,
                 ),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<String>(
-                  value: city,
-                  items: const [
-                    DropdownMenuItem(value: 'الرياض', child: Text('الرياض')),
-                    DropdownMenuItem(value: 'جدة', child: Text('جدة')),
-                    DropdownMenuItem(value: 'الدمام', child: Text('الدمام')),
-                  ],
-                  onChanged: (value) => setState(() => city = value ?? city),
-                  decoration: const InputDecoration(hintText: 'المدينة'),
+                /// ‼️ **حقلٌ لا قائمة**: كانت ثلاث مدن مكتوبة. والترميز العكسيّ
+                /// يُعيد مدناً خارجها — وقيمةٌ خارج `DropdownButtonFormField`
+                /// **تُسقط الشاشة** ولا تُتجاهَل.
+                _LabeledField(
+                  label: 'المدينة',
+                  controller: cityController,
+                  hint: 'الرياض',
                 ),
-                const SizedBox(height: 10),
-                TextField(
+                _LabeledField(
+                  label: 'الحيّ',
                   controller: neighborhoodController,
-                  decoration: const InputDecoration(hintText: 'الحي'),
+                  hint: 'العليا',
                 ),
-                const SizedBox(height: 10),
-                TextField(
+                _LabeledField(
+                  label: 'تفاصيل العنوان',
                   controller: detailsController,
+                  hint: 'الشارع، المبنى، الدور…',
                   minLines: 2,
                   maxLines: 3,
-                  decoration: const InputDecoration(
-                    hintText: 'تفاصيل العنوان (الشارع، المبنى، الدور...)',
+                  warning: _detailsStale ? 'تغيّر الحيّ — راجعي التفاصيل' : null,
+                  onChanged: _detailsStale
+                      ? (_) => setState(() => _detailsStale = false)
+                      : null,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          TintSurfaceCard(
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'اجعليه عنواني الافتراضيّ',
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                      ),
+                      Text(
+                        'يُختار تلقائيّاً عند كلّ طلب',
+                        style: TextStyle(color: TintColors.textMuted, fontSize: 11),
+                      ),
+                    ],
                   ),
+                ),
+                /// ‼️ **يبقى قابلاً للّمس وإن كان محكوماً — والصمت هو العطل.**
+                ///
+                /// كان `onChanged: null` حين يكون هذا هو الافتراضيّ الوحيد،
+                /// فيلمسه العميل ولا يتحرّك شيء ولا تُقال كلمة — فيُقرأ زرّاً
+                /// معطّلاً لا قاعدةً محترمة. (بلاغ المالك بالتشغيل.)
+                Switch(
+                  value: isDefault,
+                  onChanged: (value) {
+                    if (_lockedDefault && !value) {
+                      _snack(
+                        'هذا عنوانك الافتراضيّ الوحيد — اجعلي عنواناً آخر '
+                        'افتراضيّاً وسيُنزَع عن هذا تلقائيّاً.',
+                      );
+                      return;
+                    }
+                    setState(() => isDefault = value);
+                  },
                 ),
               ],
             ),
           ),
           const SizedBox(height: 14),
           TintPrimaryButton(
-            label: 'حفظ العنوان',
+            label: _saving ? 'جارٍ الحفظ…' : 'حفظ العنوان',
             expanded: true,
-            onPressed: () {
-              context.read<AddressesCubit>().upsert(
-                    AddressModel(
-                      id: widget.addressId ?? DateTime.now().millisecondsSinceEpoch.toString(),
-                      title: title,
-                      recipient: nameController.text.trim(),
-                      mobile: mobileController.text.trim(),
-                      city: city,
-                      neighborhood: neighborhoodController.text.trim(),
-                      details: detailsController.text.trim(),
-                      isDefault: widget.addressId == null,
-                    ),
-                  );
-              Navigator.of(context).pop();
-            },
+            onPressed: _saving ? null : _save,
           ),
         ],
       ),
@@ -164,8 +341,101 @@ class _AddressFormPageState extends State<AddressFormPage> {
   void dispose() {
     nameController.dispose();
     mobileController.dispose();
+    cityController.dispose();
     neighborhoodController.dispose();
     detailsController.dispose();
     super.dispose();
+  }
+}
+
+/// حقلٌ باسمٍ فوقه — لا بنصٍّ داخله يختفي عند أوّل حرف.
+///
+/// ‼️ **`hintText` وحده كان يمحو المعنى**: نصُّ التلميح يزول حين يمتلئ الحقل،
+/// فيقرأ العميل خمسة أسطرٍ متشابهة («نواف · 966… · الرياض · العليا · مالك بن
+/// خلف») ولا يعرف أيّها الحيّ وأيّها التفاصيل — وهي شكوى المالك بالتشغيل.
+///
+/// والحقل أقصر ليتّسع الاسم فوقه بلا أن تطول الشاشة.
+class _LabeledField extends StatelessWidget {
+  const _LabeledField({
+    required this.label,
+    required this.controller,
+    this.hint,
+    this.keyboardType,
+    this.minLines,
+    this.maxLines = 1,
+    this.warning,
+    this.onChanged,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final String? hint;
+  final TextInputType? keyboardType;
+  final int? minLines;
+  final int? maxLines;
+
+  /// تحذيرٌ تحت الحقل — للتفاصيل التي تقادمت بتغيّر الحيّ.
+  final String? warning;
+  final ValueChanged<String>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 5, right: 2),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                color: warning == null ? TintColors.textMuted : TintColors.warning,
+              ),
+            ),
+          ),
+          TextField(
+            controller: controller,
+            keyboardType: keyboardType,
+            minLines: minLines,
+            maxLines: maxLines,
+            onChanged: onChanged,
+            decoration: InputDecoration(
+              hintText: hint,
+              isDense: true,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              enabledBorder: warning == null
+                  ? null
+                  : OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: const BorderSide(color: TintColors.warning),
+                    ),
+            ),
+          ),
+          if (warning != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4, right: 2),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline_rounded,
+                      size: 13, color: TintColors.warning),
+                  const SizedBox(width: 4),
+                  Text(
+                    warning!,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: TintColors.warning,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }

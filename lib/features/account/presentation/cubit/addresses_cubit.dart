@@ -45,38 +45,97 @@ class AddressesCubit extends Cubit<AddressesState> {
     }
   }
 
-  void remove(String id) {
-    emit(
-      state.copyWith(
-        items: state.items.where((item) => item.id != id).toList(),
-      ),
-    );
+  /// ‼️ **الثلاث كانت تُعدّل الذاكرة ولا تُنادي الخادم إطلاقاً.**
+  ///
+  /// فالعنوان يُضاف ويظهر ويُشحَن إليه الطلب، ثمّ **يختفي عند أوّل إقلاع** —
+  /// لأنّ `load()` يقرأ من الخادم ما لم يصله شيء. والخادم يملك `POST` و`PATCH`
+  /// و`DELETE` منذ البداية.
+  ///
+  /// والنمط هنا **تفاؤليّ بتراجع**: تُعرَض النتيجة فوراً كي لا تنتظر الواجهة
+  /// الشبكة، فإن رفض الخادم رجعت الحالة كما كانت **ورُمي الخطأ** — لا يُبتلَع.
+  Future<void> remove(String id) async {
+    final before = state.items;
+    emit(state.copyWith(items: before.where((item) => item.id != id).toList()));
+    try {
+      emit(state.copyWith(items: await _repository.deleteAddress(id)));
+    } catch (_) {
+      emit(state.copyWith(items: before));
+      rethrow;
+    }
   }
 
-  void makeDefault(String id) {
+  Future<void> makeDefault(String id) async {
+    final before = state.items;
+    final target = findById(id);
+    if (target == null) return;
     emit(
       state.copyWith(
-        items: state.items
+        items: before
             .map((item) => item.copyWith(isDefault: item.id == id))
             .toList(),
       ),
     );
+    try {
+      emit(state.copyWith(
+        items: await _repository.saveAddress(
+          target.copyWith(isDefault: true),
+          isNew: false,
+        ),
+      ));
+    } catch (_) {
+      emit(state.copyWith(items: before));
+      rethrow;
+    }
   }
 
-  void upsert(AddressModel address) {
-    final normalized = address.isDefault
-        ? state.items
-            .map((item) => item.copyWith(isDefault: false))
-            .toList()
-        : [...state.items];
+  /// يحفظ عنواناً ويُعيد ما أثبته الخادم — أو يرمي.
+  ///
+  /// ‼️ **المُعرّف من الخادم لا من `DateTime.now()`**: مُعرّفٌ محلّيّ يُنتج
+  /// عنواناً لا يعرفه الخادم، فيفشل أوّل تعديلٍ عليه بـ404 بلا سببٍ ظاهر.
+  Future<AddressModel> upsert(AddressModel address) async {
+    final before = state.items;
+    final isNew = address.id.trim().isEmpty ||
+        !before.any((item) => item.id == address.id);
 
-    final index = normalized.indexWhere((item) => item.id == address.id);
+    // ‼️ **الافتراضيّ الأوّل يُفرَض ولا يُترك للعميل**: أوّل عنوانٍ في حسابٍ
+    //    فارغ هو الافتراضيّ حكماً، وإلّا بقي الحساب بلا افتراضيّ فيُختار
+    //    «الأوّل في القائمة» صامتاً عند كلّ دفع.
+    final target = before.isEmpty ? address.copyWith(isDefault: true) : address;
+
+    final normalized = target.isDefault
+        ? before.map((item) => item.copyWith(isDefault: false)).toList()
+        : [...before];
+    final index = normalized.indexWhere((item) => item.id == target.id);
     if (index == -1) {
-      emit(state.copyWith(items: [...normalized, address]));
-      return;
+      emit(state.copyWith(items: [...normalized, target]));
+    } else {
+      normalized[index] = target;
+      emit(state.copyWith(items: normalized));
     }
 
-    normalized[index] = address;
-    emit(state.copyWith(items: normalized));
+    try {
+      // ‼️ **القائمة من الخادم تحلّ محلّ المعروض كاملةً** — لا تُدمَج: الحفظ
+      //    قد يُنزل راية الافتراضيّ عن عنوانٍ آخر، ودمجٌ من عندنا يترك
+      //    افتراضيَّين في الشاشة وواحداً عند الخادم.
+      final serverItems = await _repository.saveAddress(target, isNew: isNew);
+      emit(state.copyWith(items: serverItems));
+
+      if (!isNew) {
+        return serverItems.firstWhere(
+          (item) => item.id == target.id,
+          orElse: () => target,
+        );
+      }
+      // الجديد هو المُعرّف الذي لم يكن في القائمة قبل الحفظ — والمُعرّف يصدره
+      // الخادم، فلا سبيل إلى معرفته إلّا بهذه المقارنة.
+      final beforeIds = before.map((item) => item.id).toSet();
+      final fresh =
+          serverItems.where((item) => !beforeIds.contains(item.id)).toList();
+      if (fresh.isNotEmpty) return fresh.last;
+      return serverItems.isNotEmpty ? serverItems.last : target;
+    } catch (_) {
+      emit(state.copyWith(items: before));
+      rethrow;
+    }
   }
 }

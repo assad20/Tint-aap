@@ -3,8 +3,60 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/models/account_models.dart';
 import '../../../../core/widgets/tint_ui.dart';
 import '../cubit/addresses_cubit.dart';
+
+/// يُنفّذ كتابةً على الخادم ويُخبر العميل بنتيجتها.
+///
+/// ‼️ **الفشل يُقال ولا يُبتلَع**: هذه العمليّات صارت تُنادي الخادم، ورفضٌ
+/// صامتٌ يعني شاشةً لا تتغيّر ولا سبب — والعميل يُعيد الضغط ظانّاً أنّه أخطأ.
+Future<void> _runWrite(
+  BuildContext context,
+  Future<void> Function() action, {
+  required String done,
+}) async {
+  // ‼️ يُلتقَط قبل الانتظار: `context` بعد `await` قد يكون زال.
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    await action();
+    messenger.showSnackBar(
+      SnackBar(content: Text(done), behavior: SnackBarBehavior.floating),
+    );
+  } catch (_) {
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('تعذّر الحفظ — تحقّقي من الاتّصال وحاولي مجدداً.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+}
+
+/// ‼️ **الحذف يُسأل عنه**: عنوانٌ يضيع بضغطةٍ واحدة على أيقونةٍ صغيرة، ولا
+/// تراجع بعده — والقائمة تُتصفَّح بإبهامٍ مستعجل.
+Future<void> _confirmDelete(BuildContext context, AddressModel address) async {
+  final cubit = context.read<AddressesCubit>();
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('حذف العنوان؟'),
+      content: Text('«${address.title}» — ${address.city}، ${address.neighborhood}'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: const Text('تراجع'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: const Text('حذف'),
+        ),
+      ],
+    ),
+  );
+  if (ok != true || !context.mounted) return;
+  await _runWrite(context, () => cubit.remove(address.id), done: 'حُذف العنوان');
+}
 
 class AddressesPage extends StatelessWidget {
   const AddressesPage({super.key});
@@ -113,9 +165,13 @@ class AddressesPage extends StatelessWidget {
                             if (!address.isDefault)
                               Expanded(
                                 child: FilledButton.tonal(
-                                  onPressed: () => context
-                                      .read<AddressesCubit>()
-                                      .makeDefault(address.id),
+                                  onPressed: () => _runWrite(
+                                    context,
+                                    () => context
+                                        .read<AddressesCubit>()
+                                        .makeDefault(address.id),
+                                    done: 'صار عنوانك الافتراضيّ',
+                                  ),
                                   child: const Text('تعيين كافتراضي'),
                                 ),
                               ),
@@ -133,8 +189,7 @@ class AddressesPage extends StatelessWidget {
                             SizedBox(
                               width: 52,
                               child: FilledButton.tonal(
-                                onPressed: () =>
-                                    context.read<AddressesCubit>().remove(address.id),
+                                onPressed: () => _confirmDelete(context, address),
                                 child: const Icon(Icons.delete_outline_rounded),
                               ),
                             ),

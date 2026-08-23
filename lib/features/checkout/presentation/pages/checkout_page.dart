@@ -23,6 +23,7 @@ import '../../../../core/models/payment_method_model.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/widgets/tint_ui.dart';
 import '../../../account/presentation/cubit/addresses_cubit.dart';
+import '../../../account/presentation/pages/addresses_form_page.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../cart/presentation/cubit/cart_cubit.dart';
 import '../cubit/checkout_cubit.dart';
@@ -52,6 +53,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
   double? _lat;
   double? _lng;
   bool _locating = false;
+
+  /// العنوان المحفوظ المختار — لعميلٍ مسجَّل. و`null` يعني «الافتراضيّ».
+  ///
+  /// ‼️ **مُعرّفٌ لا نسخة**: حفظُ نسخةٍ من العنوان هنا يجعل تعديلَه من الورقة
+  /// لا يظهر في البطاقة حتّى يُعاد فتح الشاشة.
+  String? _selectedAddressId;
 
   void _snack(String msg) {
     if (!mounted) return;
@@ -165,12 +172,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
         (x) => x.isDefault,
         orElse: () => addresses.first,
       );
+      _selectedAddressId = a.id;
+      // ‼️ **يُملأ النموذج أيضاً** وإن كان مخفيّاً: هو مسار الزائر، وإن سجّل
+      //    العميل خروجه وهو واقفٌ هنا وجد بياناته حاضرةً بدل شاشةٍ فارغة.
       _addressId = a.id;
       if (_name.text.isEmpty) _name.text = a.recipient;
       if (_phone.text.isEmpty) _phone.text = a.mobile;
       _city.text = a.city;
       _neighborhood.text = a.neighborhood;
       _details.text = a.details;
+      _lat = a.lat;
+      _lng = a.lng;
     }
     if (_tabbyEmailController.text.isEmpty) {
       _tabbyEmailController.text = _email.text;
@@ -207,18 +219,36 @@ class _CheckoutPageState extends State<CheckoutPage> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         children: [
-          _ShippingFormCard(
-            nameC: _name,
-            phoneC: _phone,
-            emailC: _email,
-            cityC: _city,
-            neighborhoodC: _neighborhood,
-            detailsC: _details,
-            onChanged: () => setState(() {}),
-            hasLocation: _lat != null && _lng != null,
-            isLocating: _locating,
-            onLocate: _captureLocation,
-          ),
+          /// ‼️ **مساران لا واحد.**
+          ///
+          /// العميل المسجَّل عنوانه محفوظٌ عند الخادم، فيُعرَض **ملخّصاً يُقرأ
+          /// في ثانية** لا نموذجاً بستّة حقولٍ مملوءةٍ سلفاً — وكان يُطالَب
+          /// بمراجعة ما لا يحتاج تغييره في كلّ طلب.
+          ///
+          /// والزائر بلا حساب لا يملك عنواناً محفوظاً ولا نقاط حفظٍ عند الخادم
+          /// (النقاط محميّةٌ بالتوكن)، فيبقى له النموذج كما هو — وإسقاطُه كان
+          /// سيمنع الشراء بلا تسجيل.
+          if (_savedFlow(context))
+            _DeliveryCard(
+              address: _selectedSaved(context),
+              accountName: context.watch<AuthCubit>().state.customer?.name,
+              accountPhone: context.watch<AuthCubit>().state.customer?.phone,
+              onChange: _openAddressPicker,
+              onEdit: _openAddressEditor,
+            )
+          else
+            _ShippingFormCard(
+              nameC: _name,
+              phoneC: _phone,
+              emailC: _email,
+              cityC: _city,
+              neighborhoodC: _neighborhood,
+              detailsC: _details,
+              onChanged: () => setState(() {}),
+              hasLocation: _lat != null && _lng != null,
+              isLocating: _locating,
+              onLocate: _captureLocation,
+            ),
           const SizedBox(height: 12),
           const _ProductsMiniSummary(),
           const SizedBox(height: 12),
@@ -241,8 +271,63 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-  // عنوان الطلب مبنيّ من نموذج الشحن الحقيقيّ (لا بيانات افتراضيّة وهميّة).
+  /// هل نحن على مسار العناوين المحفوظة؟ — مسجَّلٌ **وله عنوانٌ واحد فأكثر**.
+  bool _savedFlow(BuildContext context) =>
+      context.watch<AuthCubit>().state.customer != null;
+
+  /// العنوان المختار من المحفوظات — أو الافتراضيّ، أو `null` إن لم يكن ثمّة.
+  AddressModel? _selectedSaved(BuildContext context) =>
+      _resolveSaved(context.watch<AddressesCubit>().state.items);
+
+  AddressModel? _resolveSaved(List<AddressModel> items) {
+    if (items.isEmpty) return null;
+    for (final item in items) {
+      if (item.id == _selectedAddressId) return item;
+    }
+    return items.firstWhere((item) => item.isDefault, orElse: () => items.first);
+  }
+
+  /// ورقة اختيار العنوان — والإضافة والتعديل يفتحان **المحرّر نفسه** الذي في
+  /// الحساب، فلا محرّران يتباعدان.
+  Future<void> _openAddressPicker() async {
+    final cubit = context.read<AddressesCubit>();
+    final chosen = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _AddressPickerSheet(
+        addresses: cubit.state.items,
+        selectedId: _resolveSaved(cubit.state.items)?.id,
+      ),
+    );
+    if (!mounted || chosen == null) return;
+
+    if (chosen == _kAddNewAddress) {
+      await _openAddressEditor();
+      return;
+    }
+    if (chosen.startsWith(_kEditAddressPrefix)) {
+      await _openAddressEditor(id: chosen.substring(_kEditAddressPrefix.length));
+      return;
+    }
+    setState(() => _selectedAddressId = chosen);
+  }
+
+  Future<void> _openAddressEditor({String? id}) async {
+    final saved = await Navigator.of(context).push<AddressModel>(
+      MaterialPageRoute(builder: (_) => AddressFormPage(addressId: id)),
+    );
+    if (!mounted || saved == null) return;
+    // ما حُفظ يُختار فوراً: من أضاف عنواناً وهو يدفع يريد الشحن إليه.
+    setState(() => _selectedAddressId = saved.id);
+  }
+
+  /// عنوان الطلب: المحفوظ المختار لمن سجّل، ونموذجُ الزائر لمن لم يسجّل.
   AddressModel _currentAddress() {
+    final saved = _savedFlow(context) ? _selectedSaved(context) : null;
+    if (saved != null) return saved;
+
     return AddressModel(
       id: _addressId,
       title: 'التوصيل',
@@ -251,7 +336,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
       city: _city.text.trim(),
       neighborhood: _neighborhood.text.trim(),
       details: _details.text.trim(),
-      isDefault: true,
+      // ‼️ **كانت `true` مثبَّتة.**
+      //
+      // فكلّ طلبٍ يُعلن عنوانه افتراضيّاً: يشتري العميل إلى عنوان العمل مرّةً
+      // فيصير العمل افتراضيّه بلا أن يطلب، ويُشحن التالي إليه. والافتراضيّ
+      // يُختار بمفتاحٍ صريح في محرّر العناوين لا بأثرٍ جانبيٍّ للشراء.
+      isDefault: false,
       lat: _lat,
       lng: _lng,
     );
@@ -288,6 +378,368 @@ class _CheckoutPageState extends State<CheckoutPage> {
 }
 
 // نموذج بيانات العميل والشحن (مطابق للمتجر) — يُملأ من الحساب ويُحرّر يدويّاً.
+/// قِيَمٌ تعود من ورقة الاختيار بدل نوعٍ خاصّ — الورقة تُعيد نصّاً واحداً.
+const String _kAddNewAddress = '__add__';
+const String _kEditAddressPrefix = 'edit:';
+
+/// بطاقة التوصيل لعميلٍ مسجَّل — **ملخّصٌ لا نموذج**.
+class _DeliveryCard extends StatelessWidget {
+  const _DeliveryCard({
+    required this.address,
+    required this.accountName,
+    required this.accountPhone,
+    required this.onChange,
+    required this.onEdit,
+  });
+
+  final AddressModel? address;
+  final String? accountName;
+  final String? accountPhone;
+  final VoidCallback onChange;
+  final Future<void> Function({String? id}) onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final a = address;
+
+    return TintSurfaceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          /// ‼️ **هويّة الحساب سطرٌ لا بطاقة، ولا تُحرَّر من هنا.**
+          ///
+          /// جوّال الجلسة المُثبَت هو **وحده** ما يُصرَف به رصيد المحفظة
+          /// والنقاط عند الخادم؛ وجوّال المستلم حقلُ توصيلٍ يسكن العنوان.
+          /// وعرضُهما في بطاقةٍ واحدة قابلةٍ للتحرير يُغري بتبديل الهويّة من
+          /// شاشة الدفع — وهو ما يحرسه الخادم أصلاً، فلا تُقدَّم له واجهةٌ
+          /// توحي بأنّه ممكن.
+          if ((accountPhone ?? '').trim().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  const Icon(Icons.verified_rounded,
+                      size: 16, color: TintColors.success),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'الحساب: ${(accountName ?? '').trim().isEmpty ? 'أنت' : accountName!.trim()} · ${accountPhone!.trim()}',
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: TintColors.textMuted,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          if (a == null) ...[
+            const Text(
+              'عنوان التوصيل',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'أوّل طلب — يُحفظ عنوانك لما بعده.',
+              style: TextStyle(color: TintColors.textMuted, fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: TintSecondaryButton(
+                label: 'أضيفي عنوان التوصيل',
+                icon: const Icon(Icons.add_location_alt_outlined, size: 18),
+                onPressed: () => onEdit(),
+              ),
+            ),
+          ] else ...[
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'التوصيل إلى',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12.5,
+                      color: TintColors.textMuted,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: onChange,
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text(
+                    'تغيير',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: TintColors.sand,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Text(
+                  a.title.trim().isEmpty ? 'التوصيل' : a.title,
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
+                ),
+                if (a.isDefault) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: TintColors.blush,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: const Text(
+                      'افتراضيّ',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFA2705F),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 3),
+            Text(
+              '${a.city}، ${a.neighborhood} — ${a.details}',
+              style: const TextStyle(fontSize: 13),
+            ),
+            Text(
+              'المستلم: ${a.recipient} · ${a.mobile}',
+              style: const TextStyle(fontSize: 12, color: TintColors.textMuted),
+            ),
+            const SizedBox(height: 9),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
+
+            /// ‼️ **غياب الدبّوس يُقال ولا يُترك للصمت**: المندوب يصل بالدبّوس
+            /// أسرع من الوصف، وعنوانٌ بلا موقعٍ يتأخّر — والعميل لا يعلم لماذا.
+            Row(
+              children: [
+                Icon(
+                  a.lat != null && a.lng != null
+                      ? Icons.where_to_vote_rounded
+                      : Icons.wrong_location_outlined,
+                  size: 16,
+                  color: a.lat != null && a.lng != null
+                      ? TintColors.success
+                      : TintColors.warning,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    a.lat != null && a.lng != null
+                        ? 'الموقع محدَّد على الخريطة'
+                        : 'لم يُحدَّد الموقع — قد يتأخّر المندوب',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: a.lat != null && a.lng != null
+                          ? TintColors.success
+                          : TintColors.warning,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => onEdit(id: a.id),
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(0, 30),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    a.lat != null && a.lng != null ? 'تعديل' : 'تحديد',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12.5,
+                      color: TintColors.sand,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// ورقة اختيار العنوان — تُعيد المُعرّف، أو `_kAddNewAddress`، أو
+/// `edit:<id>`.
+class _AddressPickerSheet extends StatelessWidget {
+  const _AddressPickerSheet({
+    required this.addresses,
+    required this.selectedId,
+  });
+
+  final List<AddressModel> addresses;
+  final String? selectedId;
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+
+    return Container(
+      constraints: BoxConstraints(maxHeight: media.size.height * 0.8),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 42,
+            height: 4,
+            margin: const EdgeInsets.only(top: 10, bottom: 6),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(18, 6, 18, 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'عناوين التوصيل',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                  ),
+                ),
+                Text(
+                  'اختاري أو أضيفي',
+                  style: TextStyle(fontSize: 11.5, color: TintColors.textMuted),
+                ),
+              ],
+            ),
+          ),
+          Flexible(
+            child: ListView.separated(
+              shrinkWrap: true,
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
+              itemCount: addresses.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 9),
+              itemBuilder: (context, index) {
+                final a = addresses[index];
+                final selected = a.id == selectedId;
+                return InkWell(
+                  onTap: () => Navigator.of(context).pop(a.id),
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: selected ? TintColors.blush : Colors.white,
+                      border: Border.all(
+                        color: selected ? TintColors.sand : TintColors.line,
+                        width: 1.5,
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          selected
+                              ? Icons.radio_button_checked
+                              : Icons.radio_button_unchecked,
+                          size: 19,
+                          color: selected ? TintColors.sand : const Color(0xFFCFD3D8),
+                        ),
+                        const SizedBox(width: 9),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    a.title.trim().isEmpty ? 'عنوان' : a.title,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  if (a.isDefault) ...[
+                                    const SizedBox(width: 6),
+                                    const Text(
+                                      'افتراضيّ',
+                                      style: TextStyle(
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFFA2705F),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              Text(
+                                '${a.city}، ${a.neighborhood} — ${a.details}',
+                                style: const TextStyle(fontSize: 12.5),
+                              ),
+                              Text(
+                                '${a.recipient} · ${a.mobile}'
+                                '${a.lat != null && a.lng != null ? ' · 📍' : ''}',
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: TintColors.textMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(context)
+                              .pop('$_kEditAddressPrefix${a.id}'),
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(0, 30),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text(
+                            'تعديل',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12.5,
+                              color: TintColors.sand,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(18, 8, 18, 16 + media.padding.bottom),
+            child: SizedBox(
+              width: double.infinity,
+              child: TintSecondaryButton(
+                label: 'إضافة عنوان جديد',
+                icon: const Icon(Icons.add_rounded, size: 18),
+                onPressed: () => Navigator.of(context).pop(_kAddNewAddress),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ShippingFormCard extends StatelessWidget {
   const _ShippingFormCard({
     required this.nameC,
@@ -720,7 +1172,10 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
         a.mobile.isEmpty ||
         a.city.isEmpty ||
         a.details.isEmpty) {
-      _showSnackBar(context, 'أكمل بيانات الشحن المطلوبة (المميّزة بـ*).');
+      // ‼️ **صياغةٌ تصلح للمسارين**: «المميّزة بـ*» كانت تشير إلى نجومٍ في
+      //    نموذج الزائر، ولا وجود لها في بطاقة العميل المسجَّل — فيقرأ رسالةً
+      //    تُحيله إلى ما لا يراه.
+      _showSnackBar(context, 'أكملي عنوان التوصيل قبل المتابعة.');
       return;
     }
 

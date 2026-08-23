@@ -42,4 +42,24 @@ class AccountRemoteDataSource {
   Future<List<dynamic>> fetchAddresses() {
     return _apiClient.getList(ApiRoutes.addresses);
   }
+
+  /// ‼️ **الكتابة كانت غائبةً كلّها.**
+  ///
+  /// الخادم يُعلن `POST` و`PATCH` و`DELETE` على `/customer/addresses` منذ
+  /// البداية، والتطبيق لا ينادي إلّا `GET`. فكلّ عنوانٍ يُضاف أو يُعدَّل كان
+  /// يعيش في ذاكرة الكيوبت وحدها **ويختفي عند أوّل إقلاع** — بلا خطأٍ يُنبّه.
+  /// ‼️ **الثلاث تُعيد القائمة كاملةً لا العنوان وحده** — هكذا يردّ الخادم
+  /// (`Promise<CustomerAddress[]>` في `customer.service`). وطلبُ كائنٍ منها
+  /// يُسقط النداء بخطأ تحويلٍ في Dio، فتُقرأ عمليّةٌ ناجحة فشلاً في الاتّصال.
+  Future<List<dynamic>> createAddress(Map<String, dynamic> body) {
+    return _apiClient.postList(ApiRoutes.addresses, data: body);
+  }
+
+  Future<List<dynamic>> updateAddress(String id, Map<String, dynamic> body) {
+    return _apiClient.patchList('${ApiRoutes.addresses}/$id', data: body);
+  }
+
+  Future<List<dynamic>> deleteAddress(String id) {
+    return _apiClient.deleteList('${ApiRoutes.addresses}/$id');
+  }
 }

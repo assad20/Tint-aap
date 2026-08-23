@@ -156,6 +156,27 @@ class ApiClient {
     }
   }
 
+  /// تعديلٌ جزئيّ — `PATCH`.
+  ///
+  /// ‼️ **ولا يُستبدَل بـ`POST`**: نقاط التعديل في الخادم مُعلنةٌ `@Patch`،
+  /// و`POST` عليها إمّا يُنشئ سجلّاً ثانياً أو يردّ 404 — والفرق لا يظهر إلّا
+  /// بنداءٍ حقيقيّ.
+  ///
+  /// ‼️ **ويُعيد قائمةً لا كائناً**: نقاط العناوين تردّ القائمة كاملةً بعد
+  /// التعديل. وطلبُ `Map` منها يُسقط النداء بخطأ تحويلٍ في Dio **قبل أن يُقرأ
+  /// الردّ** — فيُقرأ فشلَ شبكةٍ وهو نجاحٌ كامل.
+  Future<List<dynamic>> patchList(
+    String path, {
+    Object? data,
+  }) async {
+    try {
+      final response = await _dio.patch<List<dynamic>>(path, data: data);
+      return response.data ?? <dynamic>[];
+    } on DioException catch (error) {
+      throw _toApiException(error);
+    }
+  }
+
   ApiException _toApiException(DioException error) {
     final responseData = error.response?.data;
     final message = switch (responseData) {
