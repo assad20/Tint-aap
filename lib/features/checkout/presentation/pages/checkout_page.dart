@@ -1375,106 +1375,117 @@ class _PaymentMethodsCard extends StatelessWidget {
                         color: TintColors.danger, fontWeight: FontWeight.w700),
                   ),
                 )
-              else
-                for (final m in state.methods) ...[
-                  /**
-                   * ‼️ **بطاقة الدفع بالبطاقة تُعرَض مرّتين: «مدى» و«فيزا».**
-                   *
-                   * المزوّد واحد (PayTabs) والمعرّف المُرسَل إلى الخادم واحد —
-                   * والفرق **عرضٌ لا سلوك**. والسبب أنّ المشتري السعوديّ يبحث عن
-                   * شعار «مدى» بعينه، و«بطاقة — مدى أو ائتمانيّة» بسطرٍ واحد
-                   * تجعله يظنّ أنّ بطاقته غير مقبولة. وهو نفس ما يفعله المتجر.
-                   */
-                  if (m.id == 'paytabs') ...[
-                    _SelectableTile(
-                      // ‼️ المعرّف وحده لا يكفي: البطاقتان تُرسلانه نفسه.
-                      selected: state.paymentMethod == m.id &&
-                          state.cardBrand == 'mada',
-                      title: 'مدى',
-                      subtitle: 'دفع آمن ببطاقة مدى عبر PayTabs',
-                      markKey: 'mada',
-                      onTap: () => context
-                          .read<CheckoutCubit>()
-                          .setPaymentMethod(m.id, cardBrand: 'mada'),
-                    ),
-                    const SizedBox(height: 10),
-                    _SelectableTile(
-                      selected: state.paymentMethod == m.id &&
-                          state.cardBrand == 'visa',
-                      title: 'Visa / Mastercard',
-                      subtitle: 'دفع آمن بالبطاقة الائتمانيّة عبر PayTabs',
-                      // ‼️ شعاران في بطاقةٍ واحدة — كما يعرضهما الموقع.
-                      markKeys: const ['visa', 'mastercard'],
-                      onTap: () => context
-                          .read<CheckoutCubit>()
-                          .setPaymentMethod(m.id, cardBrand: 'visa'),
-                    ),
-                  ] else
-                    _SelectableTile(
-                      selected: state.paymentMethod == m.id,
-                      title: m.label,
-                      subtitle: _subtitle(m),
-                      markKey: _markKey(m.id),
-                      onTap: () =>
-                          context.read<CheckoutCubit>().setPaymentMethod(m.id),
-                    ),
-                  // كتلة Tabby الخاصّة (العرض + بيانات المشتري) عند اختياره فقط.
-                  if (m.id == 'tabby' && state.paymentMethod == 'tabby') ...[
-                    const SizedBox(height: 12),
-                    if (appConfig.hasTabbyConfig ||
-                        (m.publicKey?.isNotEmpty ?? false))
-                      Directionality(
-                        textDirection: TextDirection.ltr,
-                        child: buildTabbyPromoSnippet(
-                          price: cartState.total.toStringAsFixed(2),
-                          currencyCode: appConfig.currencyCode,
-                          langCode: appConfig.tabbyLanguage,
+              else ...[
+                /// ‼️ **شبكةٌ لا قائمة — بطلب المالك بعد نموذجٍ قارنه.**
+                ///
+                /// القسم كان أطول ما في الشاشة (~٣٤٠ بكسل)، **ويطول ستّين
+                /// بكسلاً مع كلّ وسيلةٍ تُضاف** — والقائمة تنمو (مدفوع · إمكان
+                /// · STC · تحويل بنكيّ). والشبكة تستوعب الجديد **بلا زيادة
+                /// ارتفاع**، لأنّ الخانة تملأ فراغاً قائماً.
+                ///
+                /// ‼️ **وشعاراتٌ بلا جُمَل**: المشتري السعوديّ يعرف «تابي»
+                /// و«تمارا» و«مدى» **بشكلها**، والوصف تحتها يُطيل ولا يُضيف.
+                /// والوصف يبقى للدفع عند الاستلام وحده — فهو الوحيد الذي يحمل
+                /// رسماً يجب أن يُقرأ قبل الاختيار.
+                ///
+                /// ‼️ **وثلاثةٌ في الصفّ لا أربعة**: أربعةٌ تُصغّر الشعار حتّى
+                /// يُقرأ بالتخمين على شاشةٍ في الشمس.
+                GridView.count(
+                  crossAxisCount: 3,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                  childAspectRatio: 1.9,
+                  children: [
+                    for (final m in state.methods)
+                      if (m.id == 'paytabs') ...[
+                        /**
+                         * ‼️ **البطاقة تُعرَض خانتين: «مدى» و«فيزا».**
+                         *
+                         * المزوّد واحد (PayTabs) والمعرّف المُرسَل إلى الخادم
+                         * واحد — والفرق **عرضٌ لا سلوك**. والسبب أنّ المشتري
+                         * السعوديّ يبحث عن شعار «مدى» بعينه، وخانةٌ واحدة
+                         * تجعله يظنّ أنّ بطاقته غير مقبولة.
+                         */
+                        _PayChip(
+                          selected: state.paymentMethod == m.id &&
+                              state.cardBrand == 'mada',
+                          markKeys: const ['mada'],
+                          onTap: () => context
+                              .read<CheckoutCubit>()
+                              .setPaymentMethod(m.id, cardBrand: 'mada'),
                         ),
-                      )
-                    else
-                      const Align(
-                        alignment: Alignment.centerRight,
-                        child: Text(
-                          'مفاتيح Tabby العامة غير مضبوطة بعد.',
-                          style:
-                              TextStyle(color: TintColors.danger, fontSize: 11),
+                        _PayChip(
+                          selected: state.paymentMethod == m.id &&
+                              state.cardBrand == 'visa',
+                          markKeys: const ['visa', 'mastercard'],
+                          onTap: () => context
+                              .read<CheckoutCubit>()
+                              .setPaymentMethod(m.id, cardBrand: 'visa'),
                         ),
+                      ] else
+                        _PayChip(
+                          selected: state.paymentMethod == m.id,
+                          markKeys: [_markKey(m.id)],
+                          label: m.label,
+                          // ‼️ الرسم في الخانة لا تحتها — انظر `note`.
+                          note: m.hasFee
+                              ? '+${m.fee.toStringAsFixed(m.fee % 1 == 0 ? 0 : 2)} ﷼'
+                              : null,
+                          onTap: () => context
+                              .read<CheckoutCubit>()
+                              .setPaymentMethod(m.id),
+                        ),
+
+                    /// ‼️ **آبل باي خانةٌ في الشبكة بشكلها الأسود** — بقرار
+                    /// المالك بعد أن قارن الموضعين.
+                    ///
+                    /// وتبقى **زرّاً لا خياراً يُؤشَّر**: الشريحة هي التأكيد،
+                    /// فلا حدَّ ملوّناً ولا دائرةَ اختيارٍ حولها — ولو أخذت
+                    /// شكل جاراتها لانتظر العميل زرّ تأكيدٍ بعدها لا يأتي.
+                    ApplePaySection(
+                      config: state.applePay,
+                      amount: cartState.total + state.selectedFee,
+                      label: state.applePay.displayName,
+                      enabled: !state.isSubmitting,
+                      compact: true,
+                      onToken: (token, sheetTotal) => _payWithApplePay(
+                        context,
+                        address,
+                        tabbyEmailController.text.trim().isEmpty
+                            ? null
+                            : tabbyEmailController.text.trim(),
+                        token,
+                        sheetTotal,
                       ),
-                    const SizedBox(height: 12),
-                    _TabbyBuyerCard(
-                      emailController: tabbyEmailController,
-                      dobController: tabbyDobController,
-                      selectedDob: selectedDob,
-                      onSelectDob: onSelectDob,
                     ),
                   ],
-                  const SizedBox(height: 10),
+                ),
+
+                // كتلة Tabby الخاصّة (العرض + بيانات المشتري) عند اختياره فقط.
+                if (state.paymentMethod == 'tabby') ...[
+                  const SizedBox(height: 12),
+                  if (appConfig.hasTabbyConfig)
+                    Directionality(
+                      textDirection: TextDirection.ltr,
+                      child: buildTabbyPromoSnippet(
+                        price: cartState.total.toStringAsFixed(2),
+                        currencyCode: appConfig.currencyCode,
+                        langCode: appConfig.tabbyLanguage,
+                      ),
+                    ),
+                  const SizedBox(height: 12),
+                  _TabbyBuyerCard(
+                    emailController: tabbyEmailController,
+                    dobController: tabbyDobController,
+                    selectedDob: selectedDob,
+                    onSelectDob: onSelectDob,
+                  ),
                 ],
 
-              /// ‼️ **أسفل الوسائل — بطلب المالك بعد أن رآه على جهازه.**
-              ///
-              /// كان فوق زرّ الدفع (كما في الويب)، وفضّله المالك هنا ليكون
-              /// **حيث يبحث العميل عن وسيلته**.
-              ///
-              /// ‼️ **ولا يُرسَم كخيارٍ يُؤشَّر عليه**: الوسائل فوقه تُختار ثمّ
-              /// يُضغط «تأكيد الطلب»، أمّا هذا **فالشريحة نفسها هي التأكيد**.
-              /// فبقي زرّاً بشكله الأصليّ من آبل — ولو أخذ شكل البطاقات
-              /// المجاورة لانتظر العميل زرّ تأكيدٍ بعده لا يأتي.
-              ApplePaySection(
-                config: state.applePay,
-                amount: cartState.total + state.selectedFee,
-                label: state.applePay.displayName,
-                enabled: !state.isSubmitting,
-                onToken: (token, sheetTotal) => _payWithApplePay(
-                  context,
-                  address,
-                  tabbyEmailController.text.trim().isEmpty
-                      ? null
-                      : tabbyEmailController.text.trim(),
-                  token,
-                  sheetTotal,
-                ),
-              ),
+              ],
+
             ],
           ),
         );
@@ -2059,6 +2070,96 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
           ),
         );
       },
+    );
+  }
+}
+
+/// خانةٌ في شبكة وسائل الدفع — شعارٌ وحده، والاسم ملاذُ رجوع.
+class _PayChip extends StatelessWidget {
+  const _PayChip({
+    required this.selected,
+    required this.markKeys,
+    required this.onTap,
+    this.label,
+    this.note,
+  });
+
+  final bool selected;
+  final List<String> markKeys;
+  final VoidCallback onTap;
+
+  /// يُعرَض **حين لا شعار**: وسيلةٌ جديدة قد تصل من الخادم قبل أن يُضاف شعارها
+  /// إلى نسخة الجهاز — وخانةٌ فارغة تُقرأ عطلاً.
+  final String? label;
+
+  /// سطرٌ صغير تحت الشعار — للرسم وحده.
+  ///
+  /// ‼️ **يُعرَض قبل الاختيار لا بعده.** رسمٌ يظهر بعد الضغط يُقرأ خديعة، وهو
+  /// أثمنُ ما يُفقَد في شاشة دفع. ولذلك دخل «الدفع عند الاستلام» الشبكة
+  /// **بشرط أن يدخل رسمه معه**.
+  final String? note;
+
+  bool get _hasMark => markKeys.any(kPaymentMarks.containsKey);
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          color: selected ? TintColors.blush : Colors.white,
+          border: Border.all(
+            color: selected ? TintColors.sand : TintColors.line,
+            width: 1.5,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: _hasMark
+            ? Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (var i = 0; i < markKeys.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 5),
+                        Flexible(child: PaymentMark(markKey: markKeys[i])),
+                      ],
+                    ],
+                  ),
+                  if ((note ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      note!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: TintColors.textMuted,
+                        height: 1.1,
+                      ),
+                    ),
+                  ],
+                ],
+              )
+            : Text(
+                label ?? '',
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  height: 1.25,
+                ),
+              ),
+      ),
     );
   }
 }

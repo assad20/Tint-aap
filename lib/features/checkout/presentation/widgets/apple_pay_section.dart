@@ -26,6 +26,7 @@ class ApplePaySection extends StatelessWidget {
     required this.label,
     required this.onToken,
     this.enabled = true,
+    this.compact = false,
   });
 
   final ApplePayConfigModel config;
@@ -40,6 +41,13 @@ class ApplePaySection extends StatelessWidget {
   final Future<void> Function(Map<String, dynamic> token, String sheetTotal) onToken;
 
   final bool enabled;
+
+  /// خانةٌ في شبكة الوسائل بدل زرٍّ عريض بفاصل.
+  ///
+  /// ‼️ **ويبقى بشكل آبل الأسود في الحالتين**: هو زرُّ فعلٍ لا خيارٌ يُؤشَّر —
+  /// الشريحة نفسها هي التأكيد. ولو أخذ حدَّ الخانات الملوّن ودائرةَ اختيارها
+  /// لانتظر العميل زرّ تأكيدٍ بعده لا يأتي.
+  final bool compact;
 
   /// ‼️ **`Platform` تُسأل داخل حارس `kIsWeb`**: قراءتها على الويب ترمي.
   static bool get _isIOS => !kIsWeb && Platform.isIOS;
@@ -77,6 +85,39 @@ class ApplePaySection extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
+    final button = ApplePayButton(
+      paymentConfiguration: PaymentConfiguration.fromJsonString(
+        jsonEncode(config.toPayPluginConfig()),
+      ),
+      paymentItems: [
+        PaymentItem(
+          label: label,
+          amount: _sheetTotal,
+          status: PaymentItemStatus.final_price,
+        ),
+      ],
+      style: ApplePayButtonStyle.black,
+      type: ApplePayButtonType.buy,
+      height: compact ? 44 : 48,
+      // ‼️ **لا يُنادى إلّا بعد بصمة العميل** — لا عند لمس الزرّ.
+      onPaymentResult: (result) async {
+        if (!enabled) return;
+        final token = normalizeToken(Map<String, dynamic>.from(result));
+        if (token == null) return;
+        await onToken(token, _sheetTotal);
+      },
+      onError: (error) => debugPrint('[applepay] $error'),
+      loadingIndicator: const Center(
+        child: SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+    );
+
+    if (compact) return Center(child: button);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
@@ -105,36 +146,7 @@ class ApplePaySection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          ApplePayButton(
-            paymentConfiguration: PaymentConfiguration.fromJsonString(
-              jsonEncode(config.toPayPluginConfig()),
-            ),
-            paymentItems: [
-              PaymentItem(
-                label: label,
-                amount: _sheetTotal,
-                status: PaymentItemStatus.final_price,
-              ),
-            ],
-            style: ApplePayButtonStyle.black,
-            type: ApplePayButtonType.buy,
-            height: 48,
-            // ‼️ **لا يُنادى إلّا بعد بصمة العميل** — لا عند لمس الزرّ.
-            onPaymentResult: (result) async {
-              if (!enabled) return;
-              final token = normalizeToken(Map<String, dynamic>.from(result));
-              if (token == null) return;
-              await onToken(token, _sheetTotal);
-            },
-            onError: (error) => debugPrint('[applepay] $error'),
-            loadingIndicator: const Center(
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ),
-          ),
+          button,
         ],
       ),
     );
