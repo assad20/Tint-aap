@@ -63,6 +63,8 @@ abstract final class ApiRoutes {
   static const cmsPreview = '/catalog/preview'; // + /<token>
   /// صفحة CMS منشورة — + `/<slug>`، وتُمرَّر معها `channel=app`.
   static const cmsPage = '/cms/public/pages';
+  /// إحداثيّات ← عنوانٌ عربيّ (الخادم يسأل غوغل ويُخزّن).
+  static const reverseGeocode = '/catalog/reverse-geocode';
   // طرق الشحن وأسعارها — المصدر الموثوق الذي يعيد الخادم حسابه عند الطلب.
   static const catalogShippingMethods = '/catalog/shipping-methods';
 

@@ -1,32 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../features/checkout/presentation/pages/location_picker_page.dart';
+import 'geocode.dart';
 
-/// نتيجة اختيار موقع التوصيل — الإحداثيّات، وما استُنبط منها من عنوان.
-@immutable
-class PickedDeliveryLocation {
-  const PickedDeliveryLocation({
-    required this.lat,
-    required this.lng,
-    this.city,
-    this.neighborhood,
-  });
-
-  final double lat;
-  final double lng;
-
-  /// ‼️ **قد تعود فارغةً والإحداثيّات صحيحة**: الترميز العكسيّ غير متاحٍ على
-  /// كلّ جهاز. فالمُستدعي يملأ ما وصله ولا يُسقط الدبّوس لأنّ الاسم لم يصل.
-  final String? city;
-  final String? neighborhood;
-
-  bool get hasAddress =>
-      (city?.trim().isNotEmpty ?? false) ||
-      (neighborhood?.trim().isNotEmpty ?? false);
-}
+export 'geocode.dart' show PickedDeliveryLocation;
 
 /// يفتح خريطة اختيار موقع التوصيل ويُعيد ما اختاره العميل — أو `null` إن ألغى.
 ///
@@ -67,37 +46,10 @@ Future<PickedDeliveryLocation?> pickDeliveryLocation(
   if (!context.mounted) return null;
 
   // خريطة OpenStreetMap تفاعليّة (بلا مفتاح): العميل يضع الدبّوس بدقّة.
-  final picked = await Navigator.of(context).push<LatLng>(
+  // ‼️ **المنتقي يُعيد العنوان كاملاً لا الإحداثيّات وحدها**: هو يعرضه للعميل
+  //    وهو يختار، فإعادةُ ترميزه هنا رحلةٌ ثانية تُنتج أحياناً اسماً مختلفاً
+  //    عمّا رآه — والعميل يحكم على ما رأى.
+  return Navigator.of(context).push<PickedDeliveryLocation>(
     MaterialPageRoute(builder: (_) => LocationPickerPage(initial: start)),
   );
-  if (picked == null) return null;
-
-  final place = await _reverseGeocode(picked.latitude, picked.longitude);
-  return PickedDeliveryLocation(
-    lat: picked.latitude,
-    lng: picked.longitude,
-    city: place?.$1,
-    neighborhood: place?.$2,
-  );
-}
-
-/// عكس الترميز الجغرافيّ: المدينة والحيّ من الإحداثيّات (المُحوّل المدمج في
-/// النظام — بلا مفتاحٍ خارجيّ).
-Future<(String, String)?> _reverseGeocode(double lat, double lng) async {
-  try {
-    final places = await Geocoding()
-        .placemarkFromCoordinates(lat, lng, locale: const Locale('ar'));
-    if (places.isEmpty) return null;
-    final place = places.first;
-    final city = (place.locality?.trim().isNotEmpty ?? false)
-        ? place.locality!.trim()
-        : (place.administrativeArea?.trim() ?? '');
-    final neighborhood = (place.subLocality?.trim().isNotEmpty ?? false)
-        ? place.subLocality!.trim()
-        : (place.subAdministrativeArea?.trim() ?? '');
-    return (city, neighborhood);
-  } catch (_) {
-    // غير متاحٍ على بعض الأجهزة — تبقى الإحداثيّات وحدها، وهي المطلوب أصلاً.
-    return null;
-  }
 }
