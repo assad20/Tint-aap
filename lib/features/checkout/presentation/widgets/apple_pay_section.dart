@@ -82,6 +82,29 @@ class ApplePaySection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          /// ‼️ **الفاصل فوقه لا تحته** — مذ صار أسفل الوسائل.
+          ///
+          /// كان تحته «أو أكملي بالطرق أدناه» حين كان فوق زرّ الدفع. وبقاؤه
+          /// هناك بعد النقل يُحيل إلى وسائل **فوقه** لا تحته — إشارةٌ تدلّ على
+          /// الاتّجاه الخاطئ، وهي أسوأ من غياب الإشارة.
+          Row(
+            children: [
+              const Expanded(child: Divider(height: 1)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  'أو',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: TintColors.textMuted,
+                  ),
+                ),
+              ),
+              const Expanded(child: Divider(height: 1)),
+            ],
+          ),
+          const SizedBox(height: 10),
           ApplePayButton(
             paymentConfiguration: PaymentConfiguration.fromJsonString(
               jsonEncode(config.toPayPluginConfig()),
@@ -111,23 +134,6 @@ class ApplePaySection extends StatelessWidget {
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Expanded(child: Divider(height: 1)),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Text(
-                  'أو أكملي بالطرق أدناه',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: TintColors.textMuted,
-                  ),
-                ),
-              ),
-              const Expanded(child: Divider(height: 1)),
-            ],
           ),
         ],
       ),

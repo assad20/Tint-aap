@@ -257,6 +257,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
           const _ShippingMethodsCard(),
           const SizedBox(height: 12),
           _PaymentMethodsCard(
+            address: address,
             tabbyEmailController: _tabbyEmailController,
             tabbyDobController: _tabbyDobController,
             selectedDob: _selectedDob,
@@ -1140,13 +1141,186 @@ class _ShippingOptionCard extends StatelessWidget {
   }
 }
 
+/// آبل باي — **الشريحة هي التأكيد**.
+///
+/// ‼️ **يُنادى بعد بصمة العميل لا قبلها**: الحزمة تفتح الشريحة، ولا يصل هذا
+/// إلّا ومعه توكنٌ موقَّع. فلا زرَّ تأكيدٍ ثانياً بعده.
+///
+/// ‼️ **و`orderId` هو دليل النجاح** — لا رمز HTTP ولا ردٌّ بلا خطأ. فالخادم
+/// لا يُصدر معرّف طلبٍ إلّا بعد أن يستعلم عن العمليّة من PayTabs ويجدها
+/// مقبولة، وردٌّ ٢٠٠ بحالة «قيد المعالجة» ليس دفعاً.
+Future<void> _payWithApplePay(
+  BuildContext context,
+  AddressModel address,
+  String? buyerEmail,
+  Map<String, dynamic> token,
+  String sheetTotal,
+) async {
+  final cart = context.read<CartCubit>();
+  final cubit = context.read<CheckoutCubit>();
+
+  // ‼️ **نفس حرّاس الزرّ الرئيسيّ**: الشريحة لا تُعفي من مراجعة المخزون ولا
+  //    من اكتمال العنوان — والدفع وقع فعلاً، فالطلب يجب أن يُنشأ.
+  if (cart.state.items.isEmpty) {
+    _showSnackBar(context, 'سلّتك فارغة — أضف منتجاً قبل إتمام الطلب.');
+    return;
+  }
+  final a = address;
+  if (a.recipient.isEmpty || a.mobile.isEmpty || a.city.isEmpty || a.details.isEmpty) {
+    _showSnackBar(context, 'أكملي عنوان التوصيل قبل المتابعة.');
+    return;
+  }
+
+  final orderReference = 'TN-AP-${DateTime.now().millisecondsSinceEpoch}';
+  try {
+    final result = await cubit.payWithApplePay(
+      items: cart.state.items,
+      address: address,
+      orderReference: orderReference,
+      applePayToken: token,
+      sheetTotal: sheetTotal,
+      buyerEmail: buyerEmail,
+    );
+    if (!context.mounted) return;
+
+    final orderId = result['orderId']?.toString() ?? '';
+    if (orderId.isEmpty) {
+      _showSnackBar(
+        context,
+        result['message']?.toString() ?? 'لم تُقبل العمليّة عبر آبل باي.',
+      );
+      return;
+    }
+    _showSuccessDialog(context, orderId);
+  } catch (error) {
+    if (!context.mounted) return;
+    _showSnackBar(context, _readableError(error));
+  }
+}
+
+void _showSnackBar(BuildContext context, String message) {
+  ScaffoldMessenger.of(context)
+    ..clearSnackBars()
+    ..showSnackBar(SnackBar(content: Text(message)));
+}
+
+/// يُطلق `purchase` ثمّ يُعلم الخادم أنّ العميل رآه.
+///
+/// ‼️ **العلامة تُرسَل فقط إن خرج الحدث.** معناها حرفيّاً «رأى العميل هذا
+/// الشراء فلا تستدركه»، فإرسالها بلا إطلاقٍ — لأنّ المستخدم رفض القياس
+/// مثلاً — يمنع استدراك الخادم فيضيع الشراء من الطرفين معاً.
+/// ينسب هذا الطلب إلى آخر مقطعٍ ترويجيّ نُقر زرّه — إن كان قريباً.
+///
+/// ‼️ **نافذة النسبة سبعة أيّام، وآخر نقرةٍ تأخذها.** أطولُ منها ينسب إلى
+/// المقطع شراءً قرّره المشتري لسببٍ آخر، وأقصرُ منها يُسقط مشترياً عاد بعد
+/// يومين وهو المعتاد في متجرٍ يُتصفَّح ليلاً ويُشترى منه نهاراً.
+///
+/// ‼️ **ولا يمرّ بمسار الطلب ولا بموافقة الإعلانات.** حقنُه في إنشاء الطلب
+/// يعني لمس أخطر شيفرةٍ في النظام لأجل رقمٍ في تقرير؛ وربطُه بموافقة التتبّع
+/// يُصفّر رقم متجرٍ لم يقبل زوّاره الإعلانات — وهذا عدّادٌ مجمّع بلا هويّة
+/// أحد، لا تتبّعٌ عبر المواقع.
+///
+/// والثمن المُعلَن: الرقم يأتي من الجهاز، فيُقرأ **اتّجاهاً لا محاسبةً**.
+Future<void> _attributeReelOrder(BuildContext context) async {
+  final preferences = context.read<AppPreferences>();
+  final reelId = preferences.lastReelClickId;
+  if (reelId == null || reelId.isEmpty) return;
+
+  const window = Duration(days: 7);
+  final clickedAt = preferences.lastReelClickAt;
+  final age = DateTime.now().millisecondsSinceEpoch - clickedAt;
+  if (clickedAt <= 0 || age > window.inMilliseconds) {
+    await preferences.clearReelClick();
+    return;
+  }
+
+  final cubit = context.read<CheckoutCubit>();
+  final subtotal = TrackingEvents.total(cubit.trackingItems);
+  final value = subtotal +
+      cubit.state.shippingCostFor(subtotal) +
+      cubit.state.selectedFee;
+
+  await context.read<ReelStatsReporter>().order(reelId, value);
+  await preferences.clearReelClick();
+}
+
+Future<void> _logPurchase(BuildContext context, String orderId) async {
+  final cubit = context.read<CheckoutCubit>();
+  final items = cubit.trackingItems;
+  if (items.isEmpty) return;
+
+  final subtotal = TrackingEvents.total(items);
+  final shipping = cubit.state.shippingCostFor(subtotal);
+  final fired = await context.read<TrackingService>().logPurchase(
+        transactionId: orderId,
+        items: items,
+        // ‼️ الإيراد كما دفعه المشتري: البضاعة + الشحن + رسوم الوسيلة.
+        //    قيمةٌ بلا شحنٍ تُظهر ربحيّةً وهميّة في تقارير الإعلانات.
+        value: subtotal + shipping + cubit.state.selectedFee,
+        shipping: shipping,
+      );
+  if (!fired) return;
+
+  try {
+    await context.read<ApiClient>().postMap(
+          ApiRoutes.conversionsBrowserPurchase,
+          data: {'orderId': orderId},
+        );
+  } catch (error) {
+    // فشل العلامة لا يُخبر المشتري بشيء: طلبه نجح، وأسوأ أثرٍ هنا استدراكٌ
+    // مزدوج يعالجه الخادم بنفسه.
+    debugPrint('[tracking] تعذّر تعليم الشراء: $error');
+  }
+}
+
+Future<void> _showSuccessDialog(BuildContext context, String orderId) async {
+  // ‼️ **هنا لا في كلّ مسار دفع.** خمسة مسارات تنتهي إلى هذه الدالّة (نقداً
+  //    وتابي وتمارا وPayTabs ونون)، ووصلُ الحدث في كلٍّ منها يعني مساراً
+  //    يُنسى — والمنسيّ لا يُصدر خطأً، يُصدر تقريراً ناقصاً يبدو صحيحاً.
+  unawaited(_logPurchase(context, orderId));
+  unawaited(_attributeReelOrder(context));
+
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('تم استلام طلبك'),
+      content: Text('رقم الطلب الجديد: $orderId'),
+      actions: [
+        TextButton(
+          onPressed: () {
+            context.read<CartCubit>().clear();
+            Navigator.of(dialogContext).pop();
+            context.go('/');
+          },
+          child: const Text('تم'),
+        ),
+      ],
+    ),
+  );
+}
+
+/// رسالة الخادم كما هي، لا غلافها.
+///
+/// `ApiException.toString()` يُخرج «ApiException(statusCode: 400, message: …)»
+/// — فكان المشتري يقرأ اسم صنفٍ برمجيّ قبل سبب الرفض. والخادم يرسل رسالةً
+/// عربيّةً مكتوبةً له، فتُعرَض وحدها.
+String _readableError(Object error) {
+  if (error is ApiException) return error.message;
+  return error.toString().replaceFirst('Exception: ', '');
+}
+
 class _PaymentMethodsCard extends StatelessWidget {
   const _PaymentMethodsCard({
+    required this.address,
     required this.tabbyEmailController,
     required this.tabbyDobController,
     required this.selectedDob,
     required this.onSelectDob,
   });
+
+  /// عنوان الطلب — يلزم آبل باي: الشريحة **هي** التأكيد، فلا مرحلة بعدها
+  /// تقرأ العنوان.
+  final AddressModel address;
 
   final TextEditingController tabbyEmailController;
   final TextEditingController tabbyDobController;
@@ -1276,6 +1450,31 @@ class _PaymentMethodsCard extends StatelessWidget {
                   ],
                   const SizedBox(height: 10),
                 ],
+
+              /// ‼️ **أسفل الوسائل — بطلب المالك بعد أن رآه على جهازه.**
+              ///
+              /// كان فوق زرّ الدفع (كما في الويب)، وفضّله المالك هنا ليكون
+              /// **حيث يبحث العميل عن وسيلته**.
+              ///
+              /// ‼️ **ولا يُرسَم كخيارٍ يُؤشَّر عليه**: الوسائل فوقه تُختار ثمّ
+              /// يُضغط «تأكيد الطلب»، أمّا هذا **فالشريحة نفسها هي التأكيد**.
+              /// فبقي زرّاً بشكله الأصليّ من آبل — ولو أخذ شكل البطاقات
+              /// المجاورة لانتظر العميل زرّ تأكيدٍ بعده لا يأتي.
+              ApplePaySection(
+                config: state.applePay,
+                amount: cartState.total + state.selectedFee,
+                label: state.applePay.displayName,
+                enabled: !state.isSubmitting,
+                onToken: (token, sheetTotal) => _payWithApplePay(
+                  context,
+                  address,
+                  tabbyEmailController.text.trim().isEmpty
+                      ? null
+                      : tabbyEmailController.text.trim(),
+                  token,
+                  sheetTotal,
+                ),
+              ),
             ],
           ),
         );
@@ -1456,63 +1655,6 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
   /// الورقة لأجلها.
   String _amountLabel(double total) => '${total.toStringAsFixed(2)} ﷼';
 
-  /// آبل باي — **الشريحة هي التأكيد**.
-  ///
-  /// ‼️ **يُنادى بعد بصمة العميل لا قبلها**: الحزمة تفتح الشريحة، ولا يصل هذا
-  /// إلّا ومعه توكنٌ موقَّع. فلا زرَّ تأكيدٍ ثانياً بعده.
-  ///
-  /// ‼️ **و`orderId` هو دليل النجاح** — لا رمز HTTP ولا ردٌّ بلا خطأ. فالخادم
-  /// لا يُصدر معرّف طلبٍ إلّا بعد أن يستعلم عن العمليّة من PayTabs ويجدها
-  /// مقبولة، وردٌّ ٢٠٠ بحالة «قيد المعالجة» ليس دفعاً.
-  Future<void> _payWithApplePay(
-    BuildContext context,
-    CheckoutState state,
-    Map<String, dynamic> token,
-    String sheetTotal,
-  ) async {
-    final cart = context.read<CartCubit>();
-    final cubit = context.read<CheckoutCubit>();
-
-    // ‼️ **نفس حرّاس الزرّ الرئيسيّ**: الشريحة لا تُعفي من مراجعة المخزون ولا
-    //    من اكتمال العنوان — والدفع وقع فعلاً، فالطلب يجب أن يُنشأ.
-    if (cart.state.items.isEmpty) {
-      _showSnackBar(context, 'سلّتك فارغة — أضف منتجاً قبل إتمام الطلب.');
-      return;
-    }
-    final a = widget.address;
-    if (a.recipient.isEmpty || a.mobile.isEmpty || a.city.isEmpty || a.details.isEmpty) {
-      _showSnackBar(context, 'أكملي عنوان التوصيل قبل المتابعة.');
-      return;
-    }
-
-    final orderReference = 'TN-AP-${DateTime.now().millisecondsSinceEpoch}';
-    try {
-      final result = await cubit.payWithApplePay(
-        items: cart.state.items,
-        address: widget.address,
-        orderReference: orderReference,
-        applePayToken: token,
-        sheetTotal: sheetTotal,
-        buyerEmail: widget.tabbyEmailController.text.trim().isEmpty
-            ? null
-            : widget.tabbyEmailController.text.trim(),
-      );
-      if (!context.mounted) return;
-
-      final orderId = result['orderId']?.toString() ?? '';
-      if (orderId.isEmpty) {
-        _showSnackBar(
-          context,
-          result['message']?.toString() ?? 'لم تُقبل العمليّة عبر آبل باي.',
-        );
-        return;
-      }
-      _showSuccessDialog(context, orderId);
-    } catch (error) {
-      if (!context.mounted) return;
-      _showSnackBar(context, _readableError(error));
-    }
-  }
 
   /// PayTabs — بطاقة.
   ///
@@ -1794,116 +1936,10 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
     }
   }
 
-  /// رسالة الخادم كما هي، لا غلافها.
-  ///
-  /// `ApiException.toString()` يُخرج «ApiException(statusCode: 400, message: …)»
-  /// — فكان المشتري يقرأ اسم صنفٍ برمجيّ قبل سبب الرفض. والخادم يرسل رسالةً
-  /// عربيّةً مكتوبةً له، فتُعرَض وحدها.
-  String _readableError(Object error) {
-    if (error is ApiException) return error.message;
-    return error.toString().replaceFirst('Exception: ', '');
-  }
 
-  void _showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(SnackBar(content: Text(message)));
-  }
 
-  /// يُطلق `purchase` ثمّ يُعلم الخادم أنّ العميل رآه.
-  ///
-  /// ‼️ **العلامة تُرسَل فقط إن خرج الحدث.** معناها حرفيّاً «رأى العميل هذا
-  /// الشراء فلا تستدركه»، فإرسالها بلا إطلاقٍ — لأنّ المستخدم رفض القياس
-  /// مثلاً — يمنع استدراك الخادم فيضيع الشراء من الطرفين معاً.
-  /// ينسب هذا الطلب إلى آخر مقطعٍ ترويجيّ نُقر زرّه — إن كان قريباً.
-  ///
-  /// ‼️ **نافذة النسبة سبعة أيّام، وآخر نقرةٍ تأخذها.** أطولُ منها ينسب إلى
-  /// المقطع شراءً قرّره المشتري لسببٍ آخر، وأقصرُ منها يُسقط مشترياً عاد بعد
-  /// يومين وهو المعتاد في متجرٍ يُتصفَّح ليلاً ويُشترى منه نهاراً.
-  ///
-  /// ‼️ **ولا يمرّ بمسار الطلب ولا بموافقة الإعلانات.** حقنُه في إنشاء الطلب
-  /// يعني لمس أخطر شيفرةٍ في النظام لأجل رقمٍ في تقرير؛ وربطُه بموافقة التتبّع
-  /// يُصفّر رقم متجرٍ لم يقبل زوّاره الإعلانات — وهذا عدّادٌ مجمّع بلا هويّة
-  /// أحد، لا تتبّعٌ عبر المواقع.
-  ///
-  /// والثمن المُعلَن: الرقم يأتي من الجهاز، فيُقرأ **اتّجاهاً لا محاسبةً**.
-  Future<void> _attributeReelOrder(BuildContext context) async {
-    final preferences = context.read<AppPreferences>();
-    final reelId = preferences.lastReelClickId;
-    if (reelId == null || reelId.isEmpty) return;
 
-    const window = Duration(days: 7);
-    final clickedAt = preferences.lastReelClickAt;
-    final age = DateTime.now().millisecondsSinceEpoch - clickedAt;
-    if (clickedAt <= 0 || age > window.inMilliseconds) {
-      await preferences.clearReelClick();
-      return;
-    }
 
-    final cubit = context.read<CheckoutCubit>();
-    final subtotal = TrackingEvents.total(cubit.trackingItems);
-    final value = subtotal +
-        cubit.state.shippingCostFor(subtotal) +
-        cubit.state.selectedFee;
-
-    await context.read<ReelStatsReporter>().order(reelId, value);
-    await preferences.clearReelClick();
-  }
-
-  Future<void> _logPurchase(BuildContext context, String orderId) async {
-    final cubit = context.read<CheckoutCubit>();
-    final items = cubit.trackingItems;
-    if (items.isEmpty) return;
-
-    final subtotal = TrackingEvents.total(items);
-    final shipping = cubit.state.shippingCostFor(subtotal);
-    final fired = await context.read<TrackingService>().logPurchase(
-          transactionId: orderId,
-          items: items,
-          // ‼️ الإيراد كما دفعه المشتري: البضاعة + الشحن + رسوم الوسيلة.
-          //    قيمةٌ بلا شحنٍ تُظهر ربحيّةً وهميّة في تقارير الإعلانات.
-          value: subtotal + shipping + cubit.state.selectedFee,
-          shipping: shipping,
-        );
-    if (!fired) return;
-
-    try {
-      await context.read<ApiClient>().postMap(
-            ApiRoutes.conversionsBrowserPurchase,
-            data: {'orderId': orderId},
-          );
-    } catch (error) {
-      // فشل العلامة لا يُخبر المشتري بشيء: طلبه نجح، وأسوأ أثرٍ هنا استدراكٌ
-      // مزدوج يعالجه الخادم بنفسه.
-      debugPrint('[tracking] تعذّر تعليم الشراء: $error');
-    }
-  }
-
-  Future<void> _showSuccessDialog(BuildContext context, String orderId) async {
-    // ‼️ **هنا لا في كلّ مسار دفع.** خمسة مسارات تنتهي إلى هذه الدالّة (نقداً
-    //    وتابي وتمارا وPayTabs ونون)، ووصلُ الحدث في كلٍّ منها يعني مساراً
-    //    يُنسى — والمنسيّ لا يُصدر خطأً، يُصدر تقريراً ناقصاً يبدو صحيحاً.
-    unawaited(_logPurchase(context, orderId));
-    unawaited(_attributeReelOrder(context));
-
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('تم استلام طلبك'),
-        content: Text('رقم الطلب الجديد: $orderId'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              context.read<CartCubit>().clear();
-              Navigator.of(dialogContext).pop();
-              context.go('/');
-            },
-            child: const Text('تم'),
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -1981,19 +2017,6 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
                 ],
               ),
               const SizedBox(height: 18),
-              /// ‼️ **فوق الزرّ لا بين الوسائل** — كما في الويب.
-              ///
-              /// آبل باي ليست «وسيلةً تُختار ثمّ يُضغط تأكيد»: الشريحة **هي**
-              /// التأكيد. ووضعُها في قائمة الوسائل يُنتج خطوتين لفعلٍ واحد،
-              /// ويُخفيها خلف اختيارٍ لا يعرف العميل أنّه يحتاجه.
-              ApplePaySection(
-                config: state.applePay,
-                amount: grandTotal,
-                label: state.applePay.displayName,
-                enabled: !state.isSubmitting,
-                onToken: (token, sheetTotal) =>
-                    _payWithApplePay(context, state, token, sheetTotal),
-              ),
               TintPrimaryButton(
                 label: state.isSubmitting
                     ? (state.paymentMethod == 'tabby'
