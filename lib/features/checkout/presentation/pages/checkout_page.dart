@@ -20,6 +20,7 @@ import '../../../../app/config/app_config.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/models/account_models.dart';
 import '../../../../core/models/payment_method_model.dart';
+import '../../../../core/models/shipping_method_model.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/widgets/tint_ui.dart';
 import '../../../account/presentation/cubit/addresses_cubit.dart';
@@ -961,28 +962,117 @@ class _ShippingMethodsCard extends StatelessWidget {
                   ),
                 )
               else
-                ...state.shippingMethods.map((m) {
-                  final subtotal = context.read<CartCubit>().state.total;
-                  final cost = m.costFor(subtotal);
-                  final free = cost == 0;
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _SelectableTile(
-                      selected: state.shippingMethod == m.id,
-                      title: m.label,
-                      subtitle: m.etaLabel,
-                      // «مجّاني» حين تتجاوز السلّة العتبة فعلاً — لا كوعدٍ ثابت.
-                      trailing: free ? 'مجاني' : '${m.price.toStringAsFixed(0)} ﷼',
-                      trailingColor: free ? TintColors.success : TintColors.sand,
-                      onTap: () =>
-                          context.read<CheckoutCubit>().setShippingMethod(m.id),
-                    ),
-                  );
-                }),
+                /// ‼️ **صفٌّ لا قائمة** — بطلب المالك 2026-08-24.
+                ///
+                /// الطرق **قليلةٌ ومتقابلة** (أسرع/أرخص)، والقرار بينها مقارنة.
+                /// وقائمةٌ رأسيّة تجعل المشتري يمرّر عينه بين سطرين متباعدين
+                /// ليقارن رقمين، بينما الصفّ يضعهما جنباً إلى جنب فيُقرأ الفرق
+                /// في نظرة.
+                ///
+                /// ‼️ **و`IntrinsicHeight` ليست زينة**: البطاقتان تتساويان
+                /// ارتفاعاً مهما اختلف طول الاسم أو المدّة — وبطاقتان بارتفاعين
+                /// تُقرآن «واحدةٌ أهمّ من الأخرى».
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var i = 0; i < state.shippingMethods.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 10),
+                        Expanded(
+                          child: _ShippingOptionCard(
+                            method: state.shippingMethods[i],
+                            selected: state.shippingMethod ==
+                                state.shippingMethods[i].id,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+/// بطاقة طريقة توصيلٍ واحدة داخل الصفّ.
+class _ShippingOptionCard extends StatelessWidget {
+  const _ShippingOptionCard({required this.method, required this.selected});
+
+  final ShippingMethodModel method;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    // «مجّاني» حين تتجاوز السلّة العتبة فعلاً — لا كوعدٍ ثابت.
+    final subtotal = context.read<CartCubit>().state.total;
+    final free = method.costFor(subtotal) == 0;
+
+    return InkWell(
+      onTap: () => context.read<CheckoutCubit>().setShippingMethod(method.id),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
+        decoration: BoxDecoration(
+          color: selected ? TintColors.blush : Colors.white,
+          border: Border.all(
+            color: selected ? TintColors.sand : TintColors.line,
+            width: 1.5,
+          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            /// ‼️ **دائرةٌ ممتلئةٌ بصحٍّ عند الاختيار، وفارغةٌ عند غيره.**
+            ///
+            /// والفرق ليس تجميلاً: بطاقتان بلونين متقاربين تُقرآن «كلتاهما
+            /// مختارة» على شاشةٍ في الشمس. والصحُّ يقول أيّهما بلا لبس.
+            Icon(
+              selected
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked,
+              size: 20,
+              color: selected ? TintColors.sand : const Color(0xFFCFD3D8),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    method.label,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    free ? 'مجاني' : '${method.price.toStringAsFixed(0)} ر.س',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                      color: free ? TintColors.success : TintColors.sand,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    method.etaLabel,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: TintColors.textMuted,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
