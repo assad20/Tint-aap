@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/location/delivery_location.dart';
@@ -33,6 +35,9 @@ class _AddressFormPageState extends State<AddressFormPage> {
   String title = 'المنزل';
   double? lat;
   double? lng;
+
+  /// العنوان الوطنيّ المختصر — للعرض فوق المعاينة، ولا يُحفَظ (البند ٢٣).
+  String? shortCode;
   bool isDefault = false;
   bool _saving = false;
 
@@ -91,6 +96,7 @@ class _AddressFormPageState extends State<AddressFormPage> {
     setState(() {
       lat = picked.lat;
       lng = picked.lng;
+      shortCode = picked.shortCode;
       if (newCity.isNotEmpty) cityController.text = newCity;
       if (newHood.isNotEmpty) neighborhoodController.text = newHood;
     });
@@ -175,41 +181,47 @@ class _AddressFormPageState extends State<AddressFormPage> {
           ///
           /// على الجوّال الموقع أدقّ من الوصف وأسرع: دبّوسٌ واحد يُغني عن ثلاثة
           /// حقول، والمندوب يصل به لا بـ«خلف المسجد».
-          InkWell(
+          /// ‼️ **معاينةٌ لا سطرُ إحداثيّات — حين يوجد دبّوس.**
+          ///
+          /// كان السطر يقول «24.71225، 46.67795»، وهي أرقامٌ **لا يتحقّق منها
+          /// أحد**: لا تُقرأ ولا تُقارَن بالذاكرة. والعميل يكتب تفاصيل عنوانه
+          /// وهو لا يرى أين وضع دبّوسه، فيعود إلى الخريطة ليتأكّد.
+          ///
+          /// وصورةٌ صغيرة تُجيب في لمحة: هذا شارعي أو ليس شارعي.
+          if (hasPin) _MapPreview(
+            lat: lat!,
+            lng: lng!,
+            shortCode: shortCode,
+            onEdit: _pickLocation,
+          )
+          else InkWell(
             onTap: _pickLocation,
             borderRadius: BorderRadius.circular(18),
             child: Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: hasPin ? const Color(0xFFF2FBF6) : Colors.white,
-                border: Border.all(
-                  color: hasPin ? const Color(0xFFA8DFC2) : TintColors.line,
-                  width: 1.5,
-                ),
+                color: Colors.white,
+                border: Border.all(color: TintColors.line, width: 1.5),
                 borderRadius: BorderRadius.circular(18),
               ),
               child: Row(
                 children: [
-                  Icon(
-                    hasPin ? Icons.where_to_vote_rounded : Icons.add_location_alt_outlined,
-                    color: hasPin ? TintColors.success : TintColors.sand,
+                  const Icon(
+                    Icons.add_location_alt_outlined,
+                    color: TintColors.sand,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          hasPin ? 'الموقع محدَّد على الخريطة' : 'حدّدي الموقع على الخريطة',
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                        const Text(
+                          'حدّدي الموقع على الخريطة',
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
                         ),
-                        Text(
-                          // ‼️ الإحداثيّات تُعرَض: هي **الدليل الوحيد** أنّ
-                          //    الدبّوس تحرّك حين لا يتغيّر اسم الحيّ.
-                          hasPin
-                              ? '${lat!.toStringAsFixed(5)}، ${lng!.toStringAsFixed(5)} — اضغطي لتحريكه'
-                              : 'يصل المندوب بالدبّوس أسرع من الوصف',
-                          style: const TextStyle(color: TintColors.textMuted, fontSize: 11),
+                        const Text(
+                          'يصل المندوب بالدبّوس أسرع من الوصف',
+                          style: TextStyle(color: TintColors.textMuted, fontSize: 11),
                         ),
                       ],
                     ),
@@ -435,6 +447,123 @@ class _LabeledField extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+
+/// معاينةٌ ساكنة لموقع التوصيل داخل شاشة التفاصيل.
+///
+/// ‼️ **غير تفاعليّة عمداً** (`InteractiveFlag.none`): خريطةٌ تبتلع السحب داخل
+/// قائمةٍ تُمرَّر تجعل الشاشة تبدو عالقة — فالتحريك يقع في المنتقي وحده،
+/// وهذه صورةٌ تُضغَط لا خريطةٌ تُدار.
+class _MapPreview extends StatelessWidget {
+  const _MapPreview({
+    required this.lat,
+    required this.lng,
+    required this.onEdit,
+    this.shortCode,
+  });
+
+  final double lat;
+  final double lng;
+  final String? shortCode;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final center = LatLng(lat, lng);
+    final code = shortCode?.trim() ?? '';
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: SizedBox(
+        height: 150,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: IgnorePointer(
+                child: FlutterMap(
+                  options: MapOptions(
+                    initialCenter: center,
+                    initialZoom: 16.5,
+                    interactionOptions:
+                        const InteractionOptions(flags: InteractiveFlag.none),
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                          'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                      subdomains: const ['a', 'b', 'c', 'd'],
+                      retinaMode: RetinaMode.isHighDensity(context),
+                      userAgentPackageName: 'com.tintstore.app',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.only(bottom: 26),
+                child: Icon(Icons.location_pin, size: 34, color: TintColors.sand),
+              ),
+            ),
+            // ‼️ **الرمز فوق المعاينة**: هو ما يُقارنه العميل بعنوانه الحقيقيّ.
+            if (code.isNotEmpty)
+              Positioned(
+                top: 10,
+                right: 10,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.94),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    code,
+                    textDirection: TextDirection.ltr,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                ),
+              ),
+            Positioned(
+              bottom: 10,
+              left: 10,
+              child: Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                child: InkWell(
+                  onTap: onEdit,
+                  borderRadius: BorderRadius.circular(10),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.edit_location_alt_outlined,
+                            size: 15, color: TintColors.charcoal),
+                        SizedBox(width: 5),
+                        Text(
+                          'تعديل الموقع',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                            color: TintColors.charcoal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
