@@ -61,6 +61,8 @@ abstract final class ApiRoutes {
   /// معاينة مسودّةٍ برابطٍ موقَّع (4.3). عامّة بلا رمز أدمن — الحماية في
   /// التوقيع نفسه، والرابط ينتهي بعد ساعتين.
   static const cmsPreview = '/catalog/preview'; // + /<token>
+  /// صفحة CMS منشورة — + `/<slug>`، وتُمرَّر معها `channel=app`.
+  static const cmsPage = '/cms/public/pages';
   // طرق الشحن وأسعارها — المصدر الموثوق الذي يعيد الخادم حسابه عند الطلب.
   static const catalogShippingMethods = '/catalog/shipping-methods';
 

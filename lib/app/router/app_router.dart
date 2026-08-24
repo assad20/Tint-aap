@@ -22,6 +22,7 @@ import '../../features/assistant/presentation/pages/assistant_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../core/models/product_model.dart';
 import '../../features/catalog/presentation/pages/category_deep_link_page.dart';
+import '../../features/catalog/presentation/pages/cms_page_route.dart';
 import '../../features/catalog/presentation/pages/preview_page.dart';
 import '../../features/catalog/presentation/pages/product_by_id_page.dart';
 import '../../features/catalog/presentation/pages/product_detail_page.dart';
@@ -102,6 +103,18 @@ class AppRouter {
         path: '/product/:id',
         builder: (context, state) =>
             ProductByIdPage(productId: state.pathParameters['id'] ?? ''),
+      ),
+      /**
+       * صفحة CMS منشورة — `tint://page/<slug>` (المهمّة 3.3).
+       *
+       * ‼️ **آخر وجهةٍ كانت صامتة**: القسم والمنتج يعملان منذ زمن، و`page`
+       * كانت تعود `false` من كلّ مُنفِّذ — فبنرٌ مربوطٌ بصفحة حملةٍ يُرسَم
+       * ويُقرأ ويُضغَط **ولا يحدث شيء**، بلا خطأٍ ولا سطر سجلّ.
+       */
+      GoRoute(
+        path: '/page/:slug',
+        builder: (context, state) =>
+            CmsPageRoute(slug: state.pathParameters['slug'] ?? ''),
       ),
       /**
        * معاينة مسودّةٍ على الجهاز — `tint://preview/<token>` (المهمّة 4.3).

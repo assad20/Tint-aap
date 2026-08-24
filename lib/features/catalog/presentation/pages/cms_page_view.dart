@@ -100,6 +100,11 @@ class CmsPageView extends StatelessWidget {
           context.push('/category/${Uri.encodeComponent(action.value)}');
         }
         return true;
+      // ‼️ صفحةٌ تفتح صفحة: حملةٌ تُحيل إلى حملة. و`push` لا `go` — فيعود
+      //    المستخدم إلى ما جاء منه لا إلى الجذر.
+      case 'page':
+        if (execute) context.push('/page/${Uri.encodeComponent(action.value)}');
+        return true;
       default:
         return false;
     }
