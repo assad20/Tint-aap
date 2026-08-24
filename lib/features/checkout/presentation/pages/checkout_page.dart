@@ -884,6 +884,69 @@ class _ProductsMiniSummary extends StatelessWidget {
         children: [
           TintSectionHeader(title: 'ملخص المنتجات (${items.length})'),
           const SizedBox(height: 12),
+          /// ‼️ **يتكيّف مع العدد — والشريط وحده كان ينهار عند منتجٍ واحد.**
+          ///
+          /// شريطُ صورٍ مصغّرة يعمل مع عشرة، أمّا مع واحدٍ فيترك بطاقةً شبه
+          /// فارغة: صورةٌ يتيمة بلا اسمٍ ولا سعر، وفراغٌ يُقرأ عطلاً. وفي
+          /// اللحظة التي يراجع فيها المشتري طلبه قبل الدفع، **الاسم والسعر
+          /// أنفع من صورةٍ يعرفها**.
+          ///
+          /// والحدّ ثلاثة: فوقها تطول البطاقة وتزيح زرّ الدفع خارج الشاشة،
+          /// فيعود الشريط — وهو الشكل الذي بُني له.
+          if (items.length <= 3)
+            ...items.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: TintNetworkImage(
+                        url: item.product.image,
+                        fit: BoxFit.cover,
+                        width: 52,
+                        height: 52,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.product.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              height: 1.35,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'الكميّة: ${item.quantity}',
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: TintColors.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${item.lineTotal.toStringAsFixed(2)} ر.س',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
           SizedBox(
             height: 74,
             child: ListView.separated(
