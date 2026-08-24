@@ -120,6 +120,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
         city: _place?.city,
         neighborhood: _place?.neighborhood,
         street: _place?.street,
+        shortCode: _place?.shortCode,
       ),
     );
   }
@@ -263,6 +264,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
             bottom: 0,
             child: _AddressSheet(
               line: _place?.line ?? '',
+              shortCode: _place?.shortCode ?? '',
               resolving: _resolving,
               precise: _precise,
               onConfirm: _confirm,
@@ -278,12 +280,16 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
 class _AddressSheet extends StatelessWidget {
   const _AddressSheet({
     required this.line,
+    required this.shortCode,
     required this.resolving,
     required this.precise,
     required this.onConfirm,
   });
 
   final String line;
+
+  /// العنوان الوطنيّ المختصر — يُعرَض حين يعرفه الخادم فقط.
+  final String shortCode;
   final bool resolving;
   final bool precise;
   final VoidCallback onConfirm;
@@ -330,6 +336,23 @@ class _AddressSheet extends StatelessWidget {
                       ///
                       /// و«جارٍ» نصٌّ لا دوّارة: دوّارةٌ مع كلّ تحريكةٍ تجعل
                       /// البطاقة ترتجف طوال السحب.
+                      /// ‼️ **الرمز أوّلاً حين يوجد — وهو أدقّ ما في السطر.**
+                      ///
+                      /// «RHWA2868» عنوانٌ وطنيٌّ يدلّ على المبنى بعينه،
+                      /// و«حي الورود» يدلّ على حيٍّ فيه آلاف المباني. فمن
+                      /// يتحقّق من دبّوسه يقرأ الأوّل، ومن يقود إليه يقرأ
+                      /// الثاني — فيُعرضان معاً بترتيب الدقّة.
+                      if (shortCode.isNotEmpty)
+                        Text(
+                          shortCode,
+                          textDirection: TextDirection.ltr,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.5,
+                            height: 1.3,
+                          ),
+                        ),
                       Text(
                         resolving && line.isEmpty
                             ? 'جارٍ تحديد العنوان…'
@@ -338,9 +361,13 @@ class _AddressSheet extends StatelessWidget {
                                 : line),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w800,
+                        style: TextStyle(
+                          fontSize: shortCode.isEmpty ? 14.5 : 13,
+                          fontWeight:
+                              shortCode.isEmpty ? FontWeight.w800 : FontWeight.w600,
+                          color: shortCode.isEmpty
+                              ? TintColors.charcoal
+                              : TintColors.textMuted,
                           height: 1.35,
                         ),
                       ),

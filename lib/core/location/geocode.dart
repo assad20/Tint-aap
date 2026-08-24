@@ -14,6 +14,7 @@ class PickedDeliveryLocation {
     this.city,
     this.neighborhood,
     this.street,
+    this.shortCode,
   });
 
   final double lat;
@@ -26,6 +27,13 @@ class PickedDeliveryLocation {
 
   /// الشارع أو المعلم الأقرب — للعرض وحده، ولا يُحفظ حقلاً مستقلّاً.
   final String? street;
+
+  /// العنوان الوطنيّ المختصر (`RHWA2868`) حين يعرفه الخادم.
+  ///
+  /// ‼️ **للعرض والطمأنينة لا للتخزين**: هو ما يقرؤه المندوب ويتحقّق به
+  /// العميل أنّ الدبّوس على مبناه هو. وحفظُه حقلاً في العنوان يعني عقداً
+  /// جديداً مع الخادم لأجل نصٍّ يُشتَقّ من الإحداثيّات متى شئنا.
+  final String? shortCode;
 
   bool get hasAddress =>
       (city?.trim().isNotEmpty ?? false) ||
@@ -138,6 +146,7 @@ Future<PickedDeliveryLocation?> _fromServer(
       city: city,
       neighborhood: neighborhood,
       street: data['street']?.toString().trim() ?? '',
+      shortCode: data['shortCode']?.toString().trim() ?? '',
     );
   } catch (error) {
     debugPrint('[geocode] الخادم لم يردّ: $error');
