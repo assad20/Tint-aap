@@ -116,6 +116,32 @@ class PaymentWebviewPage extends StatefulWidget {
 class _PaymentWebviewPageState extends State<PaymentWebviewPage> {
   late final WebViewController _controller;
   bool _loading = true;
+
+  /// سببُ تعذّر فتح الصفحة — `null` يعني لا عطل.
+  String? _failure;
+
+  /// ‼️ **تُقاس لأنّ الرسالة تختلف بها.** عطلٌ قبل أن تُفتح الصفحة أصلاً يعني
+  /// **يقيناً** أنّ شيئاً لم يُخصَم، فيُقال ذلك صراحةً ويُطمأَن المشتري. وعطلٌ
+  /// بعد أن فُتحت لا يُعرف: قد يكون أدخل بطاقته وأتمّ. فلا يُقال ما لا يُعرف.
+  bool _everLoaded = false;
+
+  int _reloadTries = 0;
+
+  /// هل أخفق **هذا** التحميل؟
+  ///
+  /// ‼️ **`onPageFinished` يُنادى لصفحة خطأ المتصفّح أيضاً** — رُصد على المحاكي
+  /// 2026-08-25: أندرويد يرسم صفحته الإنجليزيّة («Webpage not available ·
+  /// net::ERR_NAME_NOT_RESOLVED») **ويُبلّغ أنّ التحميل انتهى**. فبلا هذه
+  /// الراية يمسح المعالجُ حالةَ العطل ويصفّر عدّاد المحاولات فوراً بعد ضبطهما:
+  /// لا تظهر شاشتنا أبداً، وتدور إعادةُ التحميل بلا نهاية.
+  bool _errorThisLoad = false;
+
+  /// آخر عنوانٍ بدأ الإطار الرئيسيّ بتحميله.
+  ///
+  /// ‼️ **يُحفظ لأنّ `WebResourceRequest` لا يقول أهو إطارٌ رئيسيّ أم لا** —
+  /// بخلاف `WebResourceError`. وبلا هذه المقارنة تُسقط الشاشةَ صورةٌ إعلانيّة
+  /// أو أيقونةٌ ردّت 404، وصفحة الدفع سليمةٌ أمام المشتري.
+  String? _mainUrl;
   bool _done = false;
 
   /// نطابق بالمضيف والمسار لا بالعنوان كاملاً: المزوّدون يُلحقون مُعاملات
@@ -174,12 +200,41 @@ class _PaymentWebviewPageState extends State<PaymentWebviewPage> {
     _controller
       ..setNavigationDelegate(
         NavigationDelegate(
-          onPageStarted: (_) {
+          onPageStarted: (url) {
+            _mainUrl = url;
+            _errorThisLoad = false;
             if (mounted) setState(() => _loading = true);
           },
           onPageFinished: (_) {
-            if (mounted) setState(() => _loading = false);
+            if (!mounted) return;
+            // ‼️ صفحةُ خطأٍ ليست تحميلاً — انظر `_errorThisLoad`. والقرار
+            //    اتُّخذ في `_onLoadFailure`، فلا يُنقَض هنا.
+            if (_errorThisLoad) return;
+            setState(() {
+              _loading = false;
+              _failure = null;
+              _everLoaded = true;
+              _reloadTries = 0;
+            });
           },
+
+          /// ‼️ **بلا هذين المعالجين كان الدوّار يدور إلى الأبد.**
+          ///
+          /// `onPageStarted` يرفع `_loading`، و`onPageFinished` وحده يُنزله —
+          /// وهو **لا يُنادى إن لم تُحمّل الصفحة**. فانقطاعُ شبكةٍ أو تعثّرُ
+          /// المزوّد كان يترك المشتري أمام دوّارٍ صامت في شاشة دفع، بلا كلمةٍ
+          /// واحدة تشرح، فيُغلق ويُعيد المحاولة — أو يغادر.
+          onWebResourceError: (error) => _onLoadFailure(
+            error.isForMainFrame ?? true,
+            'تعذّر الوصول إلى صفحة الدفع',
+          ),
+
+          /// ‼️ **وخطأ الحالة غير خطأ الشبكة**: المزوّد قد يردّ 500 أو 404
+          ///    فتُرسَم صفحةٌ بيضاء — تحميلٌ «ناجح» بلا شيء فيه.
+          onHttpError: (error) => _onLoadFailure(
+            error.request?.uri.toString() == _mainUrl,
+            'المزوّد لم يستجب (${error.response?.statusCode ?? '—'})',
+          ),
           onUrlChange: (change) {
             final url = change.url;
             if (url == null) return;
@@ -198,6 +253,85 @@ class _PaymentWebviewPageState extends State<PaymentWebviewPage> {
         ),
       )
       ..loadRequest(Uri.parse(widget.checkoutUrl));
+  }
+
+  /// ‼️ **محاولتان صامتتان قبل أن يُزعَج المشتري.** أكثر أعطال التحميل عابرة،
+  /// وشاشةُ خطأٍ تظهر ثمّ تختفي وحدها أسوأ من انتظارِ ثانيتين.
+  void _onLoadFailure(bool isMainFrame, String reason) {
+    if (!isMainFrame || !mounted) return;
+    _errorThisLoad = true;
+
+    if (_reloadTries < 2) {
+      _reloadTries++;
+      // ‼️ **يبقى الدوّار بين المحاولتين**: بدونه تظهر صفحة خطأ أندرويد
+      //    الإنجليزيّة ثانيةً أو ثانيتين داخل ورقةٍ عربيّة، ثمّ تختفي.
+      setState(() => _loading = true);
+      Future<void>.delayed(Duration(seconds: _reloadTries), () {
+        if (!mounted) return;
+        _controller.reload();
+      });
+      return;
+    }
+
+    setState(() {
+      _failure = reason;
+      _loading = false;
+    });
+  }
+
+  /// ‼️ **لا تُقال جملة «لم يُخصم منك شيء» إلّا حين تكون يقيناً.**
+  ///
+  /// طمأنةٌ كاذبة في مسار مالٍ أسوأ من لا طمأنة: تدفع المشتري إلى دفعةٍ ثانية.
+  /// و«إغلاق» ليست تسليماً بالفشل — المُستدعي **يسأل الخادم عند الإغلاق**
+  /// أيضاً، فإن كان الدفع قد تمّ ظهر الطلب.
+  Widget _failureView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.wifi_off_rounded, size: 40, color: TintColors.textMuted),
+            const SizedBox(height: 14),
+            Text(
+              _failure ?? 'تعذّر فتح صفحة الدفع',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _everLoaded
+                  ? 'سنتحقّق من حالة دفعتك عند الإغلاق — لا تُعِد الدفع قبل ذلك.'
+                  : 'لم يُخصم منك شيء. تحقّق من الاتّصال وحاول مرّةً أخرى.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: TintColors.textMuted, fontSize: 12.5, height: 1.5),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                TextButton(
+                  onPressed: () => _finish(PaymentWebviewOutcome.closed),
+                  child: const Text('إغلاق'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: () {
+                    setState(() {
+                      _failure = null;
+                      _loading = true;
+                      _reloadTries = 0;
+                    });
+                    _controller.reload();
+                  },
+                  child: const Text('حاول مجدداً'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -274,11 +408,16 @@ class _PaymentWebviewPageState extends State<PaymentWebviewPage> {
                 Expanded(
                   child: Stack(
                     children: [
+                      /// ‼️ **تُخفى ولا تُهدَم**: `if` بدل `Offstage` يبني
+                      /// الـWebView من جديد فيُعيد تحميل الصفحة من أوّلها —
+                      /// وقد يكون المشتري كتب بطاقته.
                       Offstage(
-                        offstage: _loading,
+                        offstage: _loading || _failure != null,
                         child: WebViewWidget(controller: _controller),
                       ),
-                      if (_loading)
+                      if (_failure != null)
+                        _failureView()
+                      else if (_loading)
                         const Center(child: CircularProgressIndicator()),
                     ],
                   ),

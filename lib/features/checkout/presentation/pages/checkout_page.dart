@@ -26,6 +26,7 @@ import '../../../account/presentation/cubit/addresses_cubit.dart';
 import '../../../account/presentation/pages/addresses_form_page.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../cart/presentation/cubit/cart_cubit.dart';
+import '../../domain/models/tabby_payment_result.dart';
 import '../cubit/checkout_cubit.dart';
 import '../widgets/apple_pay_section.dart';
 import '../widgets/payment_mark.dart';
@@ -1200,8 +1201,112 @@ Future<void> _payWithApplePay(
     _showSuccessDialog(context, orderId);
   } catch (error) {
     if (!context.mounted) return;
-    _showSnackBar(context, _readableError(error));
+
+    /// ‼️ **لا يُعاد النداء هنا — تكرارُه خصمٌ ثانٍ.**
+    ///
+    /// `payWithApplePay` **يدفع** ولا يستعلم: التوكن أُنتج ببصمة المشتري قبل
+    /// الوصول إلى هنا، فالشريحة أُكملت. والخطأ في هذا الموضع يعني أنّ الردّ
+    /// ضاع لا أنّ الدفع رُفض — والحالة **مجهولة**.
+    ///
+    /// فلا رسالة خطأٍ عامّة تدعوه لمحاولةٍ أخرى: تُقال الحقيقة ويُعطى مرجعه.
+    _showSnackBar(
+      context,
+      _unconfirmedPaymentMessage(
+        paid: true,
+        provider: 'آبل باي',
+        reference: orderReference,
+      ),
+    );
   }
+}
+
+/// يسأل الخادم «هل تمّ الدفع؟» **بإصرارٍ لا مرّةً واحدة**.
+///
+/// ‼️ **هذه أخطر لحظةٍ في التطبيق كلّه: المال خرج، والجواب لم يصل بعد.** وكان
+/// السؤال يُنادى مرّةً واحدة؛ فإن رمى (انقطاع شبكة — وهو **أكثر** ما يقع هنا،
+/// إذ يخرج المشتري من التطبيق ويعود لحظة الدفع) سقط إلى `catch` الخارجيّ وظهر
+/// له خطأٌ عامّ. فيقرأ «فشل الدفع» وقد **دُفع**، فيدفع مرّةً ثانية.
+///
+/// ‼️ **ويُعاد السؤال لا الدفع.** هذه نداءاتُ استعلامٍ عن عمليّةٍ قائمة (يسأل
+/// خادمنا المزوّدَ عن مرجعٍ موجود)، فتكرارها لا يُنشئ شيئاً. أمّا نداء الدفع
+/// نفسه فلا يُعاد أبداً — تكرارُه خصمٌ ثانٍ.
+///
+/// والانتظار متدرّج (0 · 2 · 4 · 6 ثوانٍ): المزوّد قد يتأخّر لحظاتٍ بين
+/// «قُبِلت» و«رُحّلت»، والشبكة العائدة تحتاج نفَساً.
+Future<T?> _askServerUntilAnswered<T>(
+  BuildContext context,
+  Future<T> Function() ask, {
+  required bool Function(T) answered,
+}) async {
+  const gaps = [
+    Duration.zero,
+    Duration(seconds: 2),
+    Duration(seconds: 4),
+    Duration(seconds: 6),
+  ];
+
+  /// ‼️ **ونافذةٌ تحجب الشاشة طوال السؤال.** بلا شيءٍ ظاهر يقف المشتري أمام
+  /// شاشةٍ ساكنة اثنتَي عشرة ثانية بعد أن دفع — فيلمس «تأكيد الطلب والدفع»
+  /// مرّةً أخرى. والحجب هنا **يمنع دفعةً ثانية** لا يُزيّن انتظاراً.
+  final navigator = Navigator.of(context, rootNavigator: true);
+  unawaited(showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const PopScope(
+      canPop: false,
+      child: AlertDialog(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2.5),
+            ),
+            SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                'نتحقّق من دفعتك… لا تُغلق التطبيق',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  ));
+
+  T? last;
+  for (final gap in gaps) {
+    if (gap > Duration.zero) await Future<void>.delayed(gap);
+    try {
+      final result = await ask();
+      last = result;
+      if (answered(result)) break;
+    } catch (_) {
+      // انقطاعٌ ليس حكماً على الدفع — تُعاد المحاولة.
+    }
+  }
+
+  if (navigator.canPop()) navigator.pop();
+  return last;
+}
+
+/// ما يُقال حين يُدفَع المال ولا يصل الجواب.
+///
+/// ‼️ **«لا تُعِد الدفع» في كلّ المسارات لا في واحد.** كانت هذه الجملة مكتوبةً
+/// بعناية في مسار تمارا وحده، **وفي الفرع الخطأ منه**: تظهر إن ردّ الخادم بلا
+/// رقم طلب، وتُتجاوَز إن لم يردّ أصلاً — وهي الحالة التي كُتبت لأجلها.
+///
+/// ‼️ **والمرجع يُذكر** ليُتابَع به: مشترٍ يقول «دفعتُ ولم يصلني طلب» بلا رقمٍ
+/// يُتعب الدعم ويُطيل انتظاره.
+String _unconfirmedPaymentMessage({
+  required bool paid,
+  required String provider,
+  required String reference,
+}) {
+  if (!paid) return 'لم يكتمل الدفع عبر $provider. يمكنك المحاولة مجدداً.';
+  return 'دفعتك مسجَّلة لدى $provider ونُتمّ تأكيد طلبك الآن — '
+      'لا تُعِد الدفع، وستصلك رسالة التأكيد. مرجعك: $reference';
 }
 
 void _showSnackBar(BuildContext context, String message) {
@@ -1758,15 +1863,26 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
         return;
       }
 
-      // ‼️ يُسأل الخادم في كلّ الحالات — حتّى الإغلاق اليدويّ.
-      final result = await cubit.confirmPayTabsPayment(cartId, tranRef: tranRef);
+      // ‼️ يُسأل الخادم في كلّ الحالات — حتّى الإغلاق اليدويّ — وبإصرار.
+      final result = await _askServerUntilAnswered<Map<String, dynamic>>(
+        context,
+        () => cubit.confirmPayTabsPayment(cartId, tranRef: tranRef),
+        answered: (r) => (r['orderId']?.toString() ?? '').isNotEmpty,
+      );
       if (!mounted) return;
 
-      final createdId = result['orderId']?.toString() ?? '';
+      final createdId = result?['orderId']?.toString() ?? '';
       if (createdId.isEmpty) {
         _showSnackBar(
           context,
-          result['message']?.toString() ?? 'لم يكتمل الدفع بالبطاقة. يمكنك المحاولة مجدداً.',
+          // رسالةُ الخادم أدقّ حين يردّ (رفضُ بنكٍ مثلاً)؛ وحين لا يردّ أصلاً
+          // تُقال جملة «لا تُعِد الدفع».
+          result?['message']?.toString() ??
+              _unconfirmedPaymentMessage(
+                paid: outcome == PaymentWebviewOutcome.success,
+                provider: 'مزوّد البطاقة',
+                reference: orderReference,
+              ),
         );
         return;
       }
@@ -1825,33 +1941,29 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
         return;
       }
 
-      // ‼️ يُسأل الخادم في النجاح والإغلاق معاً: الخروج ليس حكماً على الدفع.
-      final result = await cubit.confirmTamaraPayment(orderId);
-      if (!mounted) return;
-
-      var createdId = result['orderId']?.toString() ?? '';
-
       /// ‼️ لا نجاح بلا رقم طلبٍ من الخادم.
       ///
       /// كان يُعرَض نجاحٌ بـ`orderReference` — وهو رقمٌ **ولّدَه الجهاز** ولا
       /// وجود له في النظام. فيخرج المشتري مطمئنّاً إلى طلبٍ لا يعرفه أحد.
       ///
-      /// وتمارا قد تتأخّر لحظاتٍ بين `approved` و`authorised`، فنُعيد السؤال
-      /// مرّتين قبل أن نحكم — ثمّ نقول الحقيقة كما هي.
-      for (var attempt = 0; attempt < 2 && createdId.isEmpty; attempt++) {
-        await Future<void>.delayed(const Duration(seconds: 3));
-        if (!mounted) return;
-        final retry = await cubit.confirmTamaraPayment(orderId);
-        if (!mounted) return;
-        createdId = retry['orderId']?.toString() ?? '';
-      }
+      /// وتمارا قد تتأخّر لحظاتٍ بين `approved` و`authorised` — والسؤال المُصرّ
+      /// يستوعب التأخّر والانقطاع معاً (كان يستوعب الأوّل وحده).
+      final result = await _askServerUntilAnswered<Map<String, dynamic>>(
+        context,
+        () => cubit.confirmTamaraPayment(orderId),
+        answered: (r) => (r['orderId']?.toString() ?? '').isNotEmpty,
+      );
+      if (!mounted) return;
 
+      final createdId = result?['orderId']?.toString() ?? '';
       if (createdId.isEmpty) {
         _showSnackBar(
           context,
-          outcome == PaymentWebviewOutcome.success
-              ? 'دفعتك مسجَّلة لدى تمارا ونُتمّ تأكيد طلبك الآن — لا تُعِد الدفع، وستصلك رسالة التأكيد.'
-              : 'لم يكتمل الدفع عبر تمارا. يمكنك المحاولة مجدداً.',
+          _unconfirmedPaymentMessage(
+            paid: outcome == PaymentWebviewOutcome.success,
+            provider: 'تمارا',
+            reference: orderReference,
+          ),
         );
         return;
       }
@@ -1950,24 +2062,39 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
        * السابقة تكتفي برسالة «سيصل التأكيد من الخادم» — ولا يصل، لأنّ الـwebhook
        * غير مضبوط.
        */
-      final confirmation = await cubit.confirmTabbyPayment(
-        paymentId: paymentId,
-        sessionId: sessionId,
-        orderReference: orderReference,
-        items: cartState.items,
-        address: widget.address,
-        buyerEmail: buyerEmail,
-        buyerDob: buyerDob,
+      final confirmation = await _askServerUntilAnswered<TabbyConfirmationResult>(
+        context,
+        () => cubit.confirmTabbyPayment(
+          paymentId: paymentId,
+          sessionId: sessionId,
+          orderReference: orderReference,
+          items: cartState.items,
+          address: widget.address,
+          buyerEmail: buyerEmail,
+          buyerDob: buyerDob,
+        ),
+        answered: (r) => r.orderId.isNotEmpty,
       );
       if (!mounted) return;
-      if (confirmation.orderId.isEmpty && outcome != PaymentWebviewOutcome.success) {
-        _showSnackBar(context, 'لم يكتمل الدفع عبر Tabby. يمكنك المحاولة مجدداً.');
+
+      final createdId = confirmation?.orderId ?? '';
+      if (createdId.isEmpty) {
+        /// ‼️ **ولا يُعرَض نجاحٌ بمرجعٍ ولّده الجهاز.**
+        ///
+        /// كان يُعرَض `orderReference` رقمَ طلبٍ عند النجاح بلا تأكيد — وهو
+        /// رقمٌ لا يعرفه النظام، فيخرج المشتري مطمئنّاً إلى طلبٍ لا وجود له.
+        /// وهو نفس الخطأ الذي أُصلح في تمارا وبقي هنا.
+        _showSnackBar(
+          context,
+          _unconfirmedPaymentMessage(
+            paid: outcome == PaymentWebviewOutcome.success,
+            provider: 'تابي',
+            reference: orderReference,
+          ),
+        );
         return;
       }
-      _showSuccessDialog(
-        context,
-        confirmation.orderId.isEmpty ? orderReference : confirmation.orderId,
-      );
+      _showSuccessDialog(context, createdId);
     } catch (error) {
       if (!mounted) return;
       _showSnackBar(context, _readableError(error));
