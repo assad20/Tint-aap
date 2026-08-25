@@ -3,7 +3,7 @@
 <plist version="1.0">
 	<dict>
 		<key>CFBundleDevelopmentRegion</key>
-		<string>$(DEVELOPMENT_LANGUAGE)</string>
+		<string>ar</string>
 		<key>CFBundleDisplayName</key>
 		<string>Tint Store</string>
 		<key>CFBundleExecutable</key>
@@ -45,12 +45,25 @@
 		<true/>
 		<key>UIApplicationSupportsIndirectInputEvents</key>
 		<true/>
-		<!-- دعم اللغة العربية / RTL -->
+		<!--
+			دعم اللغة العربية / RTL.
+
+			‼️ **العربيّة أوّلاً — والترتيب هنا يُحدّد لغة المكوّنات الأصليّة.**
+			iOS يختار أوّل لغةٍ في هذه القائمة تُطابق تفضيلات المستخدم، وإن لم
+			يُطابق شيءٌ سقط إلى **الأولى**. وخرائط جوجل تكتب أسماء الشوارع
+			والأحياء بتلك اللغة — فعلى هاتفٍ إنجليزيّ كانت تظهر «King Fahd Rd»
+			بينما التطبيق كلّه عربيّ.
+		-->
 		<key>CFBundleLocalizations</key>
 		<array>
 			<string>ar</string>
 			<string>en</string>
 		</array>
+		<!--
+			‼️ ولغة التطوير عربيّة صراحةً: هي الملاذ الأخير لكلّ مكوّنٍ أصليّ
+			لا يجد لغةً مطابقة، وتركها `$(DEVELOPMENT_LANGUAGE)` يجعلها تتبع
+			إعداد المشروع (إنجليزيّة افتراضاً) لا لغة التطبيق.
+		-->
 		<!-- صلاحيات Tabby (التحقق من الهوية أثناء KYC) -->
 		<key>NSCameraUsageDescription</key>
 		<string>يُستخدم للسماح لـ Tabby بالتقاط صورة الهوية أثناء عملية التحقق.</string>
