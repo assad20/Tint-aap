@@ -52,6 +52,15 @@ class ApplePaySection extends StatelessWidget {
   /// ‼️ **`Platform` تُسأل داخل حارس `kIsWeb`**: قراءتها على الويب ترمي.
   static bool get _isIOS => !kIsWeb && Platform.isIOS;
 
+  /// هل ستُرسَم فعلاً؟ — **تُسأل قبل أن يُحجَز لها مكانٌ في التخطيط.**
+  ///
+  /// ‼️ ودجةٌ تُعيد `SizedBox.shrink()` **تشغل خانةً في شبكة ولا تملأها**:
+  /// رُصد على أندرويد (لقطة المالك 2026-08-24) أنّ خانةً بقيت فارغة في شبكة
+  /// الوسائل لأنّ آبل باي محجوبةٌ بالنظام — والفراغ في شاشة دفعٍ يُقرأ عطلاً.
+  /// فالمُستدعي **يسأل ثمّ يُدرج**، ولا يُدرج ثمّ يكتشف.
+  static bool isAvailable(ApplePayConfigModel config, double amount) =>
+      _isIOS && config.available && amount > 0;
+
   /// نصّ المبلغ بمنزلتين — **نفس ما يُعرَض في الشريحة يُرسَل للمقارنة**، وأيّ
   /// تقريبٍ مختلفٍ بين الاثنين يُنتج رفضاً لا يفهمه أحد.
   String get _sheetTotal => amount.toStringAsFixed(2);
@@ -81,9 +90,8 @@ class ApplePaySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!_isIOS || !config.available || amount <= 0) {
-      return const SizedBox.shrink();
-    }
+    // نفس شرط `isAvailable` — يُقرأ منه حتّى لا يفترق الشرطان.
+    if (!isAvailable(config, amount)) return const SizedBox.shrink();
 
     final button = ApplePayButton(
       paymentConfiguration: PaymentConfiguration.fromJsonString(

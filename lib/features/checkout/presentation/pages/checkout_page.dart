@@ -19,7 +19,6 @@ import 'payment_webview_page.dart';
 import '../../../../app/config/app_config.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/models/account_models.dart';
-import '../../../../core/models/payment_method_model.dart';
 import '../../../../core/models/shipping_method_model.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/widgets/tint_ui.dart';
@@ -1338,14 +1337,34 @@ class _PaymentMethodsCard extends StatelessWidget {
         _ => id,
       };
 
-  // العنوان الفرعيّ: الوصف + الرسوم إن وُجدت.
-  String _subtitle(PaymentMethodModel m) {
-    final desc = m.description ?? '';
-    if (m.hasFee) {
-      final fee = m.fee.toStringAsFixed(m.fee % 1 == 0 ? 0 : 2);
-      return desc.isEmpty ? 'رسوم $fee ﷼' : '$desc · رسوم $fee ﷼';
+  /// خانة «الدفع عند الاستلام» — **تملأ ما بقي من الصفّ الأخير.**
+  ///
+  /// موضعها وعرضها بطلب المالك (2026-08-24) بعد أن رأى الشبكة على جهازه، وهو
+  /// الصواب لسببين:
+  ///
+  /// · **ليست علامةً تجاريّة** تُعرَف بشكلها كتابي ومدى — بل طريقةُ تسليمٍ
+  ///   **تُقرأ بالكلمة**، وخانةٌ بعرض الشعار تقُصّ اسمها.
+  /// · **وهي الوحيدة التي تحمل رسماً** (15 ﷼)، ورقمٌ يغيّر الإجماليّ يُقرأ
+  ///   قبل الاختيار لا بعده.
+  ///
+  /// ‼️ **وإن غابت من ردّ الخادم فلا خانة ولا فراغ**: الشبكة تتوزّع على ما
+  /// بقي، لأنّ تعطيل الدفع عند الاستلام قرارٌ إداريّ وارد.
+  Widget? _codTile(BuildContext context, CheckoutState state) {
+    for (final m in state.methods) {
+      if (m.id != 'cod') continue;
+      return _PayWideTile(
+        selected: state.paymentMethod == m.id,
+        title: m.label,
+        // ‼️ **«رسوم 15» لا «+15»**: علامة الزائد في سياقٍ عربيّ تُرسم
+        // يمين الرقم («15+») فتُقرأ خطأً مطبعيّاً — رُصد في لقطة المحاكي
+        // 2026-08-24. والخانة العريضة تتّسع للكلمة الصريحة (بخلاف الخانات الضيّقة).
+        note: m.hasFee
+            ? 'رسوم ${m.fee.toStringAsFixed(m.fee % 1 == 0 ? 0 : 2)} ﷼'
+            : null,
+        onTap: () => context.read<CheckoutCubit>().setPaymentMethod(m.id),
+      );
     }
-    return desc;
+    return null;
   }
 
   @override
@@ -1390,14 +1409,8 @@ class _PaymentMethodsCard extends StatelessWidget {
                 ///
                 /// ‼️ **وثلاثةٌ في الصفّ لا أربعة**: أربعةٌ تُصغّر الشعار حتّى
                 /// يُقرأ بالتخمين على شاشةٍ في الشمس.
-                GridView.count(
-                  crossAxisCount: 3,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
-                  childAspectRatio: 1.9,
-                  children: [
+                _PayGrid(
+                  chips: [
                     for (final m in state.methods)
                       if (m.id == 'paytabs') ...[
                         /**
@@ -1424,12 +1437,11 @@ class _PaymentMethodsCard extends StatelessWidget {
                               .read<CheckoutCubit>()
                               .setPaymentMethod(m.id, cardBrand: 'visa'),
                         ),
-                      ] else
+                      ] else if (m.id != 'cod')
                         _PayChip(
                           selected: state.paymentMethod == m.id,
                           markKeys: [_markKey(m.id)],
                           label: m.label,
-                          // ‼️ الرسم في الخانة لا تحتها — انظر `note`.
                           note: m.hasFee
                               ? '+${m.fee.toStringAsFixed(m.fee % 1 == 0 ? 0 : 2)} ﷼'
                               : null,
@@ -1438,29 +1450,29 @@ class _PaymentMethodsCard extends StatelessWidget {
                               .setPaymentMethod(m.id),
                         ),
 
-                    /// ‼️ **آبل باي خانةٌ في الشبكة بشكلها الأسود** — بقرار
-                    /// المالك بعد أن قارن الموضعين.
-                    ///
-                    /// وتبقى **زرّاً لا خياراً يُؤشَّر**: الشريحة هي التأكيد،
-                    /// فلا حدَّ ملوّناً ولا دائرةَ اختيارٍ حولها — ولو أخذت
-                    /// شكل جاراتها لانتظر العميل زرّ تأكيدٍ بعدها لا يأتي.
-                    ApplePaySection(
-                      config: state.applePay,
-                      amount: cartState.total + state.selectedFee,
-                      label: state.applePay.displayName,
-                      enabled: !state.isSubmitting,
-                      compact: true,
-                      onToken: (token, sheetTotal) => _payWithApplePay(
-                        context,
-                        address,
-                        tabbyEmailController.text.trim().isEmpty
-                            ? null
-                            : tabbyEmailController.text.trim(),
-                        token,
-                        sheetTotal,
+                    /// ‼️ **تُدرَج بعد سؤالٍ لا قبله** — وإلّا حجزت خانةً فارغة
+                    /// على أندرويد. وتبقى **زرّاً لا خياراً يُؤشَّر**: الشريحة
+                    /// نفسها هي التأكيد، فلا حدَّ ملوّناً حولها.
+                    if (ApplePaySection.isAvailable(
+                        state.applePay, cartState.total + state.selectedFee))
+                      ApplePaySection(
+                        config: state.applePay,
+                        amount: cartState.total + state.selectedFee,
+                        label: state.applePay.displayName,
+                        enabled: !state.isSubmitting,
+                        compact: true,
+                        onToken: (token, sheetTotal) => _payWithApplePay(
+                          context,
+                          address,
+                          tabbyEmailController.text.trim().isEmpty
+                              ? null
+                              : tabbyEmailController.text.trim(),
+                          token,
+                          sheetTotal,
+                        ),
                       ),
-                    ),
                   ],
+                  wide: _codTile(context, state),
                 ),
 
                 // كتلة Tabby الخاصّة (العرض + بيانات المشتري) عند اختياره فقط.
@@ -2074,6 +2086,188 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
   }
 }
 
+/// شبكة وسائل الدفع: خاناتٌ متساوية، **وخانةٌ أخيرة تبتلع ما بقي من الصفّ**.
+///
+/// ‼️ **`GridView` لا تصلح هنا** وإن بدت الأقرب: خاناتها متساوية بالتعريف،
+/// فمتى لم يكن عدد الوسائل من مضاعفات الثلاثة **بقي فراغٌ في آخر صفّ** — وهو
+/// ما رآه المالك على جهازه (2026-08-24) وطلب سدّه. ولا تدعم امتداد خانةٍ على
+/// عمودين إلّا بحزمةٍ خارجيّة، وحزمةٌ من أجل صفٍّ واحد ثمنٌ لا يُدفَع.
+///
+/// فتُحسَب الخانة من العرض المتاح — **بنفس نسبة `GridView` السابقة (1.9)**
+/// حتّى لا يتغيّر شكل ما لم يُطلب تغييره — ثمّ تُبنى الصفوف يدويّاً.
+///
+/// ‼️ **والفراغ الباقي يذهب إلى `wide` لا إلى الشعارات**: توسيع خانة «تابي»
+/// يمطّ شعاراً لصاحبه شروطُ عرضٍ مكتوبة، بينما «الدفع عند الاستلام» **يستفيد**
+/// من العرض لأنّه يُقرأ بالكلمة.
+class _PayGrid extends StatelessWidget {
+  const _PayGrid({required this.chips, this.wide});
+
+  /// الوسائل التي تُعرَف بشعاراتها — خانةٌ لكلٍّ منها بعرضٍ واحد.
+  final List<Widget> chips;
+
+  /// خانةُ الذيل: تُلحَق بالصفّ الأخير وتأخذ أعمدته الفارغة كلّها. وإن امتلأ
+  /// الصفّ الأخير نزلت صفّاً كاملاً بعرض الشبكة. و`null` = لا خانة أصلاً.
+  final Widget? wide;
+
+  static const int _columns = 3;
+  static const double _gap = 8;
+
+  /// نسبة الخانة (عرض ÷ ارتفاع) — منقولةٌ حرفيّاً من `GridView` التي سبقتها.
+  static const double _ratio = 1.9;
+
+  @override
+  Widget build(BuildContext context) {
+    final tail = wide;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cell = (constraints.maxWidth - _gap * (_columns - 1)) / _columns;
+        final height = cell / _ratio;
+
+        // قسّم الخانات صفوفاً من ثلاث.
+        final chunks = <List<Widget>>[];
+        for (var i = 0; i < chips.length; i += _columns) {
+          final end = i + _columns > chips.length ? chips.length : i + _columns;
+          chunks.add(chips.sublist(i, end));
+        }
+
+        final free = chunks.isEmpty ? _columns : _columns - chunks.last.length;
+
+        final rows = <Widget>[];
+        for (var r = 0; r < chunks.length; r++) {
+          final isLast = r == chunks.length - 1;
+          rows.add(_buildRow(
+            chunks[r],
+            cell,
+            height,
+            tail: isLast && tail != null && free > 0 ? tail : null,
+            span: free,
+          ));
+        }
+
+        // صفّ الأخير ممتلئ (أو لا خانات) ⇒ الذيل يأخذ صفّاً بعرض الشبكة.
+        if (tail != null && free == 0) {
+          rows.add(_buildRow(const [], cell, height, tail: tail, span: _columns));
+        }
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < rows.length; i++) ...[
+              if (i > 0) const SizedBox(height: _gap),
+              rows[i],
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  /// ‼️ **`Row` بعروضٍ محسوبة لا `Expanded`**: الأعمدة يجب أن تتطابق بين
+  /// الصفوف مهما اختلف عدد خانات الصفّ — و`Expanded` يوزّع عرض صفّه وحده،
+  /// فيخرج صفٌّ من خانتين بخانتين عريضتين لا تحاذيان ما فوقهما.
+  Widget _buildRow(
+    List<Widget> items,
+    double cell,
+    double height, {
+    Widget? tail,
+    int span = 0,
+  }) {
+    final children = <Widget>[];
+    for (final item in items) {
+      if (children.isNotEmpty) children.add(const SizedBox(width: _gap));
+      children.add(SizedBox(width: cell, child: item));
+    }
+    if (tail != null) {
+      if (children.isNotEmpty) children.add(const SizedBox(width: _gap));
+      children.add(SizedBox(
+        width: cell * span + _gap * (span - 1),
+        child: tail,
+      ));
+    }
+    return SizedBox(height: height, child: Row(children: children));
+  }
+}
+
+/// خانةٌ عريضة تُقرأ بالكلمة: شعارٌ صغير ثمّ الاسم ثمّ الرسم.
+///
+/// ‼️ **المحتوى مُوسَّط لا مُصفّ للحافّة**: عرضها يتغيّر بتغيّر عدد الوسائل
+/// (عمودٌ على أندرويد حين تحضر آبل باي، عمودان حين تغيب) — ونصٌّ مصفوفٌ لحافّةٍ
+/// يبدو معلّقاً في خانةٍ تكاد تكون فارغة.
+class _PayWideTile extends StatelessWidget {
+  const _PayWideTile({
+    required this.selected,
+    required this.title,
+    required this.onTap,
+    this.note,
+  });
+
+  final bool selected;
+  final String title;
+  final VoidCallback onTap;
+
+  /// الرسم — يُعرَض **قبل الاختيار لا بعده**؛ رقمٌ يظهر بعد الضغط يُقرأ خديعة.
+  final String? note;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: selected ? TintColors.blush : Colors.white,
+          border: Border.all(
+            color: selected ? TintColors.sand : TintColors.line,
+            width: 1.5,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const PaymentMark(markKey: 'cod'),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      height: 1.2,
+                    ),
+                  ),
+                  if ((note ?? '').isNotEmpty)
+                    Text(
+                      note!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: TintColors.textMuted,
+                        height: 1.3,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// خانةٌ في شبكة وسائل الدفع — شعارٌ وحده، والاسم ملاذُ رجوع.
 class _PayChip extends StatelessWidget {
   const _PayChip({
@@ -2159,107 +2353,6 @@ class _PayChip extends StatelessWidget {
                   height: 1.25,
                 ),
               ),
-      ),
-    );
-  }
-}
-
-class _SelectableTile extends StatelessWidget {
-  const _SelectableTile({
-    required this.selected,
-    required this.title,
-    required this.subtitle,
-    /// ‼️ **لاحقةٌ واحدة من اثنتين — والبطاقة مشتركة.**
-    ///
-    /// تُستعمل لطرق **الشحن** (اللاحقة سعرٌ نصّيّ: «مجاني» · «25 ريال») ولطرق
-    /// **الدفع** (اللاحقة شعارٌ رسميّ). وجعلُ الشعار إلزاميّاً كسر الشحن —
-    /// وهو ما التقطه المحلّل فوراً. فكلاهما اختياريّ، ويُرسَم الموجود منهما.
-    this.markKey,
-    /// ‼️ **شعاران في بطاقةٍ واحدة** — «فيزا» و«ماستركارد» علامتان لمزوّدٍ
-    /// واحد، وعرضُ إحداهما وحدها يجعل حامل الأخرى يظنّ بطاقته غير مقبولة.
-    this.markKeys,
-    this.trailing,
-    this.trailingColor = TintColors.sand,
-    required this.onTap,
-  });
-
-  final bool selected;
-  final String title;
-  final String subtitle;
-  final String? markKey;
-  final List<String>? markKeys;
-  final String? trailing;
-  final Color trailingColor;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFFFFFAF8) : Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: selected ? TintColors.sand : TintColors.line,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              selected
-                  ? Icons.check_circle_rounded
-                  : Icons.radio_button_unchecked_rounded,
-              color: selected ? TintColors.sand : TintColors.textMuted,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color: TintColors.textMuted,
-                      fontSize: 10,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (markKeys != null)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final key in markKeys!) ...[
-                    PaymentMark(markKey: key),
-                    const SizedBox(width: 6),
-                  ],
-                ],
-              )
-            else if (markKey != null)
-              PaymentMark(markKey: markKey!, fallbackLabel: title)
-            else if (trailing != null)
-              Text(
-                trailing!,
-                style: TextStyle(
-                  color: trailingColor,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 13,
-                ),
-              ),
-          ],
-        ),
       ),
     );
   }
