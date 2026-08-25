@@ -6,6 +6,9 @@ Widget tabbyPromoSnippet({
   required String price,
   required String currencyCode,
   required String langCode,
+  // ‼️ يُقبَلان ولا يُستعملان: التوقيعان يجب أن يتطابقا (استيرادٌ مشروط).
+  String? merchantCode,
+  String? apiKey,
 }) {
   return Container(
     width: double.infinity,

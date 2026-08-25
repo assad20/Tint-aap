@@ -48,8 +48,19 @@ class TabbyCheckoutService {
   /// `LateInitializationError: Field '_apiKey' has already been initialized`.
   /// كنتُ كتبتُ في التعليق السابق أنّ «الاستدعاء رخيصٌ ويقبل التكرار» — وهذا
   /// خطأ: أوّل محاولة دفعٍ كانت تسقط به.
-  void _ensureSdkConfigured() {
-    if (_configuredKey == publicKey) return;
+  void _ensureSdkConfigured() => configureSdk(publicKey);
+
+  /// تهيئة الـSDK — **مشتركةٌ بين الدفع والعرض**.
+  ///
+  /// ‼️ **ودجة العرض تحتاجها كما يحتاجها الدفع.** رُصد على المحاكي
+  /// (2026-08-25) أنّ `TabbyProductPageSnippet` ترمي
+  /// `LateInitializationError: Field '_widgetsHost' has not been initialized`
+  /// حين تُرسَم قبل `setup` — وكان العطل مخفيّاً خلف حارسٍ يمنع رسمها أصلاً.
+  /// وتهيئتان منفصلتان كانتا ستتصادمان في `late final` نفسه.
+  static void configureSdk(String apiKey) {
+    final key = apiKey.trim();
+    if (key.isEmpty) throw Exception('مفتاح تابي غير مضبوط.');
+    if (_configuredKey == key) return;
 
     if (_configuredKey != null) {
       // المفتاح تبدّل من اللوحة بعد أن هُيّئ الـSDK. لا سبيل إلى تبديله في
@@ -60,8 +71,8 @@ class TabbyCheckoutService {
       );
     }
 
-    TabbySDK().setup(withApiKey: publicKey);
-    _configuredKey = publicKey;
+    TabbySDK().setup(withApiKey: key);
+    _configuredKey = key;
   }
 
   String get merchantCode =>

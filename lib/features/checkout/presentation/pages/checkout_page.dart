@@ -22,6 +22,7 @@ import '../../../account/presentation/cubit/addresses_cubit.dart';
 import '../../../account/presentation/pages/addresses_form_page.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../cart/presentation/cubit/cart_cubit.dart';
+import '../../../../core/models/payment_method_model.dart';
 import '../../domain/models/tabby_payment_result.dart';
 import '../cubit/checkout_cubit.dart';
 import '../widgets/apple_pay_section.dart';
@@ -1285,6 +1286,14 @@ class _PaymentMethodsCard extends StatelessWidget {
         _ => id,
       };
 
+  /// وسيلة تابي كما وصفها الخادم — مصدر اعتماداتها العامّة.
+  PaymentMethodModel? _tabbyMethod(CheckoutState state) {
+    for (final m in state.methods) {
+      if (m.id == 'tabby') return m;
+    }
+    return null;
+  }
+
   /// خانة «الدفع عند الاستلام» — **تملأ ما بقي من الصفّ الأخير.**
   ///
   /// موضعها وعرضها بطلب المالك (2026-08-24) بعد أن رأى الشبكة على جهازه، وهو
@@ -1434,15 +1443,22 @@ class _PaymentMethodsCard extends StatelessWidget {
                 // كتلة Tabby الخاصّة (العرض + بيانات المشتري) عند اختياره فقط.
                 if (state.paymentMethod == 'tabby') ...[
                   const SizedBox(height: 12),
-                  if (appConfig.hasTabbyConfig)
-                    Directionality(
-                      textDirection: TextDirection.ltr,
-                      child: buildTabbyPromoSnippet(
-                        price: cartState.total.toStringAsFixed(2),
-                        currencyCode: appConfig.currencyCode,
-                        langCode: appConfig.tabbyLanguage,
-                      ),
+                  /// ‼️ **الحارس القديم `hasTabbyConfig` أُزيل** — كان يقرأ
+                  /// متغيّرات بناءٍ غائبة في Codemagic، فيُخفي العرض كلّه: يختار
+                  /// العميل تابي فلا يرى كم يدفع كلّ شهر، وهو سببُ اختياره.
+                  ///
+                  /// والودجة تتدرّج بنفسها: باعتماداتٍ صحيحة تعرض جدول تابي
+                  /// الرسميّ، وبدونها سطراً نصّيّاً — وكلاهما أنفع من الفراغ.
+                  Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: buildTabbyPromoSnippet(
+                      price: cartState.total.toStringAsFixed(2),
+                      currencyCode: appConfig.currencyCode,
+                      langCode: appConfig.tabbyLanguage,
+                      merchantCode: _tabbyMethod(state)?.merchantCode,
+                      apiKey: _tabbyMethod(state)?.publicKey,
                     ),
+                  ),
                   const SizedBox(height: 12),
                   _TabbyBuyerCard(
                     emailController: tabbyEmailController,
