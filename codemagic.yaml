@@ -285,7 +285,18 @@ workflows:
           #
           # ومع المعرّف الصحيح يصير التوقيع **يدويّاً** ببروفايلٍ مُعيَّن، فلا
           # يبحث Flutter عن شيء. و`use-profiles` تُولّد `export_options.plist`.
+          # ‼️ **رقم البناء من العدّاد لا من `pubspec.yaml`.**
+          #
+          #    أبل ترفض رقماً رُفع من قبل: «The bundle version must be
+          #    higher than the previously uploaded version» — **والبناء ينجح
+          #    كاملاً ثمّ يسقط عند الرفع**، بعد ثماني دقائق. ووقع فعلاً
+          #    (2026-08-25): رُفع `+10` بنجاح، ثمّ أُعيد بناؤه بالرقم نفسه.
+          #
+          #    و`$BUILD_NUMBER` عدّاد Codemagic — **يزيد من نفسه مع كلّ بناء**،
+          #    فيستحيل التكرار مهما نُسي التحديث اليدويّ. ويبقى `version` في
+          #    `pubspec.yaml` هو **الرقم المعروض** للعميل (1.2.7).
           flutter build ipa --release \
+            --build-number=$BUILD_NUMBER \
             --dart-define=TINT_API_BASE_URL=$TINT_API_BASE_URL \
             --dart-define=TINT_TABBY_PUBLIC_KEY=$TINT_TABBY_PUBLIC_KEY \
             --dart-define=TINT_TABBY_MERCHANT_CODE=$TINT_TABBY_MERCHANT_CODE \
