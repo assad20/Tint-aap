@@ -102,6 +102,14 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="tint_campaigns" />
+        <!--
+          مفتاح خرائط جوجل — يُحقن من `build.gradle` ولا يُكتب هنا.
+          راجع تعليق `mapsKey` هناك: المصدر `android/maps.properties` غير
+          المُتعقَّب، أو متغيّر البيئة في Codemagic.
+        -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${MAPS_API_KEY}" />
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

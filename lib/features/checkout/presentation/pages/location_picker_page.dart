@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+
+import '../../../../app/config/app_config.dart';
+import '../../../../core/widgets/tint_map.dart';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -56,7 +58,7 @@ class _MapButton extends StatelessWidget {
 const double _kPreciseZoom = 16.5;
 
 class _LocationPickerPageState extends State<LocationPickerPage> {
-  final _controller = MapController();
+  final _controller = TintMapController();
   late LatLng _center = widget.initial;
   double _zoom = 15;
 
@@ -86,7 +88,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
   @override
   void dispose() {
     _debounce?.cancel();
-    _controller.dispose();
+
     super.dispose();
   }
 
@@ -131,10 +133,8 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
 
   // تكبير/تصغير بالأزرار — أدقّ من القرص بإصبعين لتحديد مبنى بعينه.
   void _zoomBy(double delta) {
-    final cam = _controller.camera;
-    final zoom = (cam.zoom + delta).clamp(3.0, 19.0);
-    _controller.move(cam.center, zoom);
-    setState(() => _zoom = zoom);
+    _controller.zoomBy(delta);
+    setState(() => _zoom = _controller.zoom);
   }
 
   /// **يحدّد موقع الجهاز الآن** — لا يعود إلى النقطة التي فُتحت بها الشاشة.
@@ -200,7 +200,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
 
   /// ‼️ يُقرّب فوق العتبة: موقعٌ بتقريبٍ بعيد يُعيد المشكلة التي جاء الزرّ لحلّها.
   void _moveTo(LatLng point) {
-    _controller.move(point, 17);
+    _controller.moveTo(point, 17);
     setState(() {
       _center = point;
       _zoom = 17;
@@ -240,37 +240,23 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
       body: Stack(
         alignment: Alignment.center,
         children: [
-          FlutterMap(
-            mapController: _controller,
-            options: MapOptions(
-              initialCenter: widget.initial,
-              initialZoom: 15,
-              minZoom: 3,
-              maxZoom: 19,
-              // تعطيل الدوران: التكبير بإصبعين كان يدوّر الخريطة عن طريق الخطأ
-              // فيتغيّر الاتجاه. نُبقي السحب/التكبير/النقر المزدوج فقط.
-              interactionOptions: const InteractionOptions(
-                flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
-              ),
-              onPositionChanged: (camera, _) {
-                _center = camera.center;
-                if ((camera.zoom - _zoom).abs() > 0.01) {
-                  setState(() => _zoom = camera.zoom);
-                }
-                _scheduleResolve();
-              },
-            ),
-            children: [
-              TileLayer(
-                // خريطة CartoDB Voyager — نظيفة وأنيقة (نمط التطبيقات الحديثة)،
-                // مجّانيّة بلا مفتاح، بديلاً عن تُيوب OSM الخام المزدحمة.
-                urlTemplate:
-                    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-                subdomains: const ['a', 'b', 'c', 'd'],
-                retinaMode: RetinaMode.isHighDensity(context),
-                userAgentPackageName: 'com.tintstore.app',
-              ),
-            ],
+          /// ‼️ **محرّك الخريطة خلف لوحةٍ واحدة** — انظر `TintMapCanvas`.
+          ///
+          /// كانت `FlutterMap` مكتوبةً هنا مباشرةً، فتبديل المحرّك كان يعني
+          /// إعادة كتابة الشاشة كلّها: حارس الدقّة، والترميز العكسيّ المؤجَّل،
+          /// وحالة الدبّوس. وهي أثمن ما فيها وأكثره اختباراً.
+          TintMapCanvas(
+            useGoogle: context.read<AppConfig>().useGoogleMaps,
+            controller: _controller,
+            initialCenter: widget.initial,
+            initialZoom: 15,
+            onCameraMove: (center, zoom) {
+              _center = center;
+              if ((zoom - _zoom).abs() > 0.01) {
+                setState(() => _zoom = zoom);
+              }
+              _scheduleResolve();
+            },
           ),
           // دبّوس ثابت في منتصف الشاشة (الخريطة تتحرّك تحته).
           Positioned(

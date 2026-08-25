@@ -7,6 +7,28 @@ plugins {
     id "com.google.gms.google-services"
 }
 
+/**
+ * مفتاح خرائط جوجل — **لا يدخل المستودع أبداً**.
+ *
+ * ‼️ يُقرأ من `android/maps.properties` (غير مُتعقَّب) أو من متغيّر البيئة
+ *    `TINT_MAPS_ANDROID_KEY` (لبناء Codemagic). وقيمةٌ فارغة تُنتج خريطةً
+ *    رماديّة — لا انهياراً — ولذلك يبقى مسار الخرائط المجّانيّة قائماً خلف
+ *    عَلَم البناء `TINT_GOOGLE_MAPS`.
+ *
+ * ‼️ **وهذا المفتاح ليس سرّاً بمعنى مفتاح الدفع**: هو مُقيَّدٌ باسم الحزمة
+ *    وبصمة التوقيع، فاستخراجه من الحزمة لا يُتيح استعماله في تطبيقٍ آخر.
+ *    ومع ذلك **يجب أن يبقى مقيَّداً** — مفتاحٌ بلا قيود يُستنزف على حساب
+ *    غيرك. ولا يُعاد استعمال مفتاح الخادم (ترميز العناوين) هنا: قيودهما
+ *    متعارضة، وتوحيدهما يُلغي حماية أحدهما.
+ */
+def mapsKey = System.getenv("TINT_MAPS_ANDROID_KEY") ?: ""
+def mapsPropertiesFile = rootProject.file("maps.properties")
+if (mapsKey.isEmpty() && mapsPropertiesFile.exists()) {
+    def mapsProperties = new Properties()
+    mapsProperties.load(new FileInputStream(mapsPropertiesFile))
+    mapsKey = mapsProperties.getProperty("MAPS_API_KEY") ?: ""
+}
+
 // تحميل إعدادات التوقيع من key.properties إن وُجد
 def keystoreProperties = new Properties()
 def keystorePropertiesFile = rootProject.file("key.properties")
@@ -39,6 +61,7 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         multiDexEnabled = true
+        manifestPlaceholders["MAPS_API_KEY"] = mapsKey
     }
 
     signingConfigs {

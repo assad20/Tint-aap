@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+
+import '../../../../app/config/app_config.dart';
+import '../../../../core/widgets/tint_map.dart';
 
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/location/delivery_location.dart';
@@ -526,23 +528,14 @@ class _MapPreview extends StatelessWidget {
         child: Stack(
           children: [
             Positioned.fill(
+              // ‼️ **نفس محرّك المنتقي** — انظر `TintMapCanvas`. ومعاينةٌ
+              //    بمحرّكٍ ولوحةُ اختيارٍ بآخر تُريان مكاناً واحداً بشكلين.
               child: IgnorePointer(
-                child: FlutterMap(
-                  options: MapOptions(
-                    initialCenter: center,
-                    initialZoom: 16.5,
-                    interactionOptions:
-                        const InteractionOptions(flags: InteractiveFlag.none),
-                  ),
-                  children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-                      subdomains: const ['a', 'b', 'c', 'd'],
-                      retinaMode: RetinaMode.isHighDensity(context),
-                      userAgentPackageName: 'com.tintstore.app',
-                    ),
-                  ],
+                child: TintMapCanvas(
+                  useGoogle: context.read<AppConfig>().useGoogleMaps,
+                  initialCenter: center,
+                  initialZoom: 16.5,
+                  interactive: false,
                 ),
               ),
             ),

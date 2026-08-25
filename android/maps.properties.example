@@ -1,0 +1,7 @@
+# انسخ هذا الملفّ إلى `android/maps.properties` وضع مفتاحك.
+# ‼️ الملفّ الحقيقيّ **غير مُتعقَّب** ولا يدخل المستودع أبداً.
+#
+# المفتاح من Google Cloud Console ← APIs & Services ← Credentials،
+# مُقيَّدٌ بـ«Maps SDK for Android» وباسم الحزمة `com.tintstore.app`
+# وبصمة SHA-1 لشهادة التوقيع. ومفتاحٌ بلا قيود يُستنزف على حسابك.
+MAPS_API_KEY=

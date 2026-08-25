@@ -50,13 +50,37 @@ workflows:
             exit 1
           fi
           echo "قاعدة الـAPI: $TINT_API_BASE_URL"
+      # ‼️ **خرائط جوجل تُشغَّل بوجود مفتاحها لا بقرارٍ منفصل.**
+      #
+      #    عَلَمٌ يُرفع بلا مفتاح يُنتج **خريطةً رماديّة صامتة** في شاشة العنوان،
+      #    وهي أسوأ من خريطةٍ مجّانيّة تعمل. فالمتغيّر الواحد يقود الاثنين:
+      #    وُجد المفتاح ⇒ حُقن ورُفع العَلَم؛ غاب ⇒ تبقى بلاطات CartoDB.
+      #
+      #    ‼️ ومفتاح أندرويد **مقيَّدٌ باسم الحزمة وبصمة التوقيع**، ومفتاح iOS
+      #    بمعرّف الحزمة — فلا يُخلَطان، ولا يُستعمل مفتاح الخادم (ترميز
+      #    العناوين) في أيّهما: قيوده متعارضة، وتوحيدها يُلغي حماية أحدهما.
+      - name: Maps key (optional)
+        script: |
+          MAPS_FLAG=""
+          if [ -n "$TINT_MAPS_ANDROID_KEY" ] || [ -n "$TINT_MAPS_IOS_KEY" ]; then
+            MAPS_FLAG="--dart-define=TINT_GOOGLE_MAPS=true"
+            echo "خرائط جوجل: مُفعّلة"
+          else
+            echo "خرائط جوجل: مُعطّلة (لا مفتاح) — تُستعمل بلاطات CartoDB"
+          fi
+          echo "MAPS_FLAG=$MAPS_FLAG" >> $CM_ENV
+          if [ -n "$TINT_MAPS_IOS_KEY" ] && [ -f ios/Runner/Info.plist ]; then
+            /usr/libexec/PlistBuddy -c "Set :MAPS_API_KEY $TINT_MAPS_IOS_KEY" ios/Runner/Info.plist 2>/dev/null               || /usr/libexec/PlistBuddy -c "Add :MAPS_API_KEY string $TINT_MAPS_IOS_KEY" ios/Runner/Info.plist
+            echo "مفتاح خرائط iOS حُقن في Info.plist"
+          fi
       - name: Build AAB
         script: |
           flutter build appbundle --release \
             --dart-define=TINT_API_BASE_URL=$TINT_API_BASE_URL \
             --dart-define=TINT_TABBY_PUBLIC_KEY=$TINT_TABBY_PUBLIC_KEY \
             --dart-define=TINT_TABBY_MERCHANT_CODE=$TINT_TABBY_MERCHANT_CODE \
-            --dart-define=TINT_TABBY_LANG=ar
+            --dart-define=TINT_TABBY_LANG=ar \
+            $MAPS_FLAG
     artifacts:
       - build/**/outputs/bundle/**/*.aab
 
@@ -171,6 +195,29 @@ workflows:
             exit 1
           fi
           echo "قاعدة الـAPI: $TINT_API_BASE_URL"
+      # ‼️ **خرائط جوجل تُشغَّل بوجود مفتاحها لا بقرارٍ منفصل.**
+      #
+      #    عَلَمٌ يُرفع بلا مفتاح يُنتج **خريطةً رماديّة صامتة** في شاشة العنوان،
+      #    وهي أسوأ من خريطةٍ مجّانيّة تعمل. فالمتغيّر الواحد يقود الاثنين:
+      #    وُجد المفتاح ⇒ حُقن ورُفع العَلَم؛ غاب ⇒ تبقى بلاطات CartoDB.
+      #
+      #    ‼️ ومفتاح أندرويد **مقيَّدٌ باسم الحزمة وبصمة التوقيع**، ومفتاح iOS
+      #    بمعرّف الحزمة — فلا يُخلَطان، ولا يُستعمل مفتاح الخادم (ترميز
+      #    العناوين) في أيّهما: قيوده متعارضة، وتوحيدها يُلغي حماية أحدهما.
+      - name: Maps key (optional)
+        script: |
+          MAPS_FLAG=""
+          if [ -n "$TINT_MAPS_ANDROID_KEY" ] || [ -n "$TINT_MAPS_IOS_KEY" ]; then
+            MAPS_FLAG="--dart-define=TINT_GOOGLE_MAPS=true"
+            echo "خرائط جوجل: مُفعّلة"
+          else
+            echo "خرائط جوجل: مُعطّلة (لا مفتاح) — تُستعمل بلاطات CartoDB"
+          fi
+          echo "MAPS_FLAG=$MAPS_FLAG" >> $CM_ENV
+          if [ -n "$TINT_MAPS_IOS_KEY" ] && [ -f ios/Runner/Info.plist ]; then
+            /usr/libexec/PlistBuddy -c "Set :MAPS_API_KEY $TINT_MAPS_IOS_KEY" ios/Runner/Info.plist 2>/dev/null               || /usr/libexec/PlistBuddy -c "Add :MAPS_API_KEY string $TINT_MAPS_IOS_KEY" ios/Runner/Info.plist
+            echo "مفتاح خرائط iOS حُقن في Info.plist"
+          fi
       - name: Build IPA
         script: |
           # !! **العودة إلى `flutter build ipa` — والالتفاف السابق كان علاج عَرَض.**
@@ -187,6 +234,7 @@ workflows:
             --dart-define=TINT_TABBY_PUBLIC_KEY=$TINT_TABBY_PUBLIC_KEY \
             --dart-define=TINT_TABBY_MERCHANT_CODE=$TINT_TABBY_MERCHANT_CODE \
             --dart-define=TINT_TABBY_LANG=ar \
+            $MAPS_FLAG \
             --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa

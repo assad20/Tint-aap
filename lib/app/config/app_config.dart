@@ -6,6 +6,7 @@ class AppConfig {
     required this.tabbyMerchantCode,
     required this.tabbyLanguage,
     required this.currencyCode,
+    this.useGoogleMaps = false,
   });
 
   final String baseUrl;
@@ -23,6 +24,16 @@ class AppConfig {
   final String tabbyLanguage;
   final String currencyCode;
 
+  /// ترسم الخرائط بمحرّك جوجل بدل بلاطات CartoDB المجّانيّة.
+  ///
+  /// ‼️ **عَلَمُ بناءٍ لا إعدادٌ من الخادم**: محرّك جوجل يحتاج مفتاحاً محقوناً
+  /// في الحزمة نفسها (البيان على أندرويد · Info.plist على iOS)، فلا معنى
+  /// لتشغيله من بعيد على نسخةٍ لا تحمله — تظهر خريطةٌ رماديّة بلا تفسير.
+  ///
+  /// فيبقى المسار المجّانيّ هو الافتراضيّ حتّى تُبنى نسخةٌ بمفتاح، وتُبنى
+  /// بـ`--dart-define=TINT_GOOGLE_MAPS=true` معه.
+  final bool useGoogleMaps;
+
   bool get hasTabbyConfig =>
       tabbyPublicKey.trim().isNotEmpty && tabbyMerchantCode.trim().isNotEmpty;
 
@@ -37,6 +48,10 @@ class AppConfig {
 
   factory AppConfig.fromEnvironment() {
     return const AppConfig(
+      useGoogleMaps: const bool.fromEnvironment(
+        'TINT_GOOGLE_MAPS',
+        defaultValue: false,
+      ),
       baseUrl: String.fromEnvironment(
         'TINT_API_BASE_URL',
         // الافتراضيّ = المتجر المنشور (وسيط الإنتاج على Railway)، فأيّ APK يُبنى

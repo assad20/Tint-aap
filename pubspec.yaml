@@ -30,6 +30,7 @@ dependencies:
   cached_network_image: ^3.4.0 # تخزين صور دائم على القرص + ظهور سلس
   flutter_map: ^7.0.2 # خريطة OpenStreetMap تفاعليّة (بلا مفتاح/بطاقة)
   latlong2: ^0.9.1 # إحداثيّات LatLng لـflutter_map
+  google_maps_flutter: ^2.9.0 # خرائط جوجل — نفس ما يراه العميل في نون
   webview_flutter: ^4.10.0 # نافذة نون بيمنت المستضافة داخل التطبيق
   firebase_core: ^4.13.0
   firebase_messaging: ^16.5.0
