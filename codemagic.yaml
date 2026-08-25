@@ -73,6 +73,27 @@ workflows:
             /usr/libexec/PlistBuddy -c "Set :MAPS_API_KEY $TINT_MAPS_IOS_KEY" ios/Runner/Info.plist 2>/dev/null               || /usr/libexec/PlistBuddy -c "Add :MAPS_API_KEY string $TINT_MAPS_IOS_KEY" ios/Runner/Info.plist
             echo "مفتاح خرائط iOS حُقن في Info.plist"
           fi
+      # ‼️ **بصمة مفتاح النشر تُطبَع في السجلّ — ولا تُتداوَل يدويّاً.**
+      #
+      #    مفاتيح خرائط جوجل مُقيَّدةٌ ببصمة التوقيع، فبصمةُ نسخة النشر لازمةٌ
+      #    لتعمل الخريطة فيها. والمفتاح نفسه محفوظٌ في Codemagic ولا يُنزَّل،
+      #    فاستخراج بصمته كان يعني إخراجه من مأمنه.
+      #
+      #    ‼️ **والبصمة ليست سرّاً**: هي بصمة الشهادة العامّة، تُنشَر في قيود
+      #    مفاتيح جوجل وتظهر في Play Console. أمّا المفتاح فيبقى حيث هو.
+      #
+      #    وتُقرأ من السجلّ مرّةً واحدة ثمّ تُسجَّل، ولا تتغيّر ما دام المفتاح.
+      - name: Print release SHA-1 (for Maps key restriction)
+        script: |
+          if [ -n "$CM_KEYSTORE_PATH" ]; then
+            keytool -list -v \
+              -keystore "$CM_KEYSTORE_PATH" \
+              -alias "$CM_KEY_ALIAS" \
+              -storepass "$CM_KEYSTORE_PASSWORD" 2>/dev/null \
+              | grep -E "SHA1:|SHA-1:" || echo "تعذّرت قراءة البصمة."
+          else
+            echo "لا مفتاح توقيعٍ في هذا البناء (CM_KEYSTORE_PATH فارغ)."
+          fi
       - name: Build AAB
         script: |
           flutter build appbundle --release \
