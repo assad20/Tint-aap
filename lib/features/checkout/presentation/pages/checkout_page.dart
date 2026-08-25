@@ -2,12 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:geocoding/geocoding.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
-import 'package:latlong2/latlong.dart';
 
-import 'location_picker_page.dart';
 import '../../../../app/config/api_routes.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/tracking/tracking_events.dart';
@@ -53,90 +49,17 @@ class _CheckoutPageState extends State<CheckoutPage>
   final _neighborhood = TextEditingController();
   final _details = TextEditingController();
   String _addressId = 'mobile-form';
+
+  /// عنوان الزائر — يسكن الطلب الحاليّ ولا يُحفَظ عند الخادم (لا حساب له).
+  AddressModel? _guestAddress;
   double? _lat;
   double? _lng;
-  bool _locating = false;
 
   /// العنوان المحفوظ المختار — لعميلٍ مسجَّل. و`null` يعني «الافتراضيّ».
   ///
   /// ‼️ **مُعرّفٌ لا نسخة**: حفظُ نسخةٍ من العنوان هنا يجعل تعديلَه من الورقة
   /// لا يظهر في البطاقة حتّى يُعاد فتح الشاشة.
   String? _selectedAddressId;
-
-  void _snack(String msg) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
-    );
-  }
-
-  // التقاط إحداثيّات موقع التوصيل عبر GPS (بلا خريطة/مفتاح خارجيّ).
-  Future<void> _captureLocation() async {
-    setState(() => _locating = true);
-    try {
-      // نقطة بداية للخريطة: موقع الجهاز إن سُمح (فوريّ من المخزّن ثمّ الحيّ)،
-      // وإلا الرياض افتراضاً — ويحرّك العميل الخريطة للموقع الدقيق على أيّ حال.
-      LatLng start = const LatLng(24.7136, 46.6753); // الرياض
-      try {
-        if (await Geolocator.isLocationServiceEnabled()) {
-          var perm = await Geolocator.checkPermission();
-          if (perm == LocationPermission.denied) {
-            perm = await Geolocator.requestPermission();
-          }
-          if (perm != LocationPermission.denied &&
-              perm != LocationPermission.deniedForever) {
-            final pos = await Geolocator.getLastKnownPosition() ??
-                await Geolocator.getCurrentPosition()
-                    .timeout(const Duration(seconds: 15));
-            start = LatLng(pos.latitude, pos.longitude);
-          }
-        }
-      } catch (_) {
-        // بلا موقع جهاز — نبدأ من الرياض.
-      }
-      if (!mounted) return;
-      // خريطة OpenStreetMap تفاعليّة (بلا مفتاح): العميل يضع الدبّوس بدقّة.
-      final picked = await Navigator.of(context).push<LatLng>(
-        MaterialPageRoute(builder: (_) => LocationPickerPage(initial: start)),
-      );
-      if (picked == null) return; // ألغى العميل
-      setState(() {
-        _lat = picked.latitude;
-        _lng = picked.longitude;
-      });
-      final filled = await _reverseGeocode(picked.latitude, picked.longitude);
-      _snack(filled
-          ? 'تمّ تحديد الموقع وتعبئة المدينة/الحيّ ✅'
-          : 'تمّ تحديد موقع التوصيل ✅ (أكمل المدينة/الحيّ يدويّاً)');
-    } finally {
-      if (mounted) setState(() => _locating = false);
-    }
-  }
-
-  // عكس الترميز الجغرافيّ: تعبئة المدينة والحيّ من الإحداثيّات
-  // (مُحوّل عناوين أندرويد المدمج — بلا مفتاح خارجيّ). يعيد true إن مُلئ شيء.
-  Future<bool> _reverseGeocode(double lat, double lng) async {
-    try {
-      final places = await Geocoding()
-          .placemarkFromCoordinates(lat, lng, locale: const Locale('ar'));
-      if (places.isEmpty) return false;
-      final p = places.first;
-      final city = (p.locality?.trim().isNotEmpty ?? false)
-          ? p.locality!.trim()
-          : (p.administrativeArea?.trim() ?? '');
-      final hood = (p.subLocality?.trim().isNotEmpty ?? false)
-          ? p.subLocality!.trim()
-          : (p.subAdministrativeArea?.trim() ?? '');
-      setState(() {
-        if (city.isNotEmpty) _city.text = city;
-        if (hood.isNotEmpty) _neighborhood.text = hood;
-      });
-      return city.isNotEmpty || hood.isNotEmpty;
-    } catch (_) {
-      // تعذّر الترميز العكسيّ (قد لا يتوفّر على بعض الأجهزة) — نبقي الإحداثيّات فقط.
-      return false;
-    }
-  }
 
   /// ‼️ **أكثر ما يحدث فعلاً**: ينتبه المشتري لانقطاع الشبكة فيخرج إلى
   /// الإعدادات ويُصلحها ويعود — فلا يجوز أن يجد الشاشة كما تركها. وهذا هو
@@ -252,18 +175,25 @@ class _CheckoutPageState extends State<CheckoutPage>
               onChange: _openAddressPicker,
               onEdit: _openAddressEditor,
             )
+          /// ‼️ **والزائر يرى البطاقة نفسها لا نموذجاً مفروشاً** (طلب المالك
+          /// 2026-08-25). ستّة حقولٍ فارغة هي أوّل ما يواجهه في أوّل طلبٍ له،
+          /// وهي **أطول ما في الشاشة** وأثقل ما فيها: تُقرأ استمارةً قبل أن
+          /// يشتري. والبطاقة تسأله سؤالاً واحداً — «أين نوصّل؟» — والباقي في
+          /// شاشةٍ مخصَّصة **فيها الخريطة**، وهي أدقّ من الوصف وأسرع منه.
+          ///
+          /// ‼️ **ونفس المحرّر لا نسخةً ثانية**: `AddressFormPage` في وضع
+          /// `local` — يُعيد العنوان ولا يحفظه (نقاط الحفظ محميّةٌ بالتوكن).
+          /// ومحرّران للشيء نفسه يتباعدان مع أوّل تعديل، فيحفظ أحدهما دبّوس
+          /// الخريطة والآخر لا.
           else
-            _ShippingFormCard(
-              nameC: _name,
-              phoneC: _phone,
-              emailC: _email,
-              cityC: _city,
-              neighborhoodC: _neighborhood,
-              detailsC: _details,
-              onChanged: () => setState(() {}),
-              hasLocation: _lat != null && _lng != null,
-              isLocating: _locating,
-              onLocate: _captureLocation,
+            _DeliveryCard(
+              address: _guestAddress,
+              accountName: null,
+              accountPhone: null,
+              // لا محفوظات للزائر — فلا شيء «يُغيَّر» إليه، و«تعديل» تكفي.
+              onChange: null,
+              savesForLater: false,
+              onEdit: ({String? id}) => _editGuestAddress(),
             ),
           const SizedBox(height: 12),
           const _ProductsMiniSummary(),
@@ -286,6 +216,30 @@ class _CheckoutPageState extends State<CheckoutPage>
         ],
       ),
     );
+  }
+
+  /// يفتح محرّر العنوان للزائر، ثمّ **يملأ الحقول التي يقرأها الطلب**.
+  ///
+  /// ‼️ **الحقول تبقى مصدر الحقيقة ولو اختفت من الشاشة.** `_currentAddress()`
+  /// يبنيها منها، و`_submit` يقرأها — فتغذيتُها هنا تُبقي مسار الطلب كما هو
+  /// حرفيّاً. ونسخُ المنطق إلى مصدرٍ ثانٍ كان سيُنتج عنواناً يُعرَض وآخر يُشحَن.
+  Future<void> _editGuestAddress() async {
+    final result = await Navigator.of(context).push<AddressModel>(
+      MaterialPageRoute(
+        builder: (_) => AddressFormPage(local: true, initial: _guestAddress),
+      ),
+    );
+    if (!mounted || result == null) return;
+    setState(() {
+      _guestAddress = result;
+      _name.text = result.recipient;
+      _phone.text = result.mobile;
+      _city.text = result.city;
+      _neighborhood.text = result.neighborhood;
+      _details.text = result.details;
+      _lat = result.lat;
+      _lng = result.lng;
+    });
   }
 
   /// هل نحن على مسار العناوين المحفوظة؟ — مسجَّلٌ **وله عنوانٌ واحد فأكثر**.
@@ -407,13 +361,23 @@ class _DeliveryCard extends StatelessWidget {
     required this.accountPhone,
     required this.onChange,
     required this.onEdit,
+    this.savesForLater = true,
   });
 
   final AddressModel? address;
   final String? accountName;
   final String? accountPhone;
-  final VoidCallback onChange;
+
+  /// `null` = لا محفوظات يُنتقل بينها (الزائر) ⇒ لا يُعرَض زرّ «تغيير».
+  ///
+  /// ‼️ **زرٌّ يفتح ورقةً فارغة أسوأ من غيابه**: يُقرأ عطلاً لا خياراً مفقوداً.
+  final VoidCallback? onChange;
+
   final Future<void> Function({String? id}) onEdit;
+
+  /// ‼️ **«يُحفظ عنوانك لما بعده» وعدٌ لا يُوفى للزائر** — لا حساب يحفظ فيه.
+  /// ووعدٌ صغير يُخلَف في شاشة دفعٍ يُكلّف أكثر ممّا يُوفّر.
+  final bool savesForLater;
 
   @override
   Widget build(BuildContext context) {
@@ -458,9 +422,11 @@ class _DeliveryCard extends StatelessWidget {
               style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'أوّل طلب — يُحفظ عنوانك لما بعده.',
-              style: TextStyle(color: TintColors.textMuted, fontSize: 12),
+            Text(
+              savesForLater
+                  ? 'أوّل طلب — يُحفظ عنوانك لما بعده.'
+                  : 'أضيفي عنوانك وحدّدي موقعه على الخريطة.',
+              style: const TextStyle(color: TintColors.textMuted, fontSize: 12),
             ),
             const SizedBox(height: 12),
             SizedBox(
@@ -484,6 +450,7 @@ class _DeliveryCard extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (onChange != null)
                 TextButton(
                   onPressed: onChange,
                   style: TextButton.styleFrom(
@@ -752,137 +719,6 @@ class _AddressPickerSheet extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ShippingFormCard extends StatelessWidget {
-  const _ShippingFormCard({
-    required this.nameC,
-    required this.phoneC,
-    required this.emailC,
-    required this.cityC,
-    required this.neighborhoodC,
-    required this.detailsC,
-    required this.onChanged,
-    required this.hasLocation,
-    required this.isLocating,
-    required this.onLocate,
-  });
-
-  final TextEditingController nameC;
-  final TextEditingController phoneC;
-  final TextEditingController emailC;
-  final TextEditingController cityC;
-  final TextEditingController neighborhoodC;
-  final TextEditingController detailsC;
-  final VoidCallback onChanged;
-  final bool hasLocation;
-  final bool isLocating;
-  final VoidCallback onLocate;
-
-  @override
-  Widget build(BuildContext context) {
-    return TintSurfaceCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const TintSectionHeader(title: 'بيانات العميل والشحن'),
-          const SizedBox(height: 4),
-          const Text(
-            'تُستخدم هذه البيانات لمعالجة الطلب وتوصيله.',
-            style: TextStyle(color: TintColors.textMuted, fontSize: 11),
-          ),
-          const SizedBox(height: 14),
-          _field(nameC, 'الاسم الكامل *', Icons.person_outline),
-          _field(phoneC, 'رقم الجوال *', Icons.phone_outlined,
-              ltr: true, type: TextInputType.phone),
-          _field(emailC, 'البريد الإلكترونيّ (اختياري)', Icons.mail_outline,
-              ltr: true, type: TextInputType.emailAddress),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                  child: _field(
-                      cityC, 'المدينة *', Icons.location_city_outlined)),
-              const SizedBox(width: 10),
-              Expanded(
-                  child: _field(neighborhoodC, 'الحيّ *', Icons.map_outlined)),
-            ],
-          ),
-          _field(detailsC, 'تفاصيل العنوان *', Icons.home_outlined, maxLines: 2),
-          const SizedBox(height: 2),
-          InkWell(
-            onTap: isLocating ? null : onLocate,
-            borderRadius: BorderRadius.circular(14),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              decoration: BoxDecoration(
-                color: hasLocation ? const Color(0xFFF0FBF3) : const Color(0xFFF8F9FA),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: hasLocation ? Colors.green : TintColors.line,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    hasLocation ? Icons.check_circle_rounded : Icons.my_location,
-                    color: hasLocation ? Colors.green : TintColors.sand,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      isLocating
-                          ? 'جارٍ تحديد موقعك…'
-                          : hasLocation
-                              ? 'تمّ تحديد موقع التوصيل ✅'
-                              : 'تحديد موقع التوصيل على الخريطة (اختياريّ)',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w800,
-                        color: hasLocation ? Colors.green.shade700 : TintColors.charcoal,
-                      ),
-                    ),
-                  ),
-                  if (isLocating)
-                    const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2.2),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _field(
-    TextEditingController c,
-    String label,
-    IconData icon, {
-    bool ltr = false,
-    TextInputType? type,
-    int maxLines = 1,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: TextField(
-        controller: c,
-        keyboardType: type,
-        maxLines: maxLines,
-        textDirection: ltr ? TextDirection.ltr : null,
-        onChanged: (_) => onChanged(),
-        decoration: InputDecoration(
-          labelText: label,
-          isDense: true,
-          prefixIcon: Icon(icon, color: TintColors.sand, size: 20),
-        ),
       ),
     );
   }

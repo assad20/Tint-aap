@@ -17,9 +17,22 @@ class AddressFormPage extends StatefulWidget {
   const AddressFormPage({
     super.key,
     this.addressId,
+    this.local = false,
+    this.initial,
   });
 
   final String? addressId;
+
+  /// **وضع الزائر**: يُعيد العنوان ولا يحفظه عند الخادم.
+  ///
+  /// ‼️ **لأنّ نقاط حفظ العناوين محميّةٌ بالتوكن** — فالحفظ لزائرٍ بلا حساب
+  /// يفشل بـ401، ولا معنى لعرض «جارٍ الحفظ…» ثمّ رسالة فشلٍ لعملٍ لا يجوز
+  /// أصلاً. والزائر يحتاج **الشاشة** لا التخزين: نفس الحقول ونفس الخريطة ونفس
+  /// معاينة الدبّوس، والنتيجة تسكن الطلب وحده.
+  final bool local;
+
+  /// ما يُملأ به النموذج في وضع الزائر (تعديلُ ما أدخله قبل قليل).
+  final AddressModel? initial;
 
   @override
   State<AddressFormPage> createState() => _AddressFormPageState();
@@ -54,7 +67,7 @@ class _AddressFormPageState extends State<AddressFormPage> {
   void initState() {
     super.initState();
     final cubit = context.read<AddressesCubit>();
-    final address = cubit.findById(widget.addressId);
+    final address = widget.initial ?? cubit.findById(widget.addressId);
 
     title = address?.title ?? 'المنزل';
     lat = address?.lat;
@@ -137,8 +150,29 @@ class _AddressFormPageState extends State<AddressFormPage> {
       return;
     }
 
-    setState(() => _saving = true);
     final navigator = Navigator.of(context);
+
+    /// ‼️ **الزائر يعود فوراً بلا نداء شبكة.** لا حفظ عند الخادم (لا حساب له)،
+    /// ولا انتظارَ ولا احتمالَ فشل — العنوان يسكن الطلب الحاليّ وحده.
+    if (widget.local) {
+      navigator.pop(
+        AddressModel(
+          id: widget.initial?.id ?? 'mobile-form',
+          title: title,
+          recipient: recipient,
+          mobile: mobile,
+          city: city,
+          neighborhood: neighborhood,
+          details: details,
+          isDefault: false,
+          lat: lat,
+          lng: lng,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _saving = true);
     final cubit = context.read<AddressesCubit>();
     try {
       final saved = await cubit.upsert(
@@ -173,7 +207,9 @@ class _AddressFormPageState extends State<AddressFormPage> {
     final hasPin = lat != null && lng != null;
 
     return TintPageScaffold(
-      title: isEdit ? 'تعديل العنوان' : 'إضافة عنوان جديد',
+      title: (isEdit || widget.initial != null)
+          ? 'تعديل العنوان'
+          : (widget.local ? 'عنوان التوصيل' : 'إضافة عنوان جديد'),
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         children: [
@@ -299,6 +335,10 @@ class _AddressFormPageState extends State<AddressFormPage> {
             ),
           ),
           const SizedBox(height: 14),
+
+          /// ‼️ **يُخفى عن الزائر**: «الافتراضيّ» وعدٌ بتذكّر لمن لا حساب له
+          /// — ولا يُحفظ شيءٌ أصلاً، فالمفتاح يعد بما لا يقع.
+          if (!widget.local)
           TintSurfaceCard(
             child: Row(
               children: [
@@ -340,7 +380,10 @@ class _AddressFormPageState extends State<AddressFormPage> {
           ),
           const SizedBox(height: 14),
           TintPrimaryButton(
-            label: _saving ? 'جارٍ الحفظ…' : 'حفظ العنوان',
+            // ‼️ «حفظ» تَعِد بما لا يقع في وضع الزائر — فالكلمة تتبع الفعل.
+            label: widget.local
+                ? 'اعتماد العنوان'
+                : (_saving ? 'جارٍ الحفظ…' : 'حفظ العنوان'),
             expanded: true,
             onPressed: _saving ? null : _save,
           ),
