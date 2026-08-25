@@ -81,8 +81,25 @@ workflows:
             --dart-define=TINT_TABBY_MERCHANT_CODE=$TINT_TABBY_MERCHANT_CODE \
             --dart-define=TINT_TABBY_LANG=ar \
             $MAPS_FLAG
+      # ‼️ **وAPK بجوار الـAAB — لأنّ الـAAB لا يُثبَّت على هاتف.**
+      #
+      #    الحزمة (`.aab`) صيغةٌ يفكّها متجر Play ليُولّد منها نسخةً لكلّ جهاز،
+      #    وأندرويد لا يقبلها مباشرةً. فتجربة نسخة النشر على جهازٍ حقيقيّ — قبل
+      #    الرفع، أو بلا رفعٍ أصلاً — كانت متعذّرة.
+      #
+      #    وهي **موقَّعةٌ بمفتاح النشر نفسه**، فما يُختبَر هو ما يُنشَر: نفس
+      #    التصغير، ونفس البصمة التي تُقيَّد بها مفاتيح جوجل.
+      - name: Build APK (للتجربة على جهاز)
+        script: |
+          flutter build apk --release \
+            --dart-define=TINT_API_BASE_URL=$TINT_API_BASE_URL \
+            --dart-define=TINT_TABBY_PUBLIC_KEY=$TINT_TABBY_PUBLIC_KEY \
+            --dart-define=TINT_TABBY_MERCHANT_CODE=$TINT_TABBY_MERCHANT_CODE \
+            --dart-define=TINT_TABBY_LANG=ar \
+            $MAPS_FLAG
     artifacts:
       - build/**/outputs/bundle/**/*.aab
+      - build/**/outputs/apk/**/*.apk
 
   ios-workflow:
     name: Tint iOS (IPA)
