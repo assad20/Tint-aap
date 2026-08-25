@@ -39,6 +39,16 @@ class ShippingMethodModel {
     return 'التوصيل خلال $d أيام عمل';
   }
 
+  /// ‼️ **بأسماء الخادم نفسها** — انظر `PaymentMethodModel.toJson`.
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'label': label,
+        'price': price,
+        'freeOverThreshold': freeOverThreshold,
+        if (etaMinDays != null) 'etaMinDays': etaMinDays,
+        if (etaMaxDays != null) 'etaMaxDays': etaMaxDays,
+      };
+
   factory ShippingMethodModel.fromJson(Map<String, dynamic> json) {
     double num_(dynamic v) => double.tryParse(v?.toString() ?? '') ?? 0;
     int? int_(dynamic v) => int.tryParse(v?.toString() ?? '');

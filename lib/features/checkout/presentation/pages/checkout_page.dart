@@ -38,7 +38,8 @@ class CheckoutPage extends StatefulWidget {
   State<CheckoutPage> createState() => _CheckoutPageState();
 }
 
-class _CheckoutPageState extends State<CheckoutPage> {
+class _CheckoutPageState extends State<CheckoutPage>
+    with WidgetsBindingObserver {
   final _tabbyEmailController = TextEditingController();
   final _tabbyDobController = TextEditingController();
   DateTime? _selectedDob;
@@ -136,9 +137,21 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
   }
 
+  /// ‼️ **أكثر ما يحدث فعلاً**: ينتبه المشتري لانقطاع الشبكة فيخرج إلى
+  /// الإعدادات ويُصلحها ويعود — فلا يجوز أن يجد الشاشة كما تركها. وهذا هو
+  /// البديل عن زرّ «إعادة المحاولة» الذي رفضه المالك بحقّ: العميل فعل ما
+  /// يخصّه (أصلح شبكته)، والتطبيق يفعل ما يخصّه بلا أن يُطالبه بشيء.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    if (!mounted) return;
+    context.read<CheckoutCubit>().refreshIfStale();
+  }
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // منفذٌ ثانٍ للسلّة: من يصل هنا مباشرةً لا يمرّ ببانرها. المراجعة تُظهر
     // النفاد قبل إدخال العنوان لا بعد الدفع.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -194,6 +207,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tabbyEmailController.dispose();
     _tabbyDobController.dispose();
     _name.dispose();
@@ -1013,17 +1027,10 @@ class _ShippingMethodsCard extends StatelessWidget {
               const SizedBox(height: 12),
               // الطرق من الخادم لا من الشيفرة: كانت مثبَّتةً بأسعارٍ تخالف
               // إعدادات المتجر، فيرفض الخادم كلّ طلبٍ اختير فيه الخيار الأرخص.
+              // ‼️ «تحقّق من اتّصالك وأعد المحاولة» أُزيلت: تُحمّل العميل عملاً
+              //    نقوم به نحن — والمحاولة تجري تلقائيّاً.
               if (state.shippingMethods.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    'تعذّر جلب طرق التوصيل. تحقّق من اتّصالك وأعد المحاولة.',
-                    style: TextStyle(
-                        color: TintColors.textMuted,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600),
-                  ),
-                )
+                const _QuietRetryNote()
               else
                 /// ‼️ **صفٌّ لا قائمة** — بطلب المالك 2026-08-24.
                 ///
@@ -1384,6 +1391,14 @@ class _PaymentMethodsCard extends StatelessWidget {
                   padding: EdgeInsets.symmetric(vertical: 20),
                   child: Center(child: CircularProgressIndicator()),
                 )
+              /// ‼️ **الفراغ لا يُقال إلّا إذا قاله الخادم.**
+              ///
+              /// كانت الرسالة الحمراء تظهر عند انقطاع الشبكة أيضاً، فتتّهم
+              /// المتجرَ بعطلٍ سببُه اتّصال العميل — في آخر خطوةٍ قبل الدفع.
+              /// والآن: انقطاعٌ ⇒ سطرٌ محايد والمحاولة تجري وحدها؛ وردٌّ ناجح
+              /// بقائمةٍ فارغة ⇒ الرسالة الحمراء، وهي حينئذٍ صادقة.
+              else if (state.methods.isEmpty && state.catalogOffline)
+                const _QuietRetryNote()
               else if (state.methods.isEmpty)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 16),
@@ -2082,6 +2097,50 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
           ),
         );
       },
+    );
+  }
+}
+
+/// سطرٌ محايد حين يتعذّر الوصول إلى الخادم — **بلا زرّ وبلا لوم**.
+///
+/// ‼️ **لا زرّ «إعادة المحاولة»** (قرار المالك 2026-08-25: «لم أرَ وسائل دفع
+/// عليها زرّ إعادة المحاولة»): الزرّ اعترافٌ بالعجز يُحوّل عملنا إلى مهمّةٍ
+/// على العميل، ولا يفعل شيئاً لا يفعله التطبيق وحده. والمحاولة تجري صامتةً
+/// كلّ عشر ثوانٍ، وعند عودة التطبيق للمقدّمة.
+///
+/// ‼️ **ونبرةٌ محايدة لا حمراء**: الأحمر يعني «عطلٌ عندنا»، وهذا ليس عطلاً —
+/// بل انتظارٌ سيمرّ. ولون التحذير في شاشة دفعٍ يُخيف المشتري فيغادر.
+class _QuietRetryNote extends StatelessWidget {
+  const _QuietRetryNote();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 14),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: TintColors.textMuted,
+            ),
+          ),
+          SizedBox(width: 10),
+          Flexible(
+            child: Text(
+              'جارٍ التحديث… الاتّصال ضعيف حالياً',
+              style: TextStyle(
+                color: TintColors.textMuted,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

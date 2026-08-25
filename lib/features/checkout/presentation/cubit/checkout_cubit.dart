@@ -11,6 +11,7 @@ import '../../../../core/models/account_models.dart';
 import '../../../../core/models/cart_item_model.dart';
 import '../../../../core/models/payment_method_model.dart';
 import '../../../../core/models/shipping_method_model.dart';
+import '../../data/checkout_catalog_cache.dart';
 import '../../domain/models/tabby_payment_result.dart';
 import '../../domain/repositories/checkout_repository.dart';
 
@@ -22,6 +23,7 @@ class CheckoutState {
     this.cardBrand = 'mada',
     this.methods = const [],
     this.methodsLoading = true,
+    this.catalogOffline = false,
     this.shippingMethods = const [],
     this.applePay = ApplePayConfigModel.empty,
     this.lastOrderId,
@@ -42,6 +44,15 @@ class CheckoutState {
   // وسائل الدفع المفعّلة من الخادم (المصدر الوحيد للرسوم).
   final List<PaymentMethodModel> methods;
   final bool methodsLoading;
+
+  /// **تعذّر الوصول إلى الخادم**، لا أنّ المتجر بلا وسائل.
+  ///
+  /// ‼️ **التمييز بين الحالتين هو أصل العطل.** كان `catch` يُفرّغ القائمة، فتقرأ
+  /// الواجهة الفراغَ ادّعاءً تجاريّاً وتقول «لا توجد وسيلة دفع متاحة حالياً.
+  /// يُرجى التواصل مع الدعم» — أي **يُتّهم المتجر بعطلٍ سببُه شبكة العميل**، في
+  /// آخر خطوةٍ قبل الدفع. والفراغ الحقيقيّ (ردٌّ ناجح بقائمةٍ فارغة) حالةُ عملٍ
+  /// واردة: أن يُعطّل المالك كلّ الوسائل من اللوحة.
+  final bool catalogOffline;
 
   // طرق الشحن من الخادم — لا تُكتب في التطبيق. كانت مثبَّتةً بأسعارٍ تخالف
   // إعدادات المتجر، فيرفض الخادم كلّ طلبٍ اختير فيه الخيار الأرخص.
@@ -83,6 +94,7 @@ class CheckoutState {
     String? cardBrand,
     List<PaymentMethodModel>? methods,
     bool? methodsLoading,
+    bool? catalogOffline,
     List<ShippingMethodModel>? shippingMethods,
     ApplePayConfigModel? applePay,
     String? lastOrderId,
@@ -95,6 +107,7 @@ class CheckoutState {
       cardBrand: cardBrand ?? this.cardBrand,
       methods: methods ?? this.methods,
       methodsLoading: methodsLoading ?? this.methodsLoading,
+      catalogOffline: catalogOffline ?? this.catalogOffline,
       shippingMethods: shippingMethods ?? this.shippingMethods,
       applePay: applePay ?? this.applePay,
       lastOrderId: lastOrderId ?? this.lastOrderId,
@@ -104,57 +117,155 @@ class CheckoutState {
 }
 
 class CheckoutCubit extends Cubit<CheckoutState> {
-  CheckoutCubit({required CheckoutRepository repository, TrackingService? tracking})
-      : _repository = repository,
+  CheckoutCubit({
+    required CheckoutRepository repository,
+    TrackingService? tracking,
+    CheckoutCatalogCache? cache,
+  })  : _repository = repository,
         _tracking = tracking,
+        _cache = cache ?? CheckoutCatalogCache(),
         super(const CheckoutState());
 
   final CheckoutRepository _repository;
+  final CheckoutCatalogCache _cache;
+
+  /// محاولةٌ مؤجَّلة بعد فشل الشبكة — تُلغى عند إغلاق الشاشة.
+  Timer? _retryTimer;
+  int _retryRound = 0;
 
   /// ‼️ **اختياريّة عمداً**: الدفع أهمّ من قياسه، ولا يفشل لأنّ القياس غائب.
   final TrackingService? _tracking;
 
-  // تُستدعى عند فتح السلّة: تجلب الوسائل المفعّلة وتختار أوّلها.
+  /// تُستدعى عند فتح الشاشة، وعند عودة التطبيق للمقدّمة، وبعد كلّ فشلٍ ذاتيّاً.
+  ///
+  /// ‼️ **لا زرّ «إعادة المحاولة» ولا رسالةَ لومٍ للعميل** (قرار المالك
+  /// 2026-08-25: «لم أرَ وسائل دفع عليها زرّ إعادة المحاولة»). العميل لا يُصلح
+  /// شبكتنا، والشاشة تتعافى وحدها على ثلاث طبقات:
+  ///
+  /// ① **ما نعرفه يُعرَض فوراً** من نسخة الجهاز قبل أن تردّ الشبكة.
+  /// ② **محاولاتٌ صامتة متباعدة** بدل محاولةٍ واحدة تسقط عند أوّل تعثّر.
+  /// ③ **ولا يُفرَّغ ما بين أيدينا عند الفشل** — الفراغ ادّعاءٌ لا نملكه.
   Future<void> loadPaymentMethods() async {
-    emit(state.copyWith(methodsLoading: true));
-    try {
-      final methods = await _repository.fetchPaymentMethods();
-      final selected = methods.any((m) => m.id == state.paymentMethod)
-          ? state.paymentMethod
-          : (methods.isNotEmpty ? methods.first.id : state.paymentMethod);
-      emit(state.copyWith(
-        methods: methods,
-        methodsLoading: false,
-        paymentMethod: selected,
-      ));
-    } catch (_) {
-      emit(state.copyWith(methods: const [], methodsLoading: false));
+    _retryTimer?.cancel();
+    _retryRound = 0;
+    await _refreshCatalog(initial: true);
+  }
+
+  /// تُستدعى من الشاشة عند عودة التطبيق للمقدّمة.
+  ///
+  /// ‼️ **أكثر ما يحدث فعلاً**: ينتبه المشتري لانقطاع الشبكة، فيخرج إلى
+  /// الإعدادات ويُصلحها ويعود — فلا يجوز أن يجد الشاشة كما تركها.
+  void refreshIfStale() {
+    if (state.isSubmitting) return;
+    if (state.catalogOffline || state.methods.isEmpty) {
+      unawaited(loadPaymentMethods());
     }
-    await loadShippingMethods();
+  }
+
+  Future<void> _refreshCatalog({bool initial = false}) async {
+    if (isClosed) return;
+    if (initial && state.methods.isEmpty) {
+      emit(state.copyWith(methodsLoading: true));
+      // ① نسخة الجهاز أوّلاً: شاشةٌ مكتملة قبل أن تردّ الشبكة.
+      final cached = await _cache.read();
+      if (isClosed) return;
+      if (cached != null && cached.payments.isNotEmpty) {
+        emit(state.copyWith(
+          methods: cached.payments,
+          shippingMethods: cached.shipping.isNotEmpty
+              ? cached.shipping
+              : state.shippingMethods,
+          methodsLoading: false,
+          paymentMethod: _pickPayment(cached.payments),
+          shippingMethod: _pickShipping(cached.shipping),
+        ));
+      }
+    }
+
+    // ② محاولاتٌ صامتة: تعثّرٌ لحظيّ لا يُسقط الشاشة.
+    final payments = await _attempt(_repository.fetchPaymentMethods);
+    final shipping = await _attempt(_repository.fetchShippingMethods);
+    if (isClosed) return;
+
+    if (payments == null) {
+      // ③ **لا يُفرَّغ ما بين أيدينا**: يبقى المعروض، وتُرفع راية «تعذّر الوصول»
+      //    ليعرف العرضُ أنّ الفراغ — إن وُجد — ليس قرار المتجر.
+      emit(state.copyWith(methodsLoading: false, catalogOffline: true));
+      _scheduleRetry();
+    } else {
+      emit(state.copyWith(
+        methods: payments,
+        methodsLoading: false,
+        catalogOffline: false,
+        paymentMethod: _pickPayment(payments),
+        shippingMethods: shipping ?? state.shippingMethods,
+        shippingMethod: _pickShipping(shipping ?? state.shippingMethods),
+      ));
+      _retryTimer?.cancel();
+      _retryRound = 0;
+      unawaited(_cache.save(payments: payments, shipping: shipping));
+    }
+
     // ‼️ **بعدها لا معها**: آبل باي وسيلةٌ زائدة، وتأخيرُها لا يؤخّر الشاشة —
     //    ولا يجوز أن يُبطئ فشلُها ظهورَ بقيّة الوسائل.
     unawaited(_loadApplePay());
+  }
+
+  /// ثلاث محاولاتٍ متباعدة، ثمّ استسلامٌ **مؤقّت** لا نهائيّ.
+  ///
+  /// ‼️ التباعد مقصود: إعادةٌ فوريّة على شبكةٍ متعثّرة تفشل مثلها، وتستنزف
+  /// البطّاريّة وتُغرق الخادم بطلباتٍ متزامنة من كلّ الأجهزة العالقة.
+  Future<List<T>?> _attempt<T>(Future<List<T>> Function() fetch) async {
+    const waits = [Duration.zero, Duration(milliseconds: 600), Duration(seconds: 2)];
+    for (final wait in waits) {
+      if (wait > Duration.zero) await Future<void>.delayed(wait);
+      if (isClosed) return null;
+      try {
+        return await fetch();
+      } catch (_) {
+        continue;
+      }
+    }
+    return null;
+  }
+
+  /// محاولةٌ كلّ ١٠ ثوانٍ حتّى ٦ مرّات (دقيقة) ما دامت الشاشة مفتوحة.
+  ///
+  /// ‼️ **بسقفٍ لا بلا نهاية**: العميل الذي بقي دقيقةً بلا شبكة لن تُنقذه
+  /// المحاولة الحاديةَ عشرة، وعودتُه للمقدّمة تُعيد الدورة من أوّلها.
+  void _scheduleRetry() {
+    if (_retryRound >= 6) return;
+    _retryRound++;
+    _retryTimer?.cancel();
+    _retryTimer = Timer(const Duration(seconds: 10), () {
+      if (isClosed) return;
+      unawaited(_refreshCatalog());
+    });
+  }
+
+  /// ‼️ **لا يُغيَّر اختيار العميل إن كان لا يزال متاحاً** — قائمةٌ تصل من
+  /// الخادم بترتيبٍ مختلف كانت ستقفز باختياره إلى وسيلةٍ أخرى وهو ينظر.
+  String _pickPayment(List<PaymentMethodModel> methods) {
+    if (methods.any((m) => m.id == state.paymentMethod)) return state.paymentMethod;
+    return methods.isNotEmpty ? methods.first.id : state.paymentMethod;
+  }
+
+  String _pickShipping(List<ShippingMethodModel> methods) {
+    if (methods.any((m) => m.id == state.shippingMethod)) return state.shippingMethod;
+    return methods.isNotEmpty ? methods.first.id : state.shippingMethod;
+  }
+
+  @override
+  Future<void> close() {
+    // ‼️ مؤقّتٌ حيٌّ بعد إغلاق الكيوبت يُنادي `emit` على مغلَقٍ فيرمي.
+    _retryTimer?.cancel();
+    return super.close();
   }
 
   Future<void> _loadApplePay() async {
     final config = await _repository.fetchApplePayConfig();
     if (isClosed) return;
     emit(state.copyWith(applePay: config));
-  }
-
-  // تُستدعى مع وسائل الدفع: الطريقة المختارة تُصحَّح إلى أوّل طريقةٍ يعرفها
-  // الخادم إن كانت المحفوظة مجهولةً عنده — وإلّا حسب شحناً غير الذي عرضناه.
-  Future<void> loadShippingMethods() async {
-    try {
-      final methods = await _repository.fetchShippingMethods();
-      if (methods.isEmpty) return;
-      final selected = methods.any((m) => m.id == state.shippingMethod)
-          ? state.shippingMethod
-          : methods.first.id;
-      emit(state.copyWith(shippingMethods: methods, shippingMethod: selected));
-    } catch (_) {
-      // تُترك القائمة فارغة؛ الواجهة تعرض حالتها الخاصّة بدل أسعارٍ مخترعة.
-    }
   }
 
   // تابي: إنشاء الجلسة من الخادم (يعيد {paymentId, sessionId, webUrl, returnUrls}).

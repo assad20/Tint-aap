@@ -27,6 +27,17 @@ class PaymentMethodModel {
   bool get isCod => id == 'cod';
   bool get hasFee => fee > 0;
 
+  /// ‼️ **بأسماء الخادم نفسها** — تُقرأ بـ`fromJson` بلا تحويلٍ ثانٍ، فلا
+  /// يفترق الشكلان بعد أوّل تعديل.
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'label': label,
+        if (description != null) 'description': description,
+        'fee': fee,
+        if (publicKey != null) 'publicKey': publicKey,
+        if (merchantCode != null) 'merchantCode': merchantCode,
+      };
+
   factory PaymentMethodModel.fromJson(Map<String, dynamic> json) {
     return PaymentMethodModel(
       id: json['id']?.toString() ?? '',
