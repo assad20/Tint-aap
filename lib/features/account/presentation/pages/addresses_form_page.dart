@@ -61,6 +61,14 @@ class _AddressFormPageState extends State<AddressFormPage> {
   /// **ولا تُترك بلا إشارة**: تُوسَم للمراجعة حتّى يلمسها العميل.
   bool _detailsStale = false;
 
+  /// هل ما في «تفاصيل العنوان» كتبَته الخريطة أم العميل؟
+  ///
+  /// ‼️ **الفرق يقرّر مصيره عند نقل الدبّوس.** ما كتبه العميل لا يُمحى أبداً
+  /// (لا تعرفه خريطة، ومحوُه يُضيّع ما لا يُستعاد) — بل يُوسَم للمراجعة. أمّا
+  /// ما كتبته الخريطة فيُستبدَل صامتاً: هو استنباطٌ لا معلومة، وإبقاؤه بعد
+  /// نقل الدبّوس يُنتج شارعاً من حيٍّ وحيّاً من آخر.
+  bool _detailsFromMap = false;
+
   /// ‼️ **الافتراضيّ الوحيد لا يُنزَع من هنا**: نزعُه يترك الحساب بلا افتراضيّ،
   /// فيختار الدفعُ «أوّل ما في القائمة» صامتاً — وهو ترتيبٌ لا يملكه العميل.
   bool _lockedDefault = false;
@@ -107,6 +115,7 @@ class _AddressFormPageState extends State<AddressFormPage> {
     final previousHood = neighborhoodController.text.trim();
     final newCity = picked.city?.trim() ?? '';
     final newHood = picked.neighborhood?.trim() ?? '';
+    final newStreet = picked.street?.trim() ?? '';
 
     setState(() {
       lat = picked.lat;
@@ -114,6 +123,22 @@ class _AddressFormPageState extends State<AddressFormPage> {
       shortCode = picked.shortCode;
       if (newCity.isNotEmpty) cityController.text = newCity;
       if (newHood.isNotEmpty) neighborhoodController.text = newHood;
+
+      /// ‼️ **الشارع يُكتب مبدئيّاً بدل أن يُطلَب من الصفر** (بلاغ المالك
+      /// 2026-08-25: «اعتمدتُ الموقع ولم يظهر في الحقول»).
+      ///
+      /// الخادم يعرف الشارع ويعرضه في ورقة الخريطة، ثمّ كانت الشاشة تُلقي
+      /// بالعميل إلى حقلٍ فارغ ليكتب ما رآه للتوّ. فيُملأ له، ويبقى عليه
+      /// **المبنى والدور** — وهما وحدهما ما لا تعرفه خريطة.
+      ///
+      /// ‼️ **ولا يُكتب فوق خطّ العميل**: يُملأ الفارغ، أو ما كتبته الخريطة
+      /// نفسها في نقلةٍ سابقة.
+      if (newStreet.isNotEmpty &&
+          (detailsController.text.trim().isEmpty || _detailsFromMap)) {
+        detailsController.text = newStreet;
+        _detailsFromMap = true;
+        _detailsStale = false;
+      }
     });
 
     if (!picked.hasAddress) {
@@ -125,7 +150,8 @@ class _AddressFormPageState extends State<AddressFormPage> {
 
     final changed = (newCity.isNotEmpty && newCity != previousCity) ||
         (newHood.isNotEmpty && newHood != previousHood);
-    if (changed && detailsController.text.trim().isNotEmpty) {
+    // ‼️ ولا يُوسَم ما كتبته الخريطة: قد استُبدل للتوّ بشارع الموضع الجديد.
+    if (changed && !_detailsFromMap && detailsController.text.trim().isNotEmpty) {
       setState(() => _detailsStale = true);
     }
     _snack(changed
@@ -329,9 +355,15 @@ class _AddressFormPageState extends State<AddressFormPage> {
                   minLines: 2,
                   maxLines: 3,
                   warning: _detailsStale ? 'تغيّر الحيّ — راجعي التفاصيل' : null,
-                  onChanged: _detailsStale
-                      ? (_) => setState(() => _detailsStale = false)
-                      : null,
+                  // ‼️ **أوّل حرفٍ يكتبه العميل يجعل الحقل حقله** — فلا يُستبدل
+                  //    بعدها عند نقل الدبّوس، ويُوسَم للمراجعة كما كان.
+                  onChanged: (_) {
+                    if (!_detailsStale && !_detailsFromMap) return;
+                    setState(() {
+                      _detailsStale = false;
+                      _detailsFromMap = false;
+                    });
+                  },
                 ),
               ],
             ),
