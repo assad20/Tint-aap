@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -58,6 +59,9 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
   final _controller = MapController();
   late LatLng _center = widget.initial;
   double _zoom = 15;
+
+  /// جلب موقع الجهاز جارٍ — يمنع ضغطتين متتاليتين ويُري العميل أنّ شيئاً يحدث.
+  bool _locating = false;
 
   PickedDeliveryLocation? _place;
   bool _resolving = false;
@@ -133,16 +137,85 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
     setState(() => _zoom = zoom);
   }
 
-  // العودة لموقع الجهاز الأوّل.
-  void _recenter() {
-    // ‼️ يُقرّب إلى ما فوق العتبة: العودة إلى موقعك بتقريبٍ بعيد تُعيد المشكلة
-    //    التي جاء الزرّ ليحلّها.
-    _controller.move(widget.initial, 17);
+  /// **يحدّد موقع الجهاز الآن** — لا يعود إلى النقطة التي فُتحت بها الشاشة.
+  ///
+  /// ‼️ **وهذا هو الفرق كلّه.** كان الزرّ يُعيد إلى `widget.initial`، وهي
+  /// النقطة التي حُسبت **قبل فتح الخريطة** — أو الرياض إن لم يُسمح بالموقع
+  /// حينها. فمن رفض الإذن ثمّ أراد موقعه كان الزرّ يُلقيه في وسط الرياض بلا
+  /// كلمة، ومن تحرّك بعد فتح الشاشة يُعاد إلى مكانه القديم.
+  ///
+  /// ‼️ **ويُسأل الإذن هنا لا في مكانٍ آخر**: الطلب في لحظة الضغط على زرٍّ
+  /// اسمه «تحديد موقعي» **مفهومٌ سببُه**، بخلاف نافذةٍ تقفز عند فتح الشاشة.
+  Future<void> _locateMe() async {
+    if (_locating) return;
+    setState(() => _locating = true);
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        _snack('خدمة الموقع مُغلقة — فعّليها من إعدادات الجهاز.');
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.deniedForever) {
+        _snack('إذن الموقع مرفوضٌ نهائيّاً — فعّليه من إعدادات التطبيق.');
+        return;
+      }
+      if (permission == LocationPermission.denied) {
+        _snack('نحتاج إذن الموقع لتحديد مكانك — أو حرّكي الخريطة يدويّاً.');
+        return;
+      }
+
+      /// ‼️ **آخر موقعٍ معروف أوّلاً، ثمّ يُصقَل بتثبيتٍ طازج.**
+      ///
+      /// التثبيت الطازج قد يتأخّر عشرين ثانية داخل مبنى — أو لا يأتي أصلاً.
+      /// وانتظارٌ صامت بهذا الطول في شاشة عنوانٍ يُقرأ تعليقاً، فيضغط العميل
+      /// الزرّ مرّاتٍ أو يخرج. (رُصد على المحاكي 2026-08-25: طلبُ تثبيتٍ جديد
+      /// بقي معلّقاً لأنّ الجهاز لا يُنتج تثبيتاً ما لم يُغذَّ.)
+      ///
+      /// فيقفز الدبّوس فوراً إلى آخر موقعٍ معروف — وهو في الغالب على بُعد
+      /// أمتار — ثمّ **يُصحَّح صامتاً** إن وصل الطازج. ولا رسالةَ خطأٍ إن تأخّر
+      /// الطازج ما دام العميل قد نُقل فعلاً: خطأٌ يعقب نجاحاً يُربك لا يُفيد.
+      final last = await Geolocator.getLastKnownPosition();
+      if (!mounted) return;
+      if (last != null) _moveTo(LatLng(last.latitude, last.longitude));
+
+      final fresh = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      ).timeout(const Duration(seconds: 10), onTimeout: () {
+        // ‼️ لا رمي: التأخّر ليس فشلاً حين يكون بين أيدينا موقعٌ مقبول.
+        if (last != null) return last;
+        throw TimeoutException('تعذّر الحصول على تثبيتٍ جديد');
+      });
+      if (!mounted) return;
+      _moveTo(LatLng(fresh.latitude, fresh.longitude));
+    } catch (_) {
+      _snack('تعذّر تحديد موقعك الآن — حاولي مجدداً أو حرّكي الخريطة.');
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
+  /// ‼️ يُقرّب فوق العتبة: موقعٌ بتقريبٍ بعيد يُعيد المشكلة التي جاء الزرّ لحلّها.
+  void _moveTo(LatLng point) {
+    _controller.move(point, 17);
     setState(() {
-      _center = widget.initial;
+      _center = point;
       _zoom = 17;
     });
     _scheduleResolve(immediate: true);
+  }
+
+  void _snack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+      ));
   }
 
   @override
@@ -241,36 +314,113 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
               ),
             ),
           ),
-          // أزرار التكبير/التصغير + العودة لموقعي — تحديد دقيق لمبنى بعينه.
-          Positioned(
-            // 20 لا 12: يُبعد الأزرار عن منطقة إيماءة الرجوع على حافّة أندرويد.
-            left: 20,
-            bottom: 96,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _MapButton(icon: Icons.add, onTap: () => _zoomBy(1)),
-                const SizedBox(height: 8),
-                _MapButton(icon: Icons.remove, onTap: () => _zoomBy(-1)),
-                const SizedBox(height: 14),
-                _MapButton(icon: Icons.my_location, onTap: _recenter),
-              ],
-            ),
-          ),
-          // بطاقة العنوان + التأكيد أسفل الشاشة.
+          /// ‼️ **الأزرار فوق البطاقة في عمودٍ واحد لا بإزاحةٍ مُخمَّنة.**
+          ///
+          /// كانت `bottom: 96` رقماً ثابتاً بينما ارتفاع البطاقة يتغيّر بما
+          /// فيها (سطرُ عنوانٍ أو سطران · عنوانٌ وطنيّ أو لا) — فكانت الأزرار
+          /// تختفي خلفها. ووضعُها في `Column` فوقها يجعلها تتبعها مهما تغيّرت.
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            child: _AddressSheet(
-              line: _place?.line ?? '',
-              shortCode: _place?.shortCode ?? '',
-              resolving: _resolving,
-              precise: _precise,
-              onConfirm: _confirm,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  // 20 لا 12: يُبعد الأزرار عن منطقة إيماءة الرجوع على الحافّة.
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      /// ‼️ **في صدر الصفّ لا ذيله** — أي على اليمين في واجهةٍ
+                      /// عربيّة (طلب المالك، والمرجع نايس ون): هو الفعل الذي
+                      /// يُنهي المهمّة بضغطةٍ واحدة، والتكبير أداةُ ضبطٍ بعده.
+                      _LocateMeButton(busy: _locating, onTap: _locateMe),
+                      const Spacer(),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _MapButton(icon: Icons.add, onTap: () => _zoomBy(1)),
+                          const SizedBox(height: 8),
+                          _MapButton(icon: Icons.remove, onTap: () => _zoomBy(-1)),
+                        ],
+                      ),
+
+                      /// ‼️ **زرٌّ باسمه لا أيقونةً وحدها** (طلب المالك
+                      /// 2026-08-25، والمرجع نايس ون). أيقونة `my_location`
+                      /// يعرفها من رآها في خرائط قبلُ، ومن لم يرَها لا يجرّبها
+                      /// في شاشة عنوانٍ يخشى أن يُخطئ فيها.
+                    ],
+                  ),
+                ),
+                // بطاقة العنوان + التأكيد أسفل الشاشة.
+                _AddressSheet(
+                  line: _place?.line ?? '',
+                  shortCode: _place?.shortCode ?? '',
+                  resolving: _resolving,
+                  precise: _precise,
+                  onConfirm: _confirm,
+                ),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// زرّ «تحديد موقعي» — كبسولةٌ بيضاء باسمٍ ظاهر.
+///
+/// ‼️ **يبقى قابلاً للّمس أثناء الجلب ويُظهر دوّاراً**: تعطيلُه يجعل الضغطة
+/// الثانية بلا أثرٍ ولا تفسير، فيُقرأ زرّاً معطّلاً لا عملاً جارياً.
+class _LocateMeButton extends StatelessWidget {
+  const _LocateMeButton({required this.busy, required this.onTap});
+
+  final bool busy;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(999),
+      elevation: 3,
+      shadowColor: Colors.black.withValues(alpha: 0.2),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 18,
+                height: 18,
+                child: busy
+                    ? const CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: TintColors.sand,
+                      )
+                    : const Icon(
+                        Icons.my_location_rounded,
+                        size: 18,
+                        color: TintColors.charcoal,
+                      ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                busy ? 'جارٍ التحديد…' : 'تحديد موقعي',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: TintColors.charcoal,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
