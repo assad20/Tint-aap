@@ -254,11 +254,18 @@ class TintSecondaryButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.icon,
+    this.labelColor,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final Widget? icon;
+
+  /// لون النصّ وحده — والإطار والأيقونة يبقيان بلون الهويّة.
+  ///
+  /// ‼️ **يُمرَّر ولا يُغيَّر الافتراضيّ**: الزرّ مشتركٌ بين خمس شاشات،
+  /// وتسويد نصّه عندها كلّها لأجل واحدةٍ يُغيّر ما لم يُطلَب تغييره.
+  final Color? labelColor;
 
   @override
   Widget build(BuildContext context) {
@@ -281,7 +288,10 @@ class TintSecondaryButton extends StatelessWidget {
           ],
           Text(
             label,
-            style: const TextStyle(fontWeight: FontWeight.w800),
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              color: labelColor,
+            ),
           ),
         ],
       ),
