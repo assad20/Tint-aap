@@ -53,6 +53,10 @@ class _AddressFormPageState extends State<AddressFormPage> {
 
   /// العنوان الوطنيّ المختصر — للعرض فوق المعاينة، ولا يُحفَظ (البند ٢٣).
   String? shortCode;
+
+  /// رقم المبنى والرمز البريديّ — من نفس ردّ الخادم، ويُحفظان معه الآن.
+  String? buildingNumber;
+  String? postalCode;
   bool isDefault = false;
   bool _saving = false;
 
@@ -81,6 +85,11 @@ class _AddressFormPageState extends State<AddressFormPage> {
 
     title = address?.title ?? 'المنزل';
     lat = address?.lat;
+    // ‼️ تُقرأ من المحفوظ — وإلّا فقد العنوانُ رمزَه بمجرّد فتح المحرّر وحفظه
+    //    بلا لمس الخريطة.
+    shortCode = address?.shortCode;
+    buildingNumber = address?.buildingNumber;
+    postalCode = address?.postalCode;
     lng = address?.lng;
     isDefault = address?.isDefault ?? cubit.state.items.isEmpty;
     _lockedDefault = (address?.isDefault ?? false) &&
@@ -126,6 +135,8 @@ class _AddressFormPageState extends State<AddressFormPage> {
       lat = picked.lat;
       lng = picked.lng;
       shortCode = picked.shortCode;
+      buildingNumber = picked.buildingNumber;
+      postalCode = picked.postalCode;
       if (newCity.isNotEmpty) cityController.text = newCity;
       if (newHood.isNotEmpty) neighborhoodController.text = newHood;
 
@@ -198,6 +209,9 @@ class _AddressFormPageState extends State<AddressFormPage> {
           neighborhood: neighborhood,
           details: details,
           isDefault: false,
+          shortCode: shortCode,
+          buildingNumber: buildingNumber,
+          postalCode: postalCode,
           lat: lat,
           lng: lng,
         ),
@@ -220,6 +234,9 @@ class _AddressFormPageState extends State<AddressFormPage> {
           neighborhood: neighborhood,
           details: details,
           isDefault: isDefault,
+          shortCode: shortCode,
+          buildingNumber: buildingNumber,
+          postalCode: postalCode,
           lat: lat,
           lng: lng,
         ),

@@ -146,6 +146,9 @@ class AddressModel {
     required this.neighborhood,
     required this.details,
     required this.isDefault,
+    this.shortCode,
+    this.buildingNumber,
+    this.postalCode,
     this.lat,
     this.lng,
   });
@@ -158,8 +161,50 @@ class AddressModel {
   final String neighborhood;
   final String details;
   final bool isDefault;
+
+  /// العنوان الوطنيّ المختصر ورقم المبنى والرمز البريديّ — **يُحفَظ الآن**.
+  ///
+  /// ‼️ كان يُشتقّ من الإحداثيّات ويُعرَض في نافذة الخريطة ثمّ **يضيع عند
+  /// الحفظ**، فيغيب عن بطاقة العنوان وعن الطلب. واشتقاقُه عند كلّ عرضٍ بديلٌ
+  /// سيّئ: نداءُ غوغل لكلّ بطاقةٍ في كلّ فتحة يستنزف الحصّة ويتأخّر ويفشل بلا
+  /// شبكة — لأجل نصٍّ لا يتغيّر.
+  ///
+  /// ‼️ **واختياريّة**: عناوينٌ حُفظت قبل اليوم لا تحملها.
+  final String? shortCode;
+  final String? buildingNumber;
+  final String? postalCode;
+
   final double? lat;
   final double? lng;
+
+  /// سطر العنوان كما يُكتب: «2868 طريق العروبة، العليا، الرياض».
+  ///
+  /// ‼️ **رقم المبنى يُصدَّر التفاصيل ولا يُفصَل عنها** — هو أوّل ما يبحث عنه
+  /// المندوب على الباب، وفصلُه يجعله يضيع حين يُنسَخ العنوان سطراً واحداً.
+  String get line {
+    final d = details.trim();
+    final b = buildingNumber?.trim() ?? '';
+    /// ‼️ **لا يُضاف رقم المبنى إن كان في التفاصيل أصلاً.**
+    ///
+    /// حقل التفاصيل يُملأ من الخريطة بـ«2868 طريق العروبة» (الرقم مُصدَّرٌ
+    /// عمداً)، فإضافته هنا ثانيةً تُنتج **«2868 2868 طريق العروبة»** — رُصد
+    /// على المحاكي 2026-08-26. والمصدر واحدٌ فالإضافة تقع مرّةً واحدة.
+    final street = (b.isNotEmpty && !d.startsWith(b)) ? '$b $d'.trim() : d;
+    return [
+      street.isEmpty ? null : street,
+      neighborhood.trim().isEmpty ? null : neighborhood.trim(),
+      city.trim().isEmpty ? null : city.trim(),
+    ].whereType<String>().join('، ');
+  }
+
+  /// الرمز الوطنيّ والبريديّ معاً — `null` إن لم يُعرَف أيٌّ منهما.
+  String? get codesLine {
+    final parts = [shortCode?.trim(), postalCode?.trim()]
+        .where((p) => p != null && p.isNotEmpty)
+        .cast<String>()
+        .toList();
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
 
   AddressModel copyWith({
     String? id,
@@ -170,6 +215,9 @@ class AddressModel {
     String? neighborhood,
     String? details,
     bool? isDefault,
+    String? shortCode,
+    String? buildingNumber,
+    String? postalCode,
     double? lat,
     double? lng,
   }) {
@@ -182,6 +230,9 @@ class AddressModel {
       neighborhood: neighborhood ?? this.neighborhood,
       details: details ?? this.details,
       isDefault: isDefault ?? this.isDefault,
+      shortCode: shortCode ?? this.shortCode,
+      buildingNumber: buildingNumber ?? this.buildingNumber,
+      postalCode: postalCode ?? this.postalCode,
       lat: lat ?? this.lat,
       lng: lng ?? this.lng,
     );
@@ -197,6 +248,9 @@ class AddressModel {
       neighborhood: json['neighborhood']?.toString() ?? '',
       details: json['details']?.toString() ?? '',
       isDefault: json['isDefault'] as bool? ?? false,
+      shortCode: json['shortCode']?.toString(),
+      buildingNumber: json['buildingNumber']?.toString(),
+      postalCode: json['postalCode']?.toString(),
       lat: json['lat'] == null ? null : double.tryParse(json['lat'].toString()),
       lng: json['lng'] == null ? null : double.tryParse(json['lng'].toString()),
     );
@@ -212,6 +266,17 @@ class AddressModel {
       'neighborhood': neighborhood,
       'details': details,
       'isDefault': isDefault,
+      /**
+       * ‼️ **تُرسَل ولو فارغةً — بخلاف الإحداثيّات.**
+       *
+       * الفارغ هنا **قيمةٌ ذات معنى**: نقل الدبّوس إلى موضعٍ لا تعرف غوغل له
+       * رمزاً وطنيّاً يجب أن **يمحو** الرمز القديم. وحذفُ الحقل عند فراغه
+       * يُبقي رمزاً يخصّ مبنًى آخر — عنوانٌ يناقض إحداثيّاته، وهو أسوأ من
+       * عنوانٍ ناقص.
+       */
+      'shortCode': shortCode ?? '',
+      'buildingNumber': buildingNumber ?? '',
+      'postalCode': postalCode ?? '',
       if (lat != null) 'lat': lat,
       if (lng != null) 'lng': lng,
     };

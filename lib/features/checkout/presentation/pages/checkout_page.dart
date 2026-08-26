@@ -435,6 +435,8 @@ class _DeliveryCard extends StatelessWidget {
               child: TintSecondaryButton(
                 label: 'أضيفي عنوان التوصيل',
                 icon: const Icon(Icons.add_location_alt_outlined, size: 18),
+                // ‼️ نصٌّ أسود بطلب المالك — والإطار والأيقونة بلون الهويّة.
+                labelColor: TintColors.charcoal,
                 onPressed: () => onEdit(),
               ),
             ),
@@ -496,12 +498,46 @@ class _DeliveryCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 3),
+
+            /// ‼️ **اسم المستلم أوّلاً وبارزاً — وكان مدفوناً في سطرٍ رماديّ.**
+            ///
+            /// من له عناوين أهله وزوجته ومكتبه **يميّزها بالاسم** لا بالحيّ.
+            /// وبطاقةٌ تقول «الرياض — الورود» ولا تقول لمن تُرسَل تُجبره على
+            /// فتح كلّ واحدةٍ ليعرف. (مقارنةٌ بمنافسٍ يعرضه بارزاً.)
+            if (a.recipient.trim().isNotEmpty)
+              Text(
+                a.recipient,
+                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900),
+              ),
+
+            /// ‼️ **سطرٌ واحدٌ متّصل كما يُكتب العنوان**: «2868 طريق العروبة،
+            /// العليا، الرياض». وتقسيمُه أسطراً يجعل العين تجمعه بنفسها.
+            /// ورقمُ المبنى يُصدَّر الشارع — أوّل ما يبحث عنه المندوب.
             Text(
-              '${a.city}، ${a.neighborhood} — ${a.details}',
+              a.line,
               style: const TextStyle(fontSize: 13),
             ),
+
+            /// ‼️ **الرمز الوطنيّ بخطٍّ لاتينيّ في سطرٍ مستقلّ**: هو أدقّ ما في
+            /// العنوان — يدلّ على المبنى بعينه بينما يدلّ الحيّ على آلافٍ —
+            /// ودمجُه في سطرٍ عربيّ يقلب ترتيب حروفه بصريّاً.
+            if (a.codesLine != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  a.codesLine!,
+                  textDirection: TextDirection.ltr,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+
             Text(
-              'المستلم: ${a.recipient} · ${a.mobile}',
+              a.mobile,
+              textDirection: TextDirection.ltr,
               style: const TextStyle(fontSize: 12, color: TintColors.textMuted),
             ),
             const SizedBox(height: 9),
