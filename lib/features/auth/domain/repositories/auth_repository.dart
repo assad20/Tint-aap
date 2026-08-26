@@ -15,6 +15,13 @@ abstract class AuthRepository {
     required VerificationChannel channel,
   });
   Future<AuthCustomer> verifyOtp({required String phone, required String code});
+  /// يحفظ الاسم على الحساب — خطوة «تسجيل جديد».
+  ///
+  /// ‼️ **لا نقطةَ «تسجيل» في الخادم أصلاً**: `verifyOtp` يُنشئ الحساب
+  /// بـ`upsert` عند أوّل تحقّق. فالفرق الوحيد بين «دخول» و«تسجيل جديد» هو
+  /// **التقاط الاسم**، وهذه هي التي تحفظه.
+  Future<AuthCustomer> saveName(String name);
+
   Future<bool> isAuthenticated();
   AuthCustomer? currentCustomer();
   Future<void> logout();

@@ -76,6 +76,12 @@ abstract final class ApiRoutes {
   static const authRequestOtp = '/customer/auth/request-otp';
   static const authVerifyOtp = '/customer/auth/verify-otp';
 
+  /// الملفّ الشخصيّ — يقبل `PATCH { name }`.
+  ///
+  /// ‼️ **هو نفسه `dashboard` أدناه** ولم يُدمَجا عمداً: ذاك يُقرأ (`GET`)
+  /// وهذا يُكتَب، وربطُهما باسمٍ واحد يجعل تغيير أحدهما يكسر الآخر صامتاً.
+  static const customerProfile = '/customer/me';
+
   static const dashboard = '/customer/me';
   static const rewards = '/me/rewards';
   // مسارات العميل الحقيقيّة على الوسيط (محميّة بتوكن Bearer).

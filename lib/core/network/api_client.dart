@@ -156,6 +156,24 @@ class ApiClient {
     }
   }
 
+  /// تعديلٌ جزئيّ يُعيد **كائناً** — `PATCH`.
+  ///
+  /// ‼️ **مستقلّةٌ عن `patchList` عمداً**: نقاط العناوين تردّ القائمة كاملةً
+  /// بعد التعديل، ونقطة الملفّ الشخصيّ (`customer/me`) تردّ كائن العميل. وطلبُ
+  /// النوع الخطأ يُسقط النداء بخطأ تحويلٍ في Dio **قبل أن يُقرأ الردّ** — فيُقرأ
+  /// فشلَ شبكةٍ وهو نجاحٌ كامل.
+  Future<Map<String, dynamic>> patchMap(
+    String path, {
+    Object? data,
+  }) async {
+    try {
+      final response = await _dio.patch<Map<String, dynamic>>(path, data: data);
+      return response.data ?? <String, dynamic>{};
+    } on DioException catch (error) {
+      throw _toApiException(error);
+    }
+  }
+
   /// تعديلٌ جزئيّ — `PATCH`.
   ///
   /// ‼️ **ولا يُستبدَل بـ`POST`**: نقاط التعديل في الخادم مُعلنةٌ `@Patch`،

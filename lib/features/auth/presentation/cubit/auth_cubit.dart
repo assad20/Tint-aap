@@ -128,11 +128,36 @@ class AuthCubit extends Cubit<AuthState> {
   void setChannel(VerificationChannel channel) =>
       emit(state.copyWith(channel: channel, clearError: true));
 
-  Future<void> verifyOtp(String code) async {
+  /// يتحقّق من الرمز، ويحفظ الاسم بعده إن كان تسجيلاً جديداً.
+  ///
+  /// ‼️ **الاسم يُحفظ بعد التحقّق لا قبله** — نقطة الملفّ الشخصيّ محميّةٌ
+  /// بتوكن العميل، ولا توكن قبل التحقّق.
+  Future<void> verifyOtp(String code, {String? name}) async {
     emit(state.copyWith(status: AuthStatus.verifying, clearError: true));
     try {
       final customer = await _repository.verifyOtp(phone: state.phone, code: code.trim());
-      emit(state.copyWith(status: AuthStatus.authenticated, customer: customer));
+
+      /// ‼️ **فشلُ حفظ الاسم لا يُسقط الدخول.**
+      ///
+      /// التحقّق نجح والتوكن محفوظٌ فعلاً؛ فرميُ الخطأ هنا يُخرج الشاشة إلى
+      /// حالة «فشل» بينما العميل **داخلٌ بالفعل** — فيُعيد المحاولة على رمزٍ
+      /// انتهت صلاحيّته ويُحبَس خارج حسابه المفتوح. والاسم يُعدَّل من الملفّ
+      /// الشخصيّ متى شاء، أمّا الدخول فلا يُستعاد.
+      var finalCustomer = customer;
+      final wanted = name?.trim() ?? '';
+      if (wanted.isNotEmpty && (customer.name ?? '').trim() != wanted) {
+        try {
+          finalCustomer = await _repository.saveName(wanted);
+        } catch (_) {
+          finalCustomer = AuthCustomer(
+            phone: customer.phone,
+            name: wanted,
+            email: customer.email,
+          );
+        }
+      }
+
+      emit(state.copyWith(status: AuthStatus.authenticated, customer: finalCustomer));
       /// ‼️ **بعد نجاح التحقّق لا عند إرسال الرمز.** ورمزٌ خاطئ لا يُطلق شيئاً —
       /// وإلّا صار «الدخول» يُعدّ محاولاتٍ فاشلة.
       ///

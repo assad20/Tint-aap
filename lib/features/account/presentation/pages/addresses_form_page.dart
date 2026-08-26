@@ -9,6 +9,7 @@ import '../../../../app/theme/app_theme.dart';
 import '../../../../core/location/delivery_location.dart';
 import '../../../../core/models/account_models.dart';
 import '../../../../core/widgets/tint_ui.dart';
+import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../cubit/addresses_cubit.dart';
 
 /// محرّر العنوان — **واحدٌ للحساب وللدفع معاً**.
@@ -98,8 +99,21 @@ class _AddressFormPageState extends State<AddressFormPage> {
     _lockedDefault = (address?.isDefault ?? false) &&
         cubit.state.items.where((item) => item.isDefault).length == 1;
 
-    nameController = TextEditingController(text: address?.recipient);
-    mobileController = TextEditingController(text: address?.mobile);
+    /// ‼️ **الحساب يُملأ منه أوّل عنوان — والبيانات كانت موجودةً ولا تصل.**
+    ///
+    /// كان الحقلان يبدآن فارغين دائماً، فيكتب العميل اسمه وجوّاله بيده **وقد
+    /// سجّل دخوله للتوّ بهما**. (لاحظه المالك 2026-08-26.)
+    ///
+    /// ‼️ **والعنوان القائم أولى من الحساب**: من يعدّل عنوان أمّه أو مكتبه
+    /// وضع فيه اسماً وجوّالاً غير اسمه عمداً، والكتابة فوقهما تُحوّل الشحنة
+    /// إلى الشخص الخطأ. فالحساب يملأ **الفراغ** ولا يستبدل شيئاً.
+    final account = context.read<AuthCubit>().state.customer;
+    nameController = TextEditingController(
+      text: address?.recipient ?? account?.name,
+    );
+    mobileController = TextEditingController(
+      text: address?.mobile ?? account?.phone,
+    );
     cityController = TextEditingController(text: address?.city ?? 'الرياض');
     neighborhoodController = TextEditingController(text: address?.neighborhood);
     detailsController = TextEditingController(text: address?.details);

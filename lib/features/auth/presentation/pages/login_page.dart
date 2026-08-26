@@ -8,7 +8,15 @@ import '../../domain/entities/verification_channel.dart';
 import '../cubit/auth_cubit.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  const LoginPage({super.key, this.onContinueAsGuest});
+
+  /// يُعرَض «متابعة كزائر» حين تُمرَّر — أي حين تكون الشاشة **بوّابة دفع** لا
+  /// دخولاً من الحساب.
+  ///
+  /// ‼️ **ومسار الزائر باقٍ بقرار المالك (2026-08-26)**: المتجر حذفه، والتطبيق
+  /// يُبقيه. إلزامُ كلّ مشترٍ بالتسجيل يرفع الاحتكاك ويُسقط جزءاً من المبيعات،
+  /// والدخول هنا **مقترحٌ لا سدّ**.
+  final VoidCallback? onContinueAsGuest;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -18,16 +26,36 @@ class _LoginPageState extends State<LoginPage> {
   final _phone = TextEditingController();
   final _email = TextEditingController();
   final _code = TextEditingController();
+  final _name = TextEditingController();
+
+  /// ‼️ **«تسجيل جديد» ليس نقطةً أخرى في الخادم.**
+  ///
+  /// `verifyOtp` يُنشئ الحساب بـ`upsert` عند أوّل تحقّق — فمن يدخل برقمه أوّل
+  /// مرّة، حسابُه أُنشئ. والفرق الوحيد بين الوضعين هو **التقاط الاسم**، وحفظُه
+  /// بعد التحقّق. فلا تبحث عن مسار تسجيلٍ ثانٍ: لا وجود له.
+  bool _signup = false;
 
   @override
   void dispose() {
     _phone.dispose();
     _email.dispose();
     _code.dispose();
+    _name.dispose();
     super.dispose();
   }
 
   void _done() {
+    /// ‼️ **الورقة تُغلَق بـ`Navigator` لا بـ`context.pop` الخاصّ بـgo_router.**
+    ///
+    /// حين تُعرَض هذه الشاشة ورقةً منبثقة (بوّابة الدفع) تكون الورقة مساراً على
+    /// `Navigator` الجذر، بينما `context.pop()` يُنادي مُوجِّه go_router —
+    /// فيُغلق **الصفحة التي تحتها** (السلّة) وتبقى الورقة معلّقةً فوق شاشةٍ
+    /// خاطئة. والفرق لا يظهر إلّا بتشغيلٍ حقيقيّ بعد دخولٍ ناجح.
+    if (widget.onContinueAsGuest != null) {
+      Navigator.of(context).pop(true);
+      return;
+    }
+
     if (context.canPop()) {
       context.pop();
     } else {
@@ -42,7 +70,11 @@ class _LoginPageState extends State<LoginPage> {
       appBar: AppBar(
         backgroundColor: TintColors.charcoal,
         foregroundColor: Colors.white,
-        title: const Text('تسجيل الدخول', style: TextStyle(fontWeight: FontWeight.w900)),
+        // ‼️ ولا يبقى «تسجيل الدخول» والمستخدم في تبويب «تسجيل جديد».
+        title: Text(
+          _signup ? 'حساب جديد' : 'تسجيل الدخول',
+          style: const TextStyle(fontWeight: FontWeight.w900),
+        ),
       ),
       body: BlocConsumer<AuthCubit, AuthState>(
         listener: (context, state) {
@@ -71,7 +103,9 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: 18),
                 Text(
-                  onCode ? 'أدخل رمز التحقّق' : 'مرحباً بك في تِنت',
+                  onCode
+                      ? 'أدخل رمز التحقّق'
+                      : (_signup ? 'أنشئ حسابك في تِنت' : 'مرحباً بك في تِنت'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: TintColors.charcoal),
                 ),
@@ -79,22 +113,45 @@ class _LoginPageState extends State<LoginPage> {
                 Text(
                   onCode
                       ? _sentLine(state)
-                      : 'اختر كيف نُرسل لك رمز التحقّق.',
+                      : (_signup
+                          ? 'اسمك ورقم جوّالك — ويصلك رمز التحقّق على واتساب.'
+                          : 'اختر كيف نُرسل لك رمز التحقّق.'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: TintColors.textMuted, height: 1.6),
                 ),
                 const SizedBox(height: 24),
 
                 if (!onCode) ...[
+                  _modeSwitch(),
+                  const SizedBox(height: 16),
+
+                  /// ‼️ **الاسم يُطلَب مرّةً هنا فيُغني عن كتابته في كلّ عنوان.**
+                  ///
+                  /// كان يُكتب يدويّاً في نموذج عنوان التوصيل كلّ مرّة، والحساب
+                  /// يعرفه — لو كان قد سُئل عنه يوماً. (طلب المالك 2026-08-26.)
+                  if (_signup) ...[
+                    _field(_name, 'الاسم الأوّل والأخير', Icons.person_outline,
+                        TextInputType.name),
+                    const SizedBox(height: 14),
+                  ],
+
                   // ‼️ **الاختيار قبل الإدخال — وحقلٌ واحد لا اثنان.**
                   //
                   //    كانت الشاشة تطلب الجوّال **والبريد** معاً ثمّ تُرسل إلى
                   //    البريد دائماً: فمن لا بريد له لا يدخل أصلاً، ومن أراد
                   //    واتساب لا يجد إليه سبيلاً. وهذا سبب أنّ التحقّق بواتساب
                   //    «غير مفعَّل» في التطبيق بينما هو القناة الأساسيّة في الموقع.
-                  _channelPicker(context, state),
-                  const SizedBox(height: 14),
-                  if (state.channel == VerificationChannel.whatsapp)
+                  /// ‼️ **التسجيل بالجوّال وحده — لا اختيار قناة.**
+                  ///
+                  /// الحساب يُنشأ على **رقم الجوّال** (`{ phone }` هو مفتاح
+                  /// `upsert` في الخادم)، فتسجيلٌ بالبريد يُنشئ حساباً بلا
+                  /// جوّال — ثمّ يُطلَب الجوّال في أوّل عنوان توصيل. والاختيار
+                  /// يبقى كاملاً في «دخول» لمن حسابه قائم.
+                  if (!_signup) ...[
+                    _channelPicker(context, state),
+                    const SizedBox(height: 14),
+                  ],
+                  if (_signup || state.channel == VerificationChannel.whatsapp)
                     _field(_phone, 'رقم الجوّال', Icons.phone_outlined, TextInputType.phone)
                   else
                     _field(_email, 'البريد الإلكترونيّ', Icons.mail_outline, TextInputType.emailAddress),
@@ -136,12 +193,23 @@ class _LoginPageState extends State<LoginPage> {
                         : () {
                             FocusScope.of(context).unfocus();
                             if (onCode) {
-                              cubit.verifyOtp(_code.text);
+                              // ‼️ الاسم يُمرَّر في التسجيل وحده — وتمريرُه في
+                              //    «دخول» كان سيكتب فوق اسمٍ محفوظ بفراغ.
+                              cubit.verifyOtp(
+                                _code.text,
+                                name: _signup ? _name.text : null,
+                              );
                             } else {
                               // ‼️ يُتحقَّق ممّا **سيُرسَل** لا من كلّ الحقول:
                               //    من اختار واتساب لا يملك بريداً والعكس،
                               //    وفحصُ الاثنين كان يمنع الطريقتين معاً.
-                              final wantsEmail =
+                              if (_signup && _name.text.trim().length < 3) {
+                                _snack(context, 'اكتب اسمك كما تريده على الطلب.');
+                                return;
+                              }
+                              // ‼️ التسجيل بالجوّال دائماً مهما كانت القناة
+                              //    المختارة في وضع «دخول» — الحساب يُنشأ عليه.
+                              final wantsEmail = !_signup &&
                                   state.channel == VerificationChannel.email;
                               if (wantsEmail) {
                                 if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
@@ -163,15 +231,86 @@ class _LoginPageState extends State<LoginPage> {
                     child: state.isBusy
                         ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
                         : Text(
-                            onCode ? 'تأكيد الدخول' : 'إرسال الرمز',
+                            onCode
+                                ? (_signup ? 'تأكيد وإنشاء الحساب' : 'تأكيد الدخول')
+                                : 'إرسال الرمز',
                             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
                           ),
                   ),
                 ),
+
+                /// ‼️ **بابٌ للخروج لا زينة.**
+                ///
+                /// من وصل إلى هنا وسلّته جاهزة **ينوي الشراء الآن**؛ وشاشةُ
+                /// دخولٍ بلا مخرج تجعله يغلق التطبيق بدل أن يسجّل. فيُعرَض
+                /// الدخول مقترحاً (يوفّر عليه كتابة اسمه وجوّاله في كلّ عنوان)
+                /// ويبقى الطريق مفتوحاً. وهو قرار المالك صراحةً: «نُبقيه لا
+                /// نحذفه» (2026-08-26).
+                if (widget.onContinueAsGuest != null && !onCode) ...[
+                  const SizedBox(height: 6),
+                  TextButton(
+                    onPressed: state.isBusy ? null : widget.onContinueAsGuest,
+                    child: const Text(
+                      'متابعة كزائر بلا حساب',
+                      style: TextStyle(
+                        color: TintColors.textMuted,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           );
         },
+      ),
+    );
+  }
+
+  /// مبدّل «دخول / تسجيل جديد».
+  ///
+  /// ‼️ **تبويبان ظاهران لا رابطٌ صغير في الأسفل.** من لا حساب له يجب أن يرى
+  /// طريقه من أوّل نظرة؛ ورابطٌ تحت الزرّ يُقرأ خياراً ثانويّاً فيُتجاهَل،
+  /// فيُدخل رقمه في «دخول» ويصله رمزٌ ويُنشأ حسابه **بلا اسم** — وهو الوضع
+  /// الذي نُصلحه أصلاً.
+  Widget _modeSwitch() {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: TintColors.blush,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          _modeTab('دخول', !_signup, () => setState(() => _signup = false)),
+          _modeTab('تسجيل جديد', _signup, () => setState(() => _signup = true)),
+        ],
+      ),
+    );
+  }
+
+  Widget _modeTab(String label, bool active, VoidCallback onTap) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(vertical: 11),
+          decoration: BoxDecoration(
+            color: active ? TintColors.charcoal : Colors.transparent,
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: active ? Colors.white : TintColors.textMuted,
+              fontWeight: FontWeight.w900,
+              fontSize: 14,
+            ),
+          ),
+        ),
       ),
     );
   }

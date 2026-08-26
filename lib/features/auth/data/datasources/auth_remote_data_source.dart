@@ -40,6 +40,14 @@ class AuthRemoteDataSource {
     );
   }
 
+  /// يحفظ اسم العميل بعد التحقّق — خطوة «تسجيل جديد».
+  ///
+  /// ‼️ **بعد `verifyOtp` لا قبله**: النقطة محميّةٌ بتوكن العميل، والتوكن لا
+  /// يُولَد إلّا بالتحقّق. فمناداتها أوّلاً تردّ `401` بلا معنى.
+  Future<Map<String, dynamic>> updateName(String name) {
+    return _apiClient.patchMap(ApiRoutes.customerProfile, data: {'name': name});
+  }
+
   // الوسيط: { ok, token, customer:{ phone, name, email } }
   Future<Map<String, dynamic>> verifyOtp({
     required String phone,

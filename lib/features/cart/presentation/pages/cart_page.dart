@@ -7,6 +7,9 @@ import '../../../../core/tracking/tracking_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../auth/presentation/cubit/auth_cubit.dart';
+import '../../../auth/presentation/pages/login_page.dart';
+
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/tint_ui.dart';
 import '../cubit/cart_cubit.dart';
@@ -349,7 +352,7 @@ class _CartPageState extends State<CartPage> {
                         expanded: true,
                         onPressed: state.hasUnavailable
                             ? null
-                            : () => context.push('/checkout'),
+                            : () => _goToCheckout(context),
                         icon: const Icon(Icons.chevron_left_rounded),
                       ),
                     ],
@@ -413,6 +416,55 @@ class _SummaryRow extends StatelessWidget {
         Text(value, style: style),
       ],
     );
+  }
+}
+
+/// ينتقل إلى الدفع — **ويعرض الدخول أوّلاً للزائر.**
+///
+/// ‼️ **الدخول مقترحٌ لا سدّ.** الزائر كان يمضي إلى الدفع بلا أن يُسأل، فيكتب
+/// اسمه وجوّاله وعنوانه كاملاً في كلّ طلب، ولا يبقى له أثرٌ يُراسَل به بعدها.
+/// وإلزامُه بالتسجيل يرفع الاحتكاك ويُسقط جزءاً من المبيعات — فالبوّابة
+/// **تُقترَح** ويبقى «متابعة كزائر» ظاهراً. (قرار المالك 2026-08-26: «نُبقيه
+/// لا نحذفه».)
+///
+/// ‼️ **ولا تُعرَض لمن دخل أصلاً**: شاشةُ دخولٍ لعميلٍ داخل تُقرأ عطلاً، وقد
+/// تدفعه إلى تسجيل خروجٍ ظنّاً أنّ جلسته انتهت.
+Future<void> _goToCheckout(BuildContext context) async {
+  final auth = context.read<AuthCubit>();
+  if (auth.state.isAuthenticated) {
+    await context.push('/checkout');
+    return;
+  }
+
+  final proceed = await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (sheetContext) => FractionallySizedBox(
+      heightFactor: 0.92,
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        // ‼️ الكيوبت يُمرَّر صراحةً: ورقةُ `showModalBottomSheet` تُبنى في
+        //    جذر التنقّل، فلا ترث مزوّدات هذه الشجرة.
+        child: BlocProvider.value(
+          value: auth,
+          child: LoginPage(
+            onContinueAsGuest: () => Navigator.of(sheetContext).pop(true),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  if (!context.mounted) return;
+
+  /// ‼️ **يُكمَل بعد الدخول الناجح أيضاً لا عند «كزائر» وحدها.**
+  ///
+  /// شاشة الدخول تُغلق نفسها عند النجاح (`_done`) فتعود بـ`null`؛ فلو اشترطنا
+  /// `proceed == true` لوقف من سجّل للتوّ عند السلّة — وهو أسوأ ما يقع لمن
+  /// أطاع الطلب.
+  if (proceed == true || auth.state.isAuthenticated) {
+    await context.push('/checkout');
   }
 }
 

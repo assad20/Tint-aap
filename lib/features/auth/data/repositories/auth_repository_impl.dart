@@ -32,6 +32,30 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<AuthCustomer> saveName(String name) async {
+    final res = await _remote.updateName(name.trim());
+    final raw = res['customer'] ?? res;
+    final phone = _preferences.customerPhone ?? '';
+    final customer = raw is Map<String, dynamic>
+        ? AuthCustomer(
+            phone: raw['phone']?.toString() ?? phone,
+            // ‼️ يُفضَّل ما ردّه الخادم على ما أرسلناه: هو من قصّ الطول
+            //    (٨٠ حرفاً) وشذّب الفراغات، والاحتفاظ بنسختنا يجعل الشاشة
+            //    تعرض اسماً يخالف المحفوظ.
+            name: raw['name']?.toString() ?? name.trim(),
+            email: raw['email']?.toString(),
+          )
+        : AuthCustomer(phone: phone, name: name.trim());
+
+    await _preferences.saveCustomer(
+      phone: customer.phone,
+      name: customer.name,
+      email: customer.email,
+    );
+    return customer;
+  }
+
+  @override
   Future<AuthCustomer> verifyOtp({required String phone, required String code}) async {
     final res = await _remote.verifyOtp(phone: phone, code: code);
     final token = res['token']?.toString() ?? '';
