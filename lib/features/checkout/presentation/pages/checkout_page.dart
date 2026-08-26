@@ -518,6 +518,15 @@ class _DeliveryCard extends StatelessWidget {
               style: const TextStyle(fontSize: 13),
             ),
 
+            /// ‼️ **ما كتبه العميل يُعرَض ولا يُخفى**: الدور ورقم الشقّة هما
+            /// ما يبحث عنه المندوب بعد أن يصل المبنى. وإخفاؤه في البطاقة يجعل
+            /// العميل يظنّه ضاع فيكتبه ثانيةً في كلّ طلب.
+            if ((a.extraDetails ?? '').trim().isNotEmpty)
+              Text(
+                a.extraDetails!.trim(),
+                style: const TextStyle(fontSize: 12, color: TintColors.textMuted),
+              ),
+
             /// ‼️ **الرمز الوطنيّ بخطٍّ لاتينيّ في سطرٍ مستقلّ**: هو أدقّ ما في
             /// العنوان — يدلّ على المبنى بعينه بينما يدلّ الحيّ على آلافٍ —
             /// ودمجُه في سطرٍ عربيّ يقلب ترتيب حروفه بصريّاً.

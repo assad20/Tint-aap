@@ -146,6 +146,7 @@ class AddressModel {
     required this.neighborhood,
     required this.details,
     required this.isDefault,
+    this.extraDetails,
     this.shortCode,
     this.buildingNumber,
     this.postalCode,
@@ -161,6 +162,14 @@ class AddressModel {
   final String neighborhood;
   final String details;
   final bool isDefault;
+
+  /// ما يكتبه العميل بيده: الدور · رقم الشقّة · معلمٌ قريب.
+  ///
+  /// ‼️ **منفصلٌ عن `details` عمداً**: الأوّل يُملأ من الخريطة **ويُقفَل** حتّى
+  /// لا يناقض النصُّ إحداثيّاته، والخريطة لا تعرف الدور ولا رقم الشقّة — وهي
+  /// أهمّ ما يقرؤه المندوب بعد الرمز الوطنيّ. ودمجُهما يعني إمّا قفلاً يمنع
+  /// العميل من كتابة شقّته، أو فتحاً يجعله يمحو ما استنبطته الخريطة.
+  final String? extraDetails;
 
   /// العنوان الوطنيّ المختصر ورقم المبنى والرمز البريديّ — **يُحفَظ الآن**.
   ///
@@ -215,6 +224,7 @@ class AddressModel {
     String? neighborhood,
     String? details,
     bool? isDefault,
+    String? extraDetails,
     String? shortCode,
     String? buildingNumber,
     String? postalCode,
@@ -230,6 +240,7 @@ class AddressModel {
       neighborhood: neighborhood ?? this.neighborhood,
       details: details ?? this.details,
       isDefault: isDefault ?? this.isDefault,
+      extraDetails: extraDetails ?? this.extraDetails,
       shortCode: shortCode ?? this.shortCode,
       buildingNumber: buildingNumber ?? this.buildingNumber,
       postalCode: postalCode ?? this.postalCode,
@@ -248,6 +259,7 @@ class AddressModel {
       neighborhood: json['neighborhood']?.toString() ?? '',
       details: json['details']?.toString() ?? '',
       isDefault: json['isDefault'] as bool? ?? false,
+      extraDetails: json['extraDetails']?.toString(),
       shortCode: json['shortCode']?.toString(),
       buildingNumber: json['buildingNumber']?.toString(),
       postalCode: json['postalCode']?.toString(),
@@ -274,6 +286,7 @@ class AddressModel {
        * يُبقي رمزاً يخصّ مبنًى آخر — عنوانٌ يناقض إحداثيّاته، وهو أسوأ من
        * عنوانٍ ناقص.
        */
+      'extraDetails': extraDetails ?? '',
       'shortCode': shortCode ?? '',
       'buildingNumber': buildingNumber ?? '',
       'postalCode': postalCode ?? '',

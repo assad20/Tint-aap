@@ -47,6 +47,9 @@ class _AddressFormPageState extends State<AddressFormPage> {
   late final TextEditingController neighborhoodController;
   late final TextEditingController detailsController;
 
+  /// ما يكتبه العميل — الدور والشقّة. منفصلٌ عن `details` المُقفَل.
+  late final TextEditingController extraController;
+
   String title = 'المنزل';
   double? lat;
   double? lng;
@@ -100,6 +103,7 @@ class _AddressFormPageState extends State<AddressFormPage> {
     cityController = TextEditingController(text: address?.city ?? 'الرياض');
     neighborhoodController = TextEditingController(text: address?.neighborhood);
     detailsController = TextEditingController(text: address?.details);
+    extraController = TextEditingController(text: address?.extraDetails);
   }
 
   Future<void> _pickLocation() async {
@@ -209,6 +213,7 @@ class _AddressFormPageState extends State<AddressFormPage> {
           neighborhood: neighborhood,
           details: details,
           isDefault: false,
+          extraDetails: extraController.text.trim(),
           shortCode: shortCode,
           buildingNumber: buildingNumber,
           postalCode: postalCode,
@@ -234,6 +239,7 @@ class _AddressFormPageState extends State<AddressFormPage> {
           neighborhood: neighborhood,
           details: details,
           isDefault: isDefault,
+          extraDetails: extraController.text.trim(),
           shortCode: shortCode,
           buildingNumber: buildingNumber,
           postalCode: postalCode,
@@ -360,32 +366,64 @@ class _AddressFormPageState extends State<AddressFormPage> {
                 /// ‼️ **حقلٌ لا قائمة**: كانت ثلاث مدن مكتوبة. والترميز العكسيّ
                 /// يُعيد مدناً خارجها — وقيمةٌ خارج `DropdownButtonFormField`
                 /// **تُسقط الشاشة** ولا تُتجاهَل.
+                /// ‼️ **العنوان يتبع الدبّوس ولا يُعدَّل إلّا بتحريكه.**
+                ///
+                /// كانت المدينة والحيّ والشارع حقولاً حرّة بعد أن تملأها
+                /// الخريطة، فيغيّر العميل حرفاً أو يمسح سطراً — **فيصير النصّ
+                /// يناقض الإحداثيّات**. والمندوب يقود بالدبّوس ويقرأ النصّ.
+                ///
+                /// ‼️ **وتبقى حرّةً قبل تحديد الموقع**: من تعذّر عليه فتح
+                /// الخريطة (إذنٌ مرفوض · شبكة) يكتب عنوانه بيده — الخريطة
+                /// الطريق الأقصر لا الوحيد.
+                if (hasPin)
+                  _LockedAddress(
+                    line: [
+                      detailsController.text.trim(),
+                      neighborhoodController.text.trim(),
+                      cityController.text.trim(),
+                    ].where((p) => p.isNotEmpty).join('، '),
+                    codes: [shortCode?.trim(), postalCode?.trim()]
+                        .where((p) => p != null && p.isNotEmpty)
+                        .join(' · '),
+                    onEdit: _pickLocation,
+                  )
+                else ...[
+                  _LabeledField(
+                    label: 'المدينة',
+                    controller: cityController,
+                    hint: 'الرياض',
+                  ),
+                  _LabeledField(
+                    label: 'الحيّ',
+                    controller: neighborhoodController,
+                    hint: 'العليا',
+                  ),
+                  _LabeledField(
+                    label: 'تفاصيل العنوان',
+                    controller: detailsController,
+                    hint: 'الشارع، المبنى، الدور…',
+                    minLines: 2,
+                    maxLines: 3,
+                    warning:
+                        _detailsStale ? 'تغيّر الحيّ — راجعي التفاصيل' : null,
+                    onChanged: (_) {
+                      if (!_detailsStale && !_detailsFromMap) return;
+                      setState(() {
+                        _detailsStale = false;
+                        _detailsFromMap = false;
+                      });
+                    },
+                  ),
+                ],
+
+                /// ‼️ **حقلٌ حرٌّ لما لا تعرفه خريطة** — الدور ورقم الشقّة
+                /// ومعلمٌ قريب، وهي أهمّ ما يقرؤه المندوب بعد الرمز الوطنيّ.
                 _LabeledField(
-                  label: 'المدينة',
-                  controller: cityController,
-                  hint: 'الرياض',
-                ),
-                _LabeledField(
-                  label: 'الحيّ',
-                  controller: neighborhoodController,
-                  hint: 'العليا',
-                ),
-                _LabeledField(
-                  label: 'تفاصيل العنوان',
-                  controller: detailsController,
-                  hint: 'الشارع، المبنى، الدور…',
+                  label: 'تفاصيل إضافية',
+                  controller: extraController,
+                  hint: 'الدور، رقم الشقّة، معلم قريب…',
                   minLines: 2,
                   maxLines: 3,
-                  warning: _detailsStale ? 'تغيّر الحيّ — راجعي التفاصيل' : null,
-                  // ‼️ **أوّل حرفٍ يكتبه العميل يجعل الحقل حقله** — فلا يُستبدل
-                  //    بعدها عند نقل الدبّوس، ويُوسَم للمراجعة كما كان.
-                  onChanged: (_) {
-                    if (!_detailsStale && !_detailsFromMap) return;
-                    setState(() {
-                      _detailsStale = false;
-                      _detailsFromMap = false;
-                    });
-                  },
                 ),
               ],
             ),
@@ -450,6 +488,7 @@ class _AddressFormPageState extends State<AddressFormPage> {
 
   @override
   void dispose() {
+    extraController.dispose();
     nameController.dispose();
     mobileController.dispose();
     cityController.dispose();
@@ -654,6 +693,90 @@ class _MapPreview extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// العنوان المُستنبَط من الخريطة — يُعرَض ولا يُحرَّر.
+///
+/// ‼️ **القفل يُفسَّر ويُقال طريق تعديله.** قفلٌ بلا سببٍ يُقرأ عطلاً: يلمس
+/// العميل الحقل فلا يستجيب ولا تُقال كلمة، فيظنّ الشاشة معطّلة. فالسطر يقول
+/// «يُحدَّد من الخريطة» والزرّ يفتحها.
+class _LockedAddress extends StatelessWidget {
+  const _LockedAddress({
+    required this.line,
+    required this.codes,
+    required this.onEdit,
+  });
+
+  final String line;
+  final String codes;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: TintColors.cream,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: TintColors.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  line.isEmpty ? 'حُدّد الموقع على الخريطة' : line,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: onEdit,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(0, 32),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  'تعديل',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12.5,
+                    color: TintColors.sand,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (codes.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                codes,
+                textDirection: TextDirection.ltr,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ),
+          const SizedBox(height: 6),
+          const Text(
+            'يُحدَّد من الخريطة — اضغطي «تعديل» لتغييره',
+            style: TextStyle(fontSize: 11, color: TintColors.textMuted),
+          ),
+        ],
       ),
     );
   }
