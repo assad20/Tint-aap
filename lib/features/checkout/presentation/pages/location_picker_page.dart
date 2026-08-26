@@ -127,6 +127,9 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
         neighborhood: _place?.neighborhood,
         street: _place?.street,
         shortCode: _place?.shortCode,
+        // ‼️ يُمرَّران وإلّا ضاعا بين الاختيار والنموذج — و`line` تبنيهما.
+        buildingNumber: _place?.buildingNumber,
+        postalCode: _place?.postalCode,
       ),
     );
   }

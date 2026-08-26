@@ -115,7 +115,12 @@ class _AddressFormPageState extends State<AddressFormPage> {
     final previousHood = neighborhoodController.text.trim();
     final newCity = picked.city?.trim() ?? '';
     final newHood = picked.neighborhood?.trim() ?? '';
-    final newStreet = picked.street?.trim() ?? '';
+    /// ‼️ **رقم المبنى يُصدَّر الشارع** — «2868 طريق العروبة» هو ما يُكتب في
+    /// العناوين السعوديّة وأوّل ما يبحث عنه المندوب على الباب.
+    final newStreet = [
+      picked.buildingNumber?.trim(),
+      picked.street?.trim(),
+    ].where((p) => p != null && p.isNotEmpty).join(' ');
 
     setState(() {
       lat = picked.lat;

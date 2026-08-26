@@ -15,6 +15,8 @@ class PickedDeliveryLocation {
     this.neighborhood,
     this.street,
     this.shortCode,
+    this.buildingNumber,
+    this.postalCode,
   });
 
   final double lat;
@@ -35,14 +37,32 @@ class PickedDeliveryLocation {
   /// جديداً مع الخادم لأجل نصٍّ يُشتَقّ من الإحداثيّات متى شئنا.
   final String? shortCode;
 
+  /// رقم المبنى والرمز البريديّ — من نفس ردّ الخادم.
+  ///
+  /// ‼️ **رقم المبنى هو ما يقرؤه المندوب على الباب**، والرمز البريديّ تطلبه
+  /// شركات الشحن في البوليصة. وكلاهما يعود في ردّ غوغل نفسه ولم يكن يُقرأ —
+  /// حقلان مُهمَلان في حمولةٍ مدفوعةٍ أصلاً.
+  ///
+  /// ‼️ **ويُعرَضان ولا يُخزَّنان** كالرمز الوطنيّ: يُشتقّان من الإحداثيّات.
+  final String? buildingNumber;
+  final String? postalCode;
+
   bool get hasAddress =>
       (city?.trim().isNotEmpty ?? false) ||
       (neighborhood?.trim().isNotEmpty ?? false);
 
-  /// سطرٌ واحدٌ يُقرأ: «الحيّ، المدينة» أو ما توفّر منهما.
+  /// سطرٌ واحدٌ يُقرأ: «رقم المبنى الشارع، الحيّ، المدينة» أو ما توفّر.
+  ///
+  /// ‼️ **رقم المبنى يُصدَّر الشارع ولا يُفصَل عنه**: «2868 طريق العروبة» هو
+  /// ما يُكتب في العناوين السعوديّة وما يبحث عنه المندوب أوّلاً. وفصلُه في
+  /// حقلٍ مستقلّ يجعله يضيع حين يُنسَخ العنوان سطراً واحداً.
   String get line {
-    final parts = [
+    final street0 = [
+      buildingNumber?.trim(),
       street?.trim(),
+    ].where((p) => p != null && p.isNotEmpty).join(' ');
+    final parts = [
+      street0.isEmpty ? null : street0,
       neighborhood?.trim(),
       city?.trim(),
     ].where((p) => p != null && p.isNotEmpty).cast<String>().toList();
@@ -147,6 +167,8 @@ Future<PickedDeliveryLocation?> _fromServer(
       neighborhood: neighborhood,
       street: data['street']?.toString().trim() ?? '',
       shortCode: data['shortCode']?.toString().trim() ?? '',
+      buildingNumber: data['buildingNumber']?.toString().trim() ?? '',
+      postalCode: data['postalCode']?.toString().trim() ?? '',
     );
   } catch (error) {
     debugPrint('[geocode] الخادم لم يردّ: $error');
