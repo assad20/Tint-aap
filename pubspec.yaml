@@ -43,6 +43,7 @@ dependencies:
   video_player: ^2.9.2
   # ورقة المشاركة الأصليّة — واتساب وغيره من نفس الزرّ بلا تكامل لكلّ تطبيق.
   share_plus: ^13.3.0
+  mobile_scanner: ^7.4.0
 
 dev_dependencies:
   flutter_test:

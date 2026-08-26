@@ -1,6 +1,7 @@
 import '../../../../core/models/category_model.dart';
 import '../../../../core/models/discover_model.dart';
 import '../../../../core/models/hero_slide_model.dart';
+import '../../../../core/models/barcode_lookup.dart';
 import '../../../../core/models/product_model.dart';
 import '../entities/home_layout_fetch.dart';
 
@@ -23,6 +24,12 @@ abstract class CatalogRepository {
   Future<List<ProductModel>> fetchTrendingProducts();
 
   Future<List<ProductModel>> searchProducts(String query);
+
+  /// يبحث عن منتجٍ برمزه الممسوح من الكاميرا.
+  ///
+  /// ‼️ **يُعيد `BarcodeLookup` لا `ProductModel?`** — راجع تعليق النوع: خلطُ
+  /// «غير موجود» بـ«تعذّر الاتّصال» يُنتج رسالةً كاذبة في كلتا الحالتين.
+  Future<BarcodeLookup> lookupBarcode(String code);
 
   // تنقّل المتجر الحقيقيّ (مجموعات المتجر).
   Future<List<CategoryModel>> fetchNavigation();

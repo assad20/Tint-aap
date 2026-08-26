@@ -14,6 +14,11 @@ abstract final class ApiRoutes {
   static const catalogCategories = '/catalog/categories'; // + /<slug>
   /// صفحة منتجٍ بمعرّفه — تُفتَح من رابطٍ عميق لا من بطاقةٍ تحمل الكائن.
   static const catalogProducts = '/catalog/products'; // + /<id>
+  /// بحثٌ برمز الباركود الممسوح — يُعيد بطاقةً واحدة أو 404.
+  ///
+  /// ‼️ **مسارٌ مستقلٌّ عن `catalogSearch` عمداً**: البحث النصّيّ يُعيد الأكثر
+  /// رواجاً حين لا يُطابق شيء، وذاك سلوكٌ يجعل الماسح **يكذب**.
+  static const catalogBarcode = '/catalog/barcode'; // + /<code>
   // توفّر بنود السلّة — تُراجَع عند فتح السلّة وقبل الدفع، فلا يُكتشف النفاد
   // بعد إدخال العنوان. نفس المطابقة التي يستعملها الخادم عند التسعير.
   static const catalogAvailability = '/catalog/availability';

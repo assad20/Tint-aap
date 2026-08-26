@@ -66,6 +66,14 @@ class CatalogRemoteDataSource {
     return _apiClient.getMap('${ApiRoutes.catalogCategories}/$slug');
   }
 
+  /// يجلب منتجاً برمزه الممسوح.
+  ///
+  /// ‼️ **لا يبتلع الخطأ**: `404` هنا معلومةٌ («لا نبيع هذا») لا عطل، والفرق
+  /// بينها وبين انقطاع الشبكة هو الفرق بين رسالتين مختلفتين تماماً للعميل.
+  Future<Map<String, dynamic>> fetchProductByBarcode(String code) {
+    return _apiClient.getMap('${ApiRoutes.catalogBarcode}/$code');
+  }
+
   Future<List<dynamic>> searchProducts(String query) async {
     // الوسيط يُعيد { query, count, items:[card] } (كائن لا مصفوفة)، والبطاقة تحمل
     // categorySlug؛ نُخرج items ونطابق category الذي يقرأه ProductModel.

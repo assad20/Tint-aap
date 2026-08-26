@@ -3,6 +3,7 @@ import '../../../../core/models/category_model.dart';
 import '../../../../core/models/cms_page_model.dart';
 import '../../../../core/models/discover_model.dart';
 import '../../../../core/models/hero_slide_model.dart';
+import '../../../../core/models/barcode_lookup.dart';
 import '../../../../core/models/product_model.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../domain/repositories/catalog_repository.dart';
@@ -207,6 +208,26 @@ class CatalogRepositoryImpl implements CatalogRepository {
   /// كان البحث يخترع نتائج حين لا يجد الخادم شيئاً أو حين يفشل النداء — فيُقدَّم
   /// للمتسوّق منتجٌ لا وجود له في الكتالوج، **لا يستطيع شراءه أبداً** (الخادم
   /// لا يعرف معرّفه فيرفض الطلب). و«لا نتائج» أصدق من نتيجةٍ مختلَقة.
+  /// ‼️ **الاستثناء الوحيد عن قاعدة «ابتلع الخطأ وأعِد فارغاً» في هذا الملفّ.**
+  ///
+  /// بقيّة الدوالّ تُرجع قائمةً فارغة عند أيّ فشل، وهو صوابٌ فيها: رفٌّ فارغ
+  /// أهون من شاشة خطأ. أمّا هنا فالفراغ **قرارٌ يُبلَّغ للعميل**: «هذا المنتج
+  /// غير موجود في تِنت». وقولُ ذلك لأنّ الواي فاي تعثّر يصرف مشترياً حاضراً
+  /// بالعلبة في يده.
+  @override
+  Future<BarcodeLookup> lookupBarcode(String code) async {
+    try {
+      final json = await _remoteDataSource.fetchProductByBarcode(code);
+      return BarcodeFound(ProductModel.fromJson(json));
+    } on ApiException catch (error) {
+      // ‼️ `404` وحدها جوابٌ نهائيّ؛ وكلّ ما عداها عارضٌ يُعاد بعده.
+      if (error.statusCode == 404) return BarcodeUnknown(code);
+      return BarcodeFailed(error.message);
+    } catch (_) {
+      return const BarcodeFailed('تعذّر الاتّصال — تحقّقي من الإنترنت وأعيدي المحاولة.');
+    }
+  }
+
   @override
   Future<List<ProductModel>> searchProducts(String query) async {
     try {

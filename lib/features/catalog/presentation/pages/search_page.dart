@@ -1,14 +1,19 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/tracking/tracking_events.dart';
 import '../../../../core/tracking/tracking_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../app/theme/app_theme.dart';
 import '../../../../core/storage/app_preferences.dart';
 import '../../../../core/widgets/tint_ui.dart';
+import '../../../../core/models/product_model.dart';
+import '../../domain/repositories/catalog_repository.dart';
 import '../cubit/search_cubit.dart';
+import 'barcode_scanner_page.dart';
 import '../widgets/product_card.dart';
 
 class SearchPage extends StatefulWidget {
@@ -30,6 +35,27 @@ class _SearchPageState extends State<SearchPage> {
     context.read<SearchCubit>().search('', preferences: _preferences);
   }
 
+  /// يفتح الماسح، وينتقل إلى المنتج إن وُجد.
+  ///
+  /// ‼️ **النقل هنا لا داخل الماسح** — كي لا يعود «رجوعُ» صفحةِ المنتج إلى
+  /// كاميرا مفتوحة. والماسح يُغلق نفسه بالمنتج، وهذه الشاشة توجّه.
+  Future<void> _openScanner() async {
+    final repository = context.read<CatalogRepository>();
+    final product = await Navigator.of(context).push<ProductModel>(
+      MaterialPageRoute(
+        // ‼️ **ملء الشاشة لا ورقةً سفليّة**: المسح يحتاج تصويب الكاميرا بيدٍ
+        //    ونظراً مستقرّاً، والنافذة الصغيرة تجعل الرمز خارج مجال العدسة.
+        fullscreenDialog: true,
+        builder: (_) => BarcodeScannerPage(
+          onLookup: (code) => repository.lookupBarcode(code),
+        ),
+      ),
+    );
+
+    if (!mounted || product == null) return;
+    await context.push('/product', extra: product);
+  }
+
   @override
   Widget build(BuildContext context) {
     return TintPageScaffold(
@@ -46,6 +72,8 @@ class _SearchPageState extends State<SearchPage> {
                   // ‼️ **عند الإرسال لا عند كلّ حرف**: حدثٌ لكلّ ضغطة مفتاح
                   //    يُغرق GA4 بمئات الأحداث للبحث الواحد، ويجعل «أشيع
                   //    الكلمات» أحرفاً مبتورة لا كلماتٍ يبحث عنها أحد.
+                  // ‼️ يُعاد البناء لتظهر «×» عند أوّل حرفٍ وتختفي عند محوه.
+                  onChanged: (_) => setState(() {}),
                   onSubmitted: (value) {
                     context.read<SearchCubit>().search(value, preferences: _preferences);
                     unawaited(context.read<TrackingService>().logSearch(value));
@@ -53,12 +81,31 @@ class _SearchPageState extends State<SearchPage> {
                   decoration: InputDecoration(
                     hintText: 'ابحثي عن عطر، فستان، هدية...',
                     prefixIcon: const Icon(Icons.search),
-                    suffixIcon: IconButton(
-                      onPressed: () {
-                        _controller.clear();
-                        context.read<SearchCubit>().clear();
-                      },
-                      icon: const Icon(Icons.close_rounded),
+                    /// ‼️ **زرّان في ذيل الحقل لا زرّ واحد.**
+                    ///
+                    /// «المسح» يبقى ظاهراً دائماً — هو مدخلٌ للبحث لا إجراءٌ
+                    /// على نصٍّ مكتوب. أمّا «المسح النصّيّ» فيظهر حين يكون
+                    /// هناك ما يُمحى، وإظهاره على حقلٍ فارغ زرٌّ لا يفعل شيئاً.
+                    suffixIcon: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_controller.text.isNotEmpty)
+                          IconButton(
+                            onPressed: () {
+                              _controller.clear();
+                              context.read<SearchCubit>().clear();
+                              setState(() {});
+                            },
+                            icon: const Icon(Icons.close_rounded),
+                            tooltip: 'مسح',
+                          ),
+                        IconButton(
+                          onPressed: () => unawaited(_openScanner()),
+                          icon: const Icon(Icons.qr_code_scanner_rounded),
+                          tooltip: 'مسح الباركود',
+                          color: TintColors.charcoal,
+                        ),
+                      ],
                     ),
                   ),
                 ),
