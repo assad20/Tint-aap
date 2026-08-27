@@ -169,6 +169,27 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
+  /// يحفظ الاسم لحسابٍ **قائمٍ بلا اسم** — بعد الدخول لا أثناءه.
+  ///
+  /// ‼️ **ولا يُسقط الجلسة عند الفشل**: العميل داخلٌ فعلاً، والاسم تفصيلٌ
+  /// يُعدَّل من الملفّ الشخصيّ متى شاء.
+  Future<void> updateName(String name) async {
+    final wanted = name.trim();
+    if (wanted.isEmpty) return;
+    try {
+      final customer = await _repository.saveName(wanted);
+      emit(state.copyWith(customer: customer));
+    } catch (_) {
+      emit(state.copyWith(
+        customer: AuthCustomer(
+          phone: state.customer?.phone ?? state.phone,
+          name: wanted,
+          email: state.customer?.email,
+        ),
+      ));
+    }
+  }
+
   // العودة لخطوة إدخال الجوّال (تغيير الرقم).
   void editPhone() => emit(state.copyWith(status: AuthStatus.unauthenticated, clearError: true));
 

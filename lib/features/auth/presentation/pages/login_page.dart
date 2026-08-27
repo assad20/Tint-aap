@@ -33,6 +33,18 @@ class _LoginPageState extends State<LoginPage> {
   /// بعد التحقّق. فلا تبحث عن مسار تسجيلٍ ثانٍ: لا وجود له.
   bool _signup = false;
 
+  /// خطوةٌ أخيرة تُعرَض **بعد** الدخول لمن حسابه بلا اسم.
+  ///
+  /// ‼️ **ولماذا بعد التحقّق لا قبله؟** لأنّ السؤال «هل لهذا الرقم حساب؟»
+  /// لا يُجاب قبل التحقّق **إلّا بكشف من يتسوّق عندنا**: نقطةٌ تقول «هذا الرقم
+  /// مسجَّل» تُمكّن أيّ أحدٍ من تعداد عملائنا رقماً بعد رقم. ولذلك لا يُميّز
+  /// الخادم بين الحالتين عمداً، و`verifyOtp` يُنشئ الحساب بـ`upsert`.
+  ///
+  /// ‼️ **وهذه الخطوة تُصلح ما لا يُصلحه تبويب «تسجيل جديد»**: الحسابات التي
+  /// أُنشئت قبل وجود حقل الاسم أصلاً — وهي كلّ حسابات التطبيق حتّى اليوم —
+  /// بلا اسم، ولا سبيل لها إليه إلّا من الملفّ الشخصيّ إن اهتدت إليه.
+  bool _askName = false;
+
   @override
   void dispose() {
     _phone.dispose();
@@ -77,6 +89,12 @@ class _LoginPageState extends State<LoginPage> {
       body: BlocConsumer<AuthCubit, AuthState>(
         listener: (context, state) {
           if (state.status == AuthStatus.authenticated) {
+            // ‼️ الاسم يُسأل مرّةً واحدة — ومن حسابه يحمله يمرّ بلا سؤال.
+            if (!_askName && (state.customer?.name ?? '').trim().isEmpty) {
+              _name.text = '';
+              setState(() => _askName = true);
+              return;
+            }
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('تمّ تسجيل الدخول ✅'), backgroundColor: TintColors.success),
             );
@@ -101,25 +119,32 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: 18),
                 Text(
-                  onCode
-                      ? 'أدخل رمز التحقّق'
-                      : (_signup ? 'أنشئ حسابك في تِنت' : 'مرحباً بك في تِنت'),
+                  _askName
+                      ? 'بقي اسمك'
+                      : onCode
+                          ? 'أدخل رمز التحقّق'
+                          : (_signup ? 'أنشئ حسابك في تِنت' : 'مرحباً بك في تِنت'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: TintColors.charcoal),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  onCode
-                      ? _sentLine(state)
-                      : (_signup
-                          ? 'اسمك ورقم جوّالك — ويصلك رمز التحقّق على واتساب.'
-                          : 'اختر كيف نُرسل لك رمز التحقّق.'),
+                  _askName
+                      ? 'دخلتِ بنجاح. اكتبي اسمك مرّةً واحدة — يُكتب على طلباتك ولا نسألك عنه بعدها.'
+                      : onCode
+                          ? _sentLine(state)
+                          : (_signup
+                              ? 'اسمك ورقم جوّالك — ويصلك رمز التحقّق على واتساب.'
+                              : 'اختر كيف نُرسل لك رمز التحقّق.'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: TintColors.textMuted, height: 1.6),
                 ),
                 const SizedBox(height: 24),
 
-                if (!onCode) ...[
+                if (_askName) ...[
+                  _field(_name, 'الاسم الأوّل والأخير', Icons.person_outline,
+                      TextInputType.name),
+                ] else if (!onCode) ...[
                   _modeSwitch(),
                   const SizedBox(height: 16),
 
@@ -153,7 +178,7 @@ class _LoginPageState extends State<LoginPage> {
                     _field(_phone, 'رقم الجوّال', Icons.phone_outlined, TextInputType.phone)
                   else
                     _field(_email, 'البريد الإلكترونيّ', Icons.mail_outline, TextInputType.emailAddress),
-                ] else ...[
+                ] else if (!_askName) ...[
                   _field(_code, 'رمز التحقّق', Icons.key_outlined, TextInputType.number, isCode: true),
                   const SizedBox(height: 8),
                   Align(
@@ -188,8 +213,21 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     onPressed: state.isBusy
                         ? null
-                        : () {
+                        : () async {
                             FocusScope.of(context).unfocus();
+                            if (_askName) {
+                              if (_name.text.trim().length < 3) {
+                                _snack(context, 'اكتبي اسمك كما تريدينه على الطلب.');
+                                return;
+                              }
+                              await cubit.updateName(_name.text);
+                              if (!context.mounted) return;
+                              // ‼️ يُغلَق هنا صراحةً: الحالة `authenticated`
+                              //    أصلاً، فلا يُطلق المستمع مرّةً ثانية.
+                              setState(() => _askName = false);
+                              _done();
+                              return;
+                            }
                             if (onCode) {
                               // ‼️ الاسم يُمرَّر في التسجيل وحده — وتمريرُه في
                               //    «دخول» كان سيكتب فوق اسمٍ محفوظ بفراغ.
@@ -229,9 +267,11 @@ class _LoginPageState extends State<LoginPage> {
                     child: state.isBusy
                         ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
                         : Text(
-                            onCode
-                                ? (_signup ? 'تأكيد وإنشاء الحساب' : 'تأكيد الدخول')
-                                : 'إرسال الرمز',
+                            _askName
+                                ? 'حفظ ومتابعة'
+                                : onCode
+                                    ? (_signup ? 'تأكيد وإنشاء الحساب' : 'تأكيد الدخول')
+                                    : 'إرسال الرمز',
                             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
                           ),
                   ),
