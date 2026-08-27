@@ -19,6 +19,7 @@ import '../../../catalog/presentation/cubit/home_store_cubit.dart';
 import '../../../catalog/presentation/pages/home_page.dart';
 import '../../../catalog/presentation/widgets/store_drawer.dart';
 import '../../../catalog/presentation/pages/trends_page.dart';
+import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../account/presentation/cubit/addresses_cubit.dart';
 import '../../../account/presentation/cubit/favorites_cubit.dart';
 import '../../../account/presentation/cubit/orders_cubit.dart';
@@ -128,8 +129,49 @@ class _MainShellPageState extends State<MainShellPage> {
     }
   }
 
+  /// آخر هويّةٍ رُسمت لها بيانات الحساب — `null` = لا أحد.
+  String? _accountPhone;
+
+  /// يمحو بيانات الحساب السابق عند تبدّل الهويّة.
+  ///
+  /// ‼️ **العطل الذي يُغلقه ليس عرضاً خاطئاً بل شحنةٌ إلى الشخص الخطأ.**
+  ///
+  /// الكيوبتات الحسابيّة الخمسة عامّةٌ في `main`، وتُجلَب **مرّةً واحدة في عمر
+  /// التشغيل** بحارس `_loaded`. وتسجيل الخروج كان يمسح التوكن والتفضيلات —
+  /// **ولا يمسّها**. فمن خرج ودخل بحسابٍ آخر على الجهاز نفسه كان يرى عنوان
+  /// الأوّل وطلباته ونقاطه؛ وشاشة الدفع تقرأ العنوان من هنا، فيُشحن طلبُه
+  /// إلى عنوان غيره **باسم غيره ورقمه**. (رصده المالك 2026-08-27.)
+  ///
+  /// ‼️ **ويُقارَن الجوّال لا مجرّد «أدخلَ أم خرج»**: من خرج ودخل بنفس الحساب
+  /// لا داعي لإفراغ شاشاته، ومن بدّل الحساب يجب أن يُفرَغ ولو لم يخرج صراحةً.
+  void _onIdentityChanged(BuildContext context, AuthState state) {
+    final phone = state.customer?.phone;
+    if (phone == _accountPhone) return;
+    _accountPhone = phone;
+
+    context.read<ProfileCubit>().clearForAccountSwitch();
+    context.read<OrdersCubit>().clearForAccountSwitch();
+    context.read<AddressesCubit>().clearForAccountSwitch();
+    context.read<RewardsCubit>().clearForAccountSwitch();
+    context.read<FavoritesCubit>().clearForAccountSwitch();
+
+    /// ‼️ **ويُرفَع حارس الجلب أيضاً** — وإلّا بقيت الشاشات فارغةً إلى الأبد:
+    /// مُسحت البيانات و`_loaded` يقول إنّها جُلبت. والفراغ الدائم عطلٌ آخر
+    /// محلّ الأوّل.
+    _loaded.remove(4);
+    if (mounted && context.read<ShellCubit>().state == 4) _ensureLoaded(context, 4);
+  }
+
   @override
   Widget build(BuildContext context) {
+    return BlocListener<AuthCubit, AuthState>(
+      listenWhen: (prev, curr) => prev.customer?.phone != curr.customer?.phone,
+      listener: _onIdentityChanged,
+      child: _buildShell(context),
+    );
+  }
+
+  Widget _buildShell(BuildContext context) {
     return BlocConsumer<ShellCubit, int>(
       listenWhen: (prev, curr) => prev != curr,
       listener: _ensureLoaded,
