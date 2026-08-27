@@ -487,13 +487,41 @@ class _AddressFormPageState extends State<AddressFormPage> {
             ),
           ),
           const SizedBox(height: 14),
+          /// ‼️ **الدبّوس شرطٌ للحفظ — لا اقتراحاً.**
+          ///
+          /// كانت الحقول تُقفَل **بعد** تحديد الموقع وتبقى حرّةً قبله، بحجّة
+          /// ألّا يُحبَس من تعذّرت عليه الخريطة. والحجّة أضعف ممّا بدت: المنتقي
+          /// يعمل **بلا إذن موقعٍ أصلاً** — يكفي سحب الدبّوس. والثمن كان طلباً
+          /// حقيقيّاً على المتجر (#1037) بعنوانٍ مكتوبٍ بيدٍ في بلدةٍ صغيرة، بلا
+          /// إحداثيّات يقود بها المندوب ولا عنوانٍ وطنيّ. (المالك 2026-08-27.)
+          if (!hasPin)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: TintColors.warning.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Text(
+                  'حدّد موقعك على الخريطة أوّلاً — منه نأخذ الحيّ والشارع والعنوان الوطنيّ.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.7,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF8A5A00),
+                  ),
+                ),
+              ),
+            ),
           TintPrimaryButton(
             // ‼️ «حفظ» تَعِد بما لا يقع في وضع الزائر — فالكلمة تتبع الفعل.
             label: widget.local
                 ? 'اعتماد العنوان'
                 : (_saving ? 'جارٍ الحفظ…' : 'حفظ العنوان'),
             expanded: true,
-            onPressed: _saving ? null : _save,
+            onPressed: (_saving || !hasPin) ? null : _save,
           ),
         ],
       ),
