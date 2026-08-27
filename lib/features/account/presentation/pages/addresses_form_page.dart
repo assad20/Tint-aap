@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:latlong2/latlong.dart';
@@ -118,6 +120,23 @@ class _AddressFormPageState extends State<AddressFormPage> {
     neighborhoodController = TextEditingController(text: address?.neighborhood);
     detailsController = TextEditingController(text: address?.details);
     extraController = TextEditingController(text: address?.extraDetails);
+
+    /// ‼️ **الخريطة أوّلاً في العنوان الجديد — لا نموذجٌ فارغٌ بزرٍّ معطّل.**
+    ///
+    /// صار الدبّوس شرطاً للحفظ، فعرضُ النموذج قبله يُقدّم شاشةً **لا تُتَمّ**:
+    /// حقولٌ وزرٌّ لا يستجيب وسطرٌ يطلب فعلاً آخر. والترتيب الصحيح أن يُسأل عن
+    /// الموقع، ثمّ يُعرَض النموذج **مملوءاً** منه. (اقتراح المالك 2026-08-27.)
+    ///
+    /// ‼️ **وللإنشاء وحده**: من يعدّل عنواناً قائماً قد يريد تصحيح اسمٍ أو رقم
+    /// شقّة، وفتحُ الخريطة في وجهه يفرض إعادة تحديد موقعٍ صحيحٍ أصلاً.
+    ///
+    /// ‼️ **وبعد أوّل إطار لا في `initState`**: الشجرة لم تُبنَ بعد فلا
+    /// `Navigator` يُدفَع عليه — وهو نفس المزلق المعلَّق عليه في قشرة التطبيق.
+    if (address == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_pickLocation());
+      });
+    }
   }
 
   Future<void> _pickLocation() async {
