@@ -51,8 +51,6 @@ class _CheckoutPageState extends State<CheckoutPage>
   final _details = TextEditingController();
   String _addressId = 'mobile-form';
 
-  /// عنوان الزائر — يسكن الطلب الحاليّ ولا يُحفَظ عند الخادم (لا حساب له).
-  AddressModel? _guestAddress;
   double? _lat;
   double? _lng;
 
@@ -159,43 +157,20 @@ class _CheckoutPageState extends State<CheckoutPage>
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         children: [
-          /// ‼️ **مساران لا واحد.**
+          /// ‼️ **مسارٌ واحد: العنوان محفوظٌ عند الخادم دائماً.**
           ///
-          /// العميل المسجَّل عنوانه محفوظٌ عند الخادم، فيُعرَض **ملخّصاً يُقرأ
-          /// في ثانية** لا نموذجاً بستّة حقولٍ مملوءةٍ سلفاً — وكان يُطالَب
-          /// بمراجعة ما لا يحتاج تغييره في كلّ طلب.
-          ///
-          /// والزائر بلا حساب لا يملك عنواناً محفوظاً ولا نقاط حفظٍ عند الخادم
-          /// (النقاط محميّةٌ بالتوكن)، فيبقى له النموذج كما هو — وإسقاطُه كان
-          /// سيمنع الشراء بلا تسجيل.
-          if (_savedFlow(context))
-            _DeliveryCard(
-              address: _selectedSaved(context),
-              accountName: context.watch<AuthCubit>().state.customer?.name,
-              accountPhone: context.watch<AuthCubit>().state.customer?.phone,
-              onChange: _openAddressPicker,
-              onEdit: _openAddressEditor,
-            )
-          /// ‼️ **والزائر يرى البطاقة نفسها لا نموذجاً مفروشاً** (طلب المالك
-          /// 2026-08-25). ستّة حقولٍ فارغة هي أوّل ما يواجهه في أوّل طلبٍ له،
-          /// وهي **أطول ما في الشاشة** وأثقل ما فيها: تُقرأ استمارةً قبل أن
-          /// يشتري. والبطاقة تسأله سؤالاً واحداً — «أين نوصّل؟» — والباقي في
-          /// شاشةٍ مخصَّصة **فيها الخريطة**، وهي أدقّ من الوصف وأسرع منه.
-          ///
-          /// ‼️ **ونفس المحرّر لا نسخةً ثانية**: `AddressFormPage` في وضع
-          /// `local` — يُعيد العنوان ولا يحفظه (نقاط الحفظ محميّةٌ بالتوكن).
-          /// ومحرّران للشيء نفسه يتباعدان مع أوّل تعديل، فيحفظ أحدهما دبّوس
-          /// الخريطة والآخر لا.
-          else
-            _DeliveryCard(
-              address: _guestAddress,
-              accountName: null,
-              accountPhone: null,
-              // لا محفوظات للزائر — فلا شيء «يُغيَّر» إليه، و«تعديل» تكفي.
-              onChange: null,
-              savesForLater: false,
-              onEdit: ({String? id}) => _editGuestAddress(),
-            ),
+          /// كان هنا مساران — هذا، ونموذجٌ محلّيّ للزائر. وقد رحل الثاني مع
+          /// مسار الزائر كلّه: `POST /orders/checkout` يرفض بـ401 ما لم يصحبه
+          /// توكن عميلٍ أو توكن طلبٍ مُصدَرٌ بعد رمز تحقّق، والتطبيق لا يعرف
+          /// الثاني — فكان الزائر يُرفَض عند آخر ضغطة بعد أن أتمّ كلّ شيء.
+          /// (قرار المالك 2026-08-27، والمتجر سبق إليه.)
+          _DeliveryCard(
+            address: _selectedSaved(context),
+            accountName: context.watch<AuthCubit>().state.customer?.name,
+            accountPhone: context.watch<AuthCubit>().state.customer?.phone,
+            onChange: _openAddressPicker,
+            onEdit: _openAddressEditor,
+          ),
           const SizedBox(height: 12),
           const _ProductsMiniSummary(),
           const SizedBox(height: 12),
@@ -221,28 +196,6 @@ class _CheckoutPageState extends State<CheckoutPage>
 
   /// يفتح محرّر العنوان للزائر، ثمّ **يملأ الحقول التي يقرأها الطلب**.
   ///
-  /// ‼️ **الحقول تبقى مصدر الحقيقة ولو اختفت من الشاشة.** `_currentAddress()`
-  /// يبنيها منها، و`_submit` يقرأها — فتغذيتُها هنا تُبقي مسار الطلب كما هو
-  /// حرفيّاً. ونسخُ المنطق إلى مصدرٍ ثانٍ كان سيُنتج عنواناً يُعرَض وآخر يُشحَن.
-  Future<void> _editGuestAddress() async {
-    final result = await Navigator.of(context).push<AddressModel>(
-      MaterialPageRoute(
-        builder: (_) => AddressFormPage(local: true, initial: _guestAddress),
-      ),
-    );
-    if (!mounted || result == null) return;
-    setState(() {
-      _guestAddress = result;
-      _name.text = result.recipient;
-      _phone.text = result.mobile;
-      _city.text = result.city;
-      _neighborhood.text = result.neighborhood;
-      _details.text = result.details;
-      _lat = result.lat;
-      _lng = result.lng;
-    });
-  }
-
   /// هل نحن على مسار العناوين المحفوظة؟ — مسجَّلٌ **وله عنوانٌ واحد فأكثر**.
   bool _savedFlow(BuildContext context) =>
       context.watch<AuthCubit>().state.customer != null;
@@ -362,7 +315,6 @@ class _DeliveryCard extends StatelessWidget {
     required this.accountPhone,
     required this.onChange,
     required this.onEdit,
-    this.savesForLater = true,
   });
 
   final AddressModel? address;
@@ -375,10 +327,6 @@ class _DeliveryCard extends StatelessWidget {
   final VoidCallback? onChange;
 
   final Future<void> Function({String? id}) onEdit;
-
-  /// ‼️ **«يُحفظ عنوانك لما بعده» وعدٌ لا يُوفى للزائر** — لا حساب يحفظ فيه.
-  /// ووعدٌ صغير يُخلَف في شاشة دفعٍ يُكلّف أكثر ممّا يُوفّر.
-  final bool savesForLater;
 
   @override
   Widget build(BuildContext context) {
@@ -423,11 +371,13 @@ class _DeliveryCard extends StatelessWidget {
               style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
             ),
             const SizedBox(height: 4),
-            Text(
-              savesForLater
-                  ? 'أوّل طلب — يُحفظ عنوانك لما بعده.'
-                  : 'أضيفي عنوانك وحدّدي موقعه على الخريطة.',
-              style: const TextStyle(color: TintColors.textMuted, fontSize: 12),
+            /// ‼️ **الوعد صار يُوفى دائماً.** كان مشروطاً بـ`savesForLater`
+            /// لأنّ الزائر لا حساب له يُحفَظ فيه — ووعدٌ صغيرٌ يُخلَف في شاشة
+            /// دفعٍ يُكلّف أكثر ممّا يُوفّر. ومع رحيل مسار الزائر لم يبقَ من
+            /// يراه إلّا صاحب حساب.
+            const Text(
+              'أوّل طلب — يُحفظ عنوانك لما بعده.',
+              style: TextStyle(color: TintColors.textMuted, fontSize: 12),
             ),
             const SizedBox(height: 12),
             SizedBox(

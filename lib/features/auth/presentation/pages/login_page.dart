@@ -8,15 +8,13 @@ import '../../domain/entities/verification_channel.dart';
 import '../cubit/auth_cubit.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, this.onContinueAsGuest});
+  const LoginPage({super.key, this.asSheet = false});
 
-  /// يُعرَض «متابعة كزائر» حين تُمرَّر — أي حين تكون الشاشة **بوّابة دفع** لا
-  /// دخولاً من الحساب.
+  /// تُعرَض ورقةً منبثقة (بوّابة الدفع) لا صفحةً في المُوجِّه.
   ///
-  /// ‼️ **ومسار الزائر باقٍ بقرار المالك (2026-08-26)**: المتجر حذفه، والتطبيق
-  /// يُبقيه. إلزامُ كلّ مشترٍ بالتسجيل يرفع الاحتكاك ويُسقط جزءاً من المبيعات،
-  /// والدخول هنا **مقترحٌ لا سدّ**.
-  final VoidCallback? onContinueAsGuest;
+  /// ‼️ **يغيّر طريقة الإغلاق لا الشكل**: الورقة مسارٌ على `Navigator` الجذر،
+  /// و`context.pop()` الخاصّ بـgo_router يُغلق الصفحة التي تحتها بدلاً منها.
+  final bool asSheet;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -51,7 +49,7 @@ class _LoginPageState extends State<LoginPage> {
     /// `Navigator` الجذر، بينما `context.pop()` يُنادي مُوجِّه go_router —
     /// فيُغلق **الصفحة التي تحتها** (السلّة) وتبقى الورقة معلّقةً فوق شاشةٍ
     /// خاطئة. والفرق لا يظهر إلّا بتشغيلٍ حقيقيّ بعد دخولٍ ناجح.
-    if (widget.onContinueAsGuest != null) {
+    if (widget.asSheet) {
       Navigator.of(context).pop(true);
       return;
     }
@@ -239,26 +237,18 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
 
-                /// ‼️ **بابٌ للخروج لا زينة.**
+                /// ‼️ **ولا «متابعة كزائر» هنا — والسبب ليس تفضيلاً.**
                 ///
-                /// من وصل إلى هنا وسلّته جاهزة **ينوي الشراء الآن**؛ وشاشةُ
-                /// دخولٍ بلا مخرج تجعله يغلق التطبيق بدل أن يسجّل. فيُعرَض
-                /// الدخول مقترحاً (يوفّر عليه كتابة اسمه وجوّاله في كلّ عنوان)
-                /// ويبقى الطريق مفتوحاً. وهو قرار المالك صراحةً: «نُبقيه لا
-                /// نحذفه» (2026-08-26).
-                if (widget.onContinueAsGuest != null && !onCode) ...[
-                  const SizedBox(height: 6),
-                  TextButton(
-                    onPressed: state.isBusy ? null : widget.onContinueAsGuest,
-                    child: const Text(
-                      'متابعة كزائر بلا حساب',
-                      style: TextStyle(
-                        color: TintColors.textMuted,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ],
+                /// كان الزرّ موجوداً يوماً واحداً. ثمّ تبيّن أنّ مسار الزائر
+                /// **لا يعمل أصلاً**: `POST /orders/checkout` يرفض بـ401
+                /// «يلزم تأكيد رقم الجوّال» ما لم يصحبه توكن عميلٍ أو توكن
+                /// طلبٍ مُصدَرٌ بعد رمز تحقّق — والتطبيق لا يعرف الثاني. فكان
+                /// الزائر يختار ويحدّد موقعه ويكتب جوّاله **ثمّ يُرفَض عند آخر
+                /// ضغطة** برسالةٍ لا يفهم سببها.
+                ///
+                /// ‼️ والحارس نفسه بُني لسببٍ أثقل من الطلبات الوهميّة: بلا
+                /// هويّةٍ مُثبَتة كان يُصرَف **رصيد محفظة عميلٍ آخر** بكتابة
+                /// جوّاله في نموذج العنوان.
               ],
             ),
           );
