@@ -72,6 +72,19 @@ class CheckoutRemoteDataSource {
         'city': address.city,
         'neighborhood': address.neighborhood,
         'details': address.details,
+        // ‼️ **الأربعة كانت تُجرَّد قبل الإرسال ولا يعلم بها أحد.**
+        //
+        //    يجمعها التطبيق ويعرضها في شاشة الدفع، ثمّ يُسقطها هنا لأنّ
+        //    `CheckoutAddressDto` لم يكن يعرفها والخادم `forbidNonWhitelisted`.
+        //    فيصل الطلب اللوحةَ وأودو بعنوانٍ ناقص — **بلا الدور ولا رقم الشقّة
+        //    ولا العنوان الوطنيّ** — ولا خطأ في أيّ سجلّ. (المالك 2026-08-27.)
+        //
+        //    ‼️ **وتُرسَل ولو فارغةً**: فراغٌ صريح يمسح قيمةً قديمة عند تعديل
+        //    عنوان، وإسقاطُ المفتاح يُبقيها.
+        'extraDetails': address.extraDetails ?? '',
+        'shortCode': address.shortCode ?? '',
+        'buildingNumber': address.buildingNumber ?? '',
+        'postalCode': address.postalCode ?? '',
         if (address.lat != null) 'lat': address.lat,
         if (address.lng != null) 'lng': address.lng,
       },
