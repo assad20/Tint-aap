@@ -221,20 +221,31 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   ],
                 ),
                 const SizedBox(height: 14),
+                /// ‼️ **سطر التوفّر يقرأ الكمّية لا `isAvailable`.**
+                ///
+                /// `isAvailable` يُشتقّ من `json['isAvailable'] ?? true`،
+                /// **والخادم لا يُرسل هذا الحقل في بطاقة المنتج إطلاقاً** — فهو
+                /// `true` لكلّ منتجٍ بلا استثناء. فكان السطر يقول «متوفّر» لكلّ
+                /// شيء، **ومنه ما نفد**: بطاقةٌ في البحث تقول «نفدت الكمية»،
+                /// وصفحتُه تقول «متوفّر» بعلامةٍ خضراء، وزرُّها معطّل.
+                ///
+                /// (رُصد بتشغيلٍ حقيقيّ على المحاكي 2026-08-29، ولم يكشفه
+                /// تحليلٌ ولا اختبار: العلم موجودٌ ومقروءٌ وقيمتُه صحيحةُ
+                /// النوع — وكاذبةٌ في المعنى.)
                 Row(
                   children: [
                     Icon(
-                      p.isAvailable
+                      !p.isSoldOut
                           ? Icons.check_circle_rounded
                           : Icons.remove_circle_rounded,
-                      color: p.isAvailable ? Colors.green : TintColors.danger,
+                      color: !p.isSoldOut ? Colors.green : TintColors.danger,
                       size: 18,
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      p.isAvailable ? 'متوفّر' : 'غير متوفّر حالياً',
+                      !p.isSoldOut ? 'متوفّر' : 'نفدت الكمية',
                       style: TextStyle(
-                        color: p.isAvailable ? Colors.green : TintColors.danger,
+                        color: !p.isSoldOut ? Colors.green : TintColors.danger,
                         fontWeight: FontWeight.w700,
                         fontSize: 13,
                       ),
@@ -268,7 +279,24 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
             color: Colors.white,
             border: Border(top: BorderSide(color: TintColors.line)),
           ),
-          child: Row(
+          /// ‼️ **عمودٌ فوق الصفّ — لا صفٌّ وحده.**
+          ///
+          /// كان الشريط `Row` صرفاً، فإدراج زرٍّ بعرضٍ كامل فيه يجعله **ضلعاً
+          /// ثالثاً يتقاسم العرض** مع عدّاد الكمّية وزرّ السلّة — فينضغط إلى لا
+          /// شيء ولا يظهر، بلا خطأ فيضانٍ يدلّ عليه. (رُصد بالتشغيل على
+          /// المحاكي 2026-08-29، وهو خطأٌ في وضعي أنا لا في الزرّ.)
+          ///
+          /// ‼️ **و`mainAxisSize.min`** كي لا يمتدّ الشريط ليملأ الشاشة.
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              /// مخرجٌ لمن وجد المنتج نافداً — لا زرٌّ معطّلٌ وحده. وهو زائرٌ
+              /// أعلن نيّة الشراء صراحةً، وكان طريقه ينتهي عند زرٍّ لا يستجيب.
+              if (p.isSoldOut) ...[
+                _StockAlertButton(product: p),
+                const SizedBox(height: 10),
+              ],
+              Row(
             children: [
               Container(
                 decoration: BoxDecoration(
@@ -325,20 +353,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   ),
                 ),
               ),
-
-              /// ‼️ **مخرجٌ لمن وجد المنتج نافداً — لا زرٌّ معطّلٌ وحده.**
-              ///
-              /// كان الطريق ينتهي هنا: «نفدت الكمية» وزرٌّ لا يستجيب. فيخرج
-              /// الزائر ولا نعرف أنّه أرادها، ولا سبيل لنا إلى إخباره حين تعود.
-              /// وهو **زائرٌ أعلن نيّة الشراء صراحةً** — أثمنُ ما يمرّ بالمتجر.
-              ///
-              /// ‼️ **ويُعرَض للمسجَّل وحده**: التنبيه يُرسَل إلى جهازٍ مربوطٍ
-              /// بحساب، ووعدُ إشعارٍ لزائرٍ بلا هويّة وعدٌ لا يُوفى.
-              if (p.isSoldOut)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-                  child: _StockAlertButton(product: p),
-                ),
+                ],
+              ),
             ],
           ),
         ),
