@@ -32,8 +32,24 @@ class TrackingConsentPage extends StatefulWidget {
 }
 
 class _TrackingConsentPageState extends State<TrackingConsentPage> {
-  late bool _analytics = widget.tracking.consent.analytics;
-  late bool _ads = widget.tracking.consent.ads;
+  /// ‼️ **المفتاحان يظهران مُفعَّلين في أوّل عرضٍ — والقرار يبقى للعميل.**
+  ///
+  /// طلب المالك (2026-08-29): يراهما مفتوحين فيُغلق ما لا يريد، بدل أن يفتح
+  /// ما لا يفهم. وأكثر من يُعرَض عليه اختيارٌ لا يلمسه — فالوضع الابتدائيّ
+  /// **هو** القرار عمليّاً.
+  ///
+  /// ‼️ **ولا يُجمَع شيءٌ قبل أن يضغط.** الظاهر على الشاشة **اقتراح** لا
+  /// موافقة: `isDecided` يبقى `false` حتّى يُحفظ الاختيار، والقياس معلَّقٌ
+  /// عليه. فالفرق بين «مفتاحٌ مرفوع» و«موافقةٌ مسجَّلة» محفوظٌ كما كان.
+  ///
+  /// ‼️ **ومن فتحها من الإعدادات يرى اختياره هو** لا الاقتراح — وإلّا بدا أنّ
+  /// التطبيق أعاد تشغيل ما أطفأه.
+  late bool _analytics = widget.tracking.consent.isDecided
+      ? widget.tracking.consent.analytics
+      : true;
+  late bool _ads = widget.tracking.consent.isDecided
+      ? widget.tracking.consent.ads
+      : true;
   bool _saving = false;
 
   Future<void> _save({bool? analytics, bool? ads}) async {
