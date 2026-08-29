@@ -430,6 +430,25 @@ class _StockAlertButton extends StatelessWidget {
         width: double.infinity,
         child: OutlinedButton.icon(
           onPressed: () => context.push('/login'),
+          /// ‼️ **لونٌ صريحٌ لا موروثٌ من السمة.**
+          ///
+          /// كان `OutlinedButton` يأخذ ألوانه الافتراضيّة، فخرج النصّ باهتاً
+          /// **بجوار زرٍّ معطّل** — فيُقرأ معطّلاً مثله ولا يُضغط. وهو الزرّ
+          /// **الوحيد الحيّ** في هذا الشريط حين ينفد المنتج. (رصده المالك
+          /// 2026-08-29 بالنظر إلى الشاشة.)
+          style: OutlinedButton.styleFrom(
+            foregroundColor: TintColors.charcoal,
+            backgroundColor: TintColors.blush,
+            side: const BorderSide(color: TintColors.sand, width: 1.4),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            textStyle: const TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 14,
+            ),
+          ),
           icon: const Icon(Icons.notifications_none_rounded, size: 18),
           label: const Text('سجّل الدخول ليصلك إشعارٌ عند توفّره'),
         ),
@@ -442,6 +461,25 @@ class _StockAlertButton extends StatelessWidget {
         return SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
+            /// ‼️ **لونٌ صريحٌ لا موروثٌ من السمة.**
+            ///
+            /// كان `OutlinedButton` يأخذ ألوانه الافتراضيّة، فخرج النصّ باهتاً
+            /// **بجوار زرٍّ معطّل** — فيُقرأ معطّلاً مثله ولا يُضغط. وهو الزرّ
+            /// **الوحيد الحيّ** في هذا الشريط حين ينفد المنتج. (رصده المالك
+            /// 2026-08-29 بالنظر إلى الشاشة.)
+            style: OutlinedButton.styleFrom(
+              foregroundColor: TintColors.charcoal,
+              backgroundColor: TintColors.blush,
+              side: const BorderSide(color: TintColors.sand, width: 1.4),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              textStyle: const TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 14,
+              ),
+            ),
             onPressed: () async {
               final cubit = context.read<StockAlertsCubit>();
               final messenger = ScaffoldMessenger.of(context);
