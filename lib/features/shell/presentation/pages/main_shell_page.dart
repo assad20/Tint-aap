@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../../../cart/presentation/cubit/cart_cubit.dart';
 import '../../../../core/tracking/tracking_events.dart';
 import '../../../../core/tracking/tracking_service.dart';
-import '../../../settings/presentation/pages/tracking_consent_page.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -65,30 +64,27 @@ class _MainShellPageState extends State<MainShellPage> {
   /// ‼️ **وتنتظر وصول الإعدادات**: `needsConsentDecision` تعود `false`
   /// ما دامت القناة مُطفأة — وهي كذلك حتّى يصل ردّ `config`. فعرضُها فوراً كان
   /// يسأل مستخدمي متاجرَ لا تقيس أصلاً.
-  bool _consentAsked = false;
-
-  Future<void> _maybeAskConsent() async {
-    if (_consentAsked || !mounted) return;
-    final tracking = context.read<TrackingService>();
-
-    // ‼️ **تُنتظَر الإشارة لا المهلة** — انظر `TrackingService.ready`.
-    await tracking.ready;
-    if (!mounted) return;
-    if (!tracking.needsConsentDecision) return;
-
-    _consentAsked = true;
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => TrackingConsentPage(tracking: tracking),
-        fullscreenDialog: true,
-      ),
-    );
-  }
+  /// ‼️ **لا شاشة موافقةٍ حاجزة عند الإقلاع — حُذفت بقرار المالك 2026-08-29.**
+  ///
+  /// كانت أوّل ما يراه الزائر: استمارةُ خصوصيّةٍ قبل أن يرى منتجاً واحداً، ولم
+  /// يقرّر بعدُ أنّه يريد شيئاً. وبعد أن صار الوضع الابتدائيّ مُفعَّلاً، لم تعد
+  /// تفعل شيئاً إلّا أن يضغط الجميع «تأكيد» بلا قراءة — **احتكاكٌ بلا فائدةٍ
+  /// لأحد.**
+  ///
+  /// ‼️ **وحُذفت بعد فحصٍ لا بافتراض**: لا معرّف إعلانيّ يُقرأ بأنفسنا، وفايربيس
+  /// على iOS لا يقرأ IDFA افتراضيّاً ⇒ **لا نافذة ATT تلزم**؛ وPlay يطلب
+  /// إفصاحاً في «أمان البيانات» لا شاشةً حاجزة.
+  ///
+  /// ‼️ **والصفحة باقيةٌ في «حسابي ← الخصوصيّة والقياس»** — والحذف مشروطٌ
+  /// ببقائها: افتراضٌ مفتوحٌ بلا مخرجٍ ظاهر ليس اختياراً.
+  ///
+  /// ‼️ **وتُعاد هذه الشاشة إن بيع في أوروبا** — اللائحة تشترط موافقةً سابقة.
+  /// عندها يُستعاد هذا النداء ويُقيَّد ببلد الجهاز، ومعه الوضع الابتدائيّ في
+  /// `TrackingConsent.undecided`.
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeAskConsent());
   }
 
   void _ensureLoaded(BuildContext context, int index) {
