@@ -71,7 +71,18 @@
 			يفتح ماسح الباركود يُسأل «للسماح لتابي بالتقاط صورة الهوية» — نصٌّ
 			مخيفٌ لا علاقة له بما يفعل، ومراجعةُ آبل ترفض ما لا يصف استعماله.
 		-->
-		<key>NSCameraUsageDescription</key>
+		<!--
+		‼️ **وضع الخلفيّة للإشعارات — لرسائل البيانات لا للتنبيهات وحدها.**
+
+		التنبيه المرئيّ يصل بلا هذا، أمّا الرسالة الصامتة التي يلتقطها
+		`onBackgroundMessage` (تحديث حالة طلب مثلاً) فلا تُوقظ التطبيق بدونه —
+		فتصل متأخّرةً حين يفتحه صاحبه، أو لا تصل.
+	-->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+	<key>NSCameraUsageDescription</key>
 		<string>لمسح باركود المنتجات والبحث عنها، وللتحقّق من الهويّة عند الدفع بتابي.</string>
 		<key>NSMicrophoneUsageDescription</key>
 		<string>يُستخدم للسماح لـ Tabby بإجراء التحقق المباشر أثناء عملية KYC.</string>
