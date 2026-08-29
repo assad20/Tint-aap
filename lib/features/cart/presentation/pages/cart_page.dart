@@ -8,6 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../auth/presentation/cubit/auth_cubit.dart';
+import '../../../shell/presentation/cubit/shell_cubit.dart';
 import '../../../auth/presentation/pages/login_page.dart';
 
 import '../../../../app/theme/app_theme.dart';
@@ -22,6 +23,35 @@ class CartPage extends StatefulWidget {
 }
 
 class _CartPageState extends State<CartPage> {
+  /// ‼️ **متحكّمٌ صريح — والحقل كان بلا واحد.**
+  ///
+  /// بلا متحكّمٍ لا سبيل لقراءة ما كُتب عند الضغط على «تطبيق»، ولذلك كان
+  /// `onChanged` هو الطريق الوحيد. وهو ما جعل الكود يُطبَّق حرفاً بحرف.
+  final _promoController = TextEditingController();
+
+  @override
+  void dispose() {
+    _promoController.dispose();
+    super.dispose();
+  }
+
+  /// يُطبّق كود الخصم ويقول للعميل أنّه وقع.
+  ///
+  /// ‼️ **الردّ ضروريّ لا تحسين.** الخصم يظهر في ملخّص الطلب أسفل الشاشة —
+  /// وقد يكون خارج مجال النظر لحظة الضغط. فبلا سطرٍ يؤكّد، يبقى العميل ينتظر
+  /// شيئاً حدث بالفعل، أو يُعيد الكتابة ظنّاً أنّه فشل.
+  void _applyPromo(BuildContext context, String value) {
+    final code = value.trim();
+    FocusScope.of(context).unfocus();
+    context.read<CartCubit>().applyPromoCode(code);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(code.isEmpty ? 'أُزيل كود الخصم.' : 'طُبّق الكود: $code'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -48,9 +78,18 @@ class _CartPageState extends State<CartPage> {
                 title: 'سلتك فارغة حاليًا',
                 subtitle:
                     'أضِف لمساتك الساحرة للإطلالة القادمة واكتشف أحدث التشكيلات.',
+                /// ‼️ **كان زرّاً لا يفعل شيئاً — وهو أسوأ من غيابه.**
+                ///
+                /// العميل فتح السلّة فوجدها فارغة، وهذا **الطريق الوحيد** الذي
+                /// نعرضه للخروج من الفراغ. فضغطةٌ بلا أثرٍ تُقرأ عطلاً في
+                /// التطبيق لا خياراً مفقوداً، ومن يظنّ التطبيق معطوباً يغلقه.
+                ///
+                /// ‼️ **وتبديل تبويبٍ لا دفعُ مسار**: الشاشات تعيش في
+                /// `IndexedStack` داخل القشرة، و`push` كان سيضع رئيسيّةً ثانية
+                /// فوق السلّة — فيعود «رجوع» إلى سلّةٍ فارغة.
                 action: TintPrimaryButton(
                   label: 'اكتشف التشكيلة',
-                  onPressed: () {},
+                  onPressed: () => context.read<ShellCubit>().selectTab(0),
                 ),
               );
             }
@@ -242,17 +281,27 @@ class _CartPageState extends State<CartPage> {
                       const SizedBox(height: 12),
                       Row(
                         children: [
+                          /// ‼️ **الكود يُطبَّق عند الضغط لا عند كلّ حرف.**
+                          ///
+                          /// كان `onChanged` يستدعي `applyPromoCode` بكلّ ضغطة
+                          /// مفتاح، فيُحاول تطبيق «S» ثمّ «SA» ثمّ «SAL»… وزرّ
+                          /// «تطبيق» بجانبه **لا يفعل شيئاً**. فالعميل يكتب
+                          /// ويضغط ولا يرى تغيّراً، فيظنّ الكود مرفوضاً وهو
+                          /// مُطبَّقٌ أصلاً.
                           Expanded(
                             child: TextField(
+                              controller: _promoController,
                               decoration: const InputDecoration(
                                 hintText: 'أدخِل كود الخصم هنا...',
                               ),
-                              onChanged: context.read<CartCubit>().applyPromoCode,
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (value) => _applyPromo(context, value),
                             ),
                           ),
                           const SizedBox(width: 10),
                           FilledButton(
-                            onPressed: () {},
+                            onPressed: () =>
+                                _applyPromo(context, _promoController.text),
                             child: const Text('تطبيق'),
                           ),
                         ],

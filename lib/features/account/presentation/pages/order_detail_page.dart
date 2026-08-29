@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/models/account_models.dart';
 import '../../../../core/widgets/tint_ui.dart';
+import '../../../cart/presentation/cubit/cart_cubit.dart';
+import '../../../shell/presentation/cubit/shell_cubit.dart';
 import '../cubit/orders_cubit.dart';
 
 class OrderDetailPage extends StatelessWidget {
@@ -13,6 +15,57 @@ class OrderDetailPage extends StatelessWidget {
   });
 
   final String orderId;
+
+  /// يُعيد أصناف الطلب إلى السلّة ثمّ يفتحها.
+  ///
+  /// ‼️ **يُضاف ما يُمكن ويُقال ما تعذّر** — لا كلّ شيءٍ أو لا شيء. الطلب قديم،
+  /// وبعض أصنافه قد نفد أو رُفع من الكتالوج. فإسقاط العمليّة كلّها لأجل صنفٍ
+  /// واحد يُضيّع بيعةً كانت في اليد، والصمت عن النقص يجعله يدفع ثمن ما لم
+  /// يقصده.
+  ///
+  /// ‼️ **و`addProduct` يُعيد `false` عند النفاد** — يُقرأ لا يُهمَل.
+  void _reorder(BuildContext context, OrderModel order) {
+    final cart = context.read<CartCubit>();
+    var added = 0;
+    final skipped = <String>[];
+
+    for (final line in order.items) {
+      var ok = true;
+      for (var i = 0; i < line.qty; i++) {
+        if (!cart.addProduct(line.product, variant: line.variant)) {
+          ok = false;
+          break;
+        }
+      }
+      if (ok) {
+        added++;
+      } else {
+        skipped.add(line.product.title);
+      }
+    }
+
+    final messenger = ScaffoldMessenger.of(context);
+    if (added == 0) {
+      messenger.showSnackBar(const SnackBar(
+        content: Text('تعذّرت إعادة الطلب — أصنافه غير متوفّرة حاليّاً.'),
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+
+    messenger.showSnackBar(SnackBar(
+      content: Text(skipped.isEmpty
+          ? 'أُضيفت أصناف الطلب إلى سلّتك ✅'
+          : 'أُضيف $added صنفاً — وتعذّر: ${skipped.join('، ')}'),
+      behavior: SnackBarBehavior.floating,
+    ));
+
+    /// ‼️ **يُغلَق التفصيل ويُفتح تبويب السلّة** — لا `push` لسلّةٍ ثانية:
+    /// الشاشات تعيش في `IndexedStack` داخل القشرة، ونسخةٌ ثانية فوقها تجعل
+    /// «رجوع» يعود إلى سلّةٍ لا تُحدَّث.
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    context.read<ShellCubit>().selectTab(3);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -192,10 +245,14 @@ class OrderDetailPage extends StatelessWidget {
           ),
           if (order.status == OrderStatus.delivered) ...[
             const SizedBox(height: 14),
+            /// ‼️ **كان زرّاً لا يفعل شيئاً — وهو معروضٌ على أسهل بيعةٍ ممكنة.**
+            ///
+            /// لا يظهر إلّا للطلبات **المُسلَّمة**، أي لعميلٍ استلم ورضي ويريد
+            /// المزيد. وضغطةٌ بلا أثرٍ هنا تُضيّع بيعةً كانت في اليد.
             TintPrimaryButton(
               label: 'إعادة الطلب',
               expanded: true,
-              onPressed: () {},
+              onPressed: () => _reorder(context, order),
               icon: const Icon(Icons.restart_alt_rounded),
             ),
           ],
