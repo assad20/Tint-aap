@@ -26,7 +26,7 @@ Future<void> _runWrite(
   } catch (_) {
     messenger.showSnackBar(
       const SnackBar(
-        content: Text('تعذّر الحفظ — تحقّقي من الاتّصال وحاولي مجدداً.'),
+        content: Text('تعذّر الحفظ — تحقّق من الاتّصال وحاوِل مجدداً.'),
         behavior: SnackBarBehavior.floating,
       ),
     );

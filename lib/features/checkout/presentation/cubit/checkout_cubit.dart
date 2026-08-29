@@ -416,7 +416,7 @@ class CheckoutCubit extends Cubit<CheckoutState> {
   /// «مدى» و«Visa / Mastercard» بطاقتان منفصلتان في الشاشة ويُرسلان المعرّف
   /// نفسه (`paytabs`) — فإرسال المعرّف يجعل التقرير يقول «paytabs» للاثنين،
   /// **فيضيع بالضبط التمييز الذي بُنيت الشاشة لأجله** ولا يُعرف أيّ شبكةٍ
-  /// يختارها المشتري السعوديّ. (رُصد بالتشغيل 2026-08-13: نقرتان ⇒
+  /// يختارها المشتري السعُدّ. (رُصد بالتشغيل 2026-08-13: نقرتان ⇒
   /// `payment_type=paytabs` مرّتين.)
   String _paymentTypeFor(String methodId) =>
       methodId == 'paytabs' ? state.cardBrand : methodId;

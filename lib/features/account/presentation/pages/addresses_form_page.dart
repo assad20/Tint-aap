@@ -162,7 +162,7 @@ class _AddressFormPageState extends State<AddressFormPage> {
     final newCity = picked.city?.trim() ?? '';
     final newHood = picked.neighborhood?.trim() ?? '';
     /// ‼️ **رقم المبنى يُصدَّر الشارع** — «2868 طريق العروبة» هو ما يُكتب في
-    /// العناوين السعوديّة وأوّل ما يبحث عنه المندوب على الباب.
+    /// العناوين السعُدّة وأوّل ما يبحث عنه المندوب على الباب.
     final newStreet = [
       picked.buildingNumber?.trim(),
       picked.street?.trim(),
@@ -197,7 +197,7 @@ class _AddressFormPageState extends State<AddressFormPage> {
     if (!picked.hasAddress) {
       // ‼️ **يُقال ولا يُترك للصمت**: الترميز العكسيّ لا يعمل على كلّ جهاز،
       //    وسكوتُنا يجعل العميل يظنّ الخريطة معطّلة وقد نُقل الدبّوس فعلاً.
-      _snack('نُقل الدبّوس ✅ — تعذّر استنباط الاسم، اكتبي المدينة والحيّ.');
+      _snack('نُقل الدبّوس ✅ — تعذّر استنباط الاسم، اكتب المدينة والحيّ.');
       return;
     }
 
@@ -208,7 +208,7 @@ class _AddressFormPageState extends State<AddressFormPage> {
       setState(() => _detailsStale = true);
     }
     _snack(changed
-        ? 'حُدّثت المدينة والحيّ — راجعي تفاصيل العنوان.'
+        ? 'حُدّثت المدينة والحيّ — راجِع تفاصيل العنوان.'
         : 'تمّ تحديد الموقع ✅');
   }
 
@@ -227,7 +227,7 @@ class _AddressFormPageState extends State<AddressFormPage> {
     final mobile = mobileController.text.trim();
 
     if (recipient.isEmpty || mobile.isEmpty || city.isEmpty || details.isEmpty) {
-      _snack('أكملي اسم المستلم وجوّاله والمدينة وتفاصيل العنوان.');
+      _snack('أكمل اسم المستلم وجوّاله والمدينة وتفاصيل العنوان.');
       return;
     }
 
@@ -286,7 +286,7 @@ class _AddressFormPageState extends State<AddressFormPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
-      _snack('تعذّر حفظ العنوان — تحقّقي من الاتّصال وحاولي مجدداً.');
+      _snack('تعذّر حفظ العنوان — تحقّق من الاتّصال وحاوِل مجدداً.');
     }
   }
 
@@ -341,7 +341,7 @@ class _AddressFormPageState extends State<AddressFormPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'حدّدي الموقع على الخريطة',
+                          'حدّد الموقع على الخريطة',
                           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
                         ),
                         const Text(
@@ -438,7 +438,7 @@ class _AddressFormPageState extends State<AddressFormPage> {
                     minLines: 2,
                     maxLines: 3,
                     warning:
-                        _detailsStale ? 'تغيّر الحيّ — راجعي التفاصيل' : null,
+                        _detailsStale ? 'تغيّر الحيّ — راجِع التفاصيل' : null,
                     onChanged: (_) {
                       if (!_detailsStale && !_detailsFromMap) return;
                       setState(() {
@@ -834,7 +834,7 @@ class _LockedAddress extends StatelessWidget {
             ),
           const SizedBox(height: 6),
           const Text(
-            'يُحدَّد من الخريطة — اضغطي «تعديل» لتغييره',
+            'يُحدَّد من الخريطة — اضغط «تعديل» لتغييره',
             style: TextStyle(fontSize: 11, color: TintColors.textMuted),
           ),
         ],

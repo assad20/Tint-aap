@@ -112,7 +112,7 @@ class _AssistantPageState extends State<AssistantPage> {
                           textInputAction: TextInputAction.send,
                           onSubmitted: (_) => _send(context),
                           decoration: const InputDecoration(
-                            hintText: 'اسألي عن عطر، تنسيق فستان، هدية...',
+                            hintText: 'اسأل عن عطر، تنسيق فستان، هدية...',
                           ),
                         ),
                       ),

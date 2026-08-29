@@ -224,7 +224,7 @@ class CatalogRepositoryImpl implements CatalogRepository {
       if (error.statusCode == 404) return BarcodeUnknown(code);
       return BarcodeFailed(error.message);
     } catch (_) {
-      return const BarcodeFailed('تعذّر الاتّصال — تحقّقي من الإنترنت وأعيدي المحاولة.');
+      return const BarcodeFailed('تعذّر الاتّصال — تحقّق من الإنترنت وأعِد المحاولة.');
     }
   }
 

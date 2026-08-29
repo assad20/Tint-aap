@@ -47,9 +47,9 @@ class _CartPageState extends State<CartPage> {
                 icon: Icons.shopping_cart_outlined,
                 title: 'سلتك فارغة حاليًا',
                 subtitle:
-                    'أضيفي لمساتك الساحرة للإطلالة القادمة واكتشفي أحدث التشكيلات.',
+                    'أضِف لمساتك الساحرة للإطلالة القادمة واكتشف أحدث التشكيلات.',
                 action: TintPrimaryButton(
-                  label: 'اكتشفي التشكيلة',
+                  label: 'اكتشف التشكيلة',
                   onPressed: () {},
                 ),
               );
@@ -84,7 +84,7 @@ class _CartPageState extends State<CartPage> {
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: const Text(
-                      'منتجاتك الأنيقة بانتظارك، أكملي طلبك الآن!',
+                      'منتجاتك الأنيقة بانتظارك، أكمل طلبك الآن!',
                       style: TextStyle(
                         color: Color(0xFFBE185D),
                         fontSize: 10,
@@ -245,7 +245,7 @@ class _CartPageState extends State<CartPage> {
                           Expanded(
                             child: TextField(
                               decoration: const InputDecoration(
-                                hintText: 'أدخلي كود الخصم هنا...',
+                                hintText: 'أدخِل كود الخصم هنا...',
                               ),
                               onChanged: context.read<CartCubit>().applyPromoCode,
                             ),
@@ -321,7 +321,7 @@ class _CartPageState extends State<CartPage> {
                               ),
                               const SizedBox(height: 4),
                               const Text(
-                                'أزيليها لتتمكّني من إتمام الطلب.',
+                                'أزِلها لتتمكّن من إتمام الطلب.',
                                 style: TextStyle(
                                   color: Color(0xFFBE123C),
                                   fontSize: 11,
@@ -347,7 +347,7 @@ class _CartPageState extends State<CartPage> {
                       ],
                       TintPrimaryButton(
                         label: state.hasUnavailable
-                            ? 'أزيلي الأصناف غير المتاحة أوّلاً'
+                            ? 'أزِل الأصناف غير المتاحة أوّلاً'
                             : 'إتمام الطلب الآن',
                         expanded: true,
                         onPressed: state.hasUnavailable
@@ -368,7 +368,7 @@ class _CartPageState extends State<CartPage> {
                     Expanded(child: _TrustTile(icon: Icons.restart_alt_rounded, title: 'استرجاع سهل')),
                   ],
                 ),
-                // ‼️ أُزيل رفّ «أضيفي لمستك الأخيرة»: كان يعرض ثلاثة منتجات من
+                // ‼️ أُزيل رفّ «أضِف لمستك الأخيرة»: كان يعرض ثلاثة منتجات من
                 // `FakeSeedData` — لا وجود لها في الكتالوج، فمن يضيفها لا
                 // يستطيع شراءها. ويعود حين يوجد مصدرٌ حقيقيّ للتوصيات.
               ],

@@ -11,7 +11,7 @@ List<ChatMessageModel> assistantGreeting() => [
       ChatMessageModel(
         role: ChatRole.assistant,
         content:
-            'أهلاً بك في تنت (Tint)! أنا مستشار الموضة والجمال ✨. أي قسم تتصفحين اليوم لأساعدك في الاختيار؟',
+            'أهلاً بك في تنت (Tint)! أنا مستشار الموضة والجمال ✨. أي قسم تتصفّح اليوم لأساعدك في الاختيار؟',
         createdAt: DateTime.now(),
       ),
     ];

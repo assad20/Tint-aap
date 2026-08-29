@@ -154,7 +154,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
     setState(() => _locating = true);
     try {
       if (!await Geolocator.isLocationServiceEnabled()) {
-        _snack('خدمة الموقع مُغلقة — فعّليها من إعدادات الجهاز.');
+        _snack('خدمة الموقع مُغلقة — فعّلها من إعدادات الجهاز.');
         return;
       }
 
@@ -163,11 +163,11 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
         permission = await Geolocator.requestPermission();
       }
       if (permission == LocationPermission.deniedForever) {
-        _snack('إذن الموقع مرفوضٌ نهائيّاً — فعّليه من إعدادات التطبيق.');
+        _snack('إذن الموقع مرفوضٌ نهائيّاً — فعّله من إعدادات التطبيق.');
         return;
       }
       if (permission == LocationPermission.denied) {
-        _snack('نحتاج إذن الموقع لتحديد مكانك — أو حرّكي الخريطة يدويّاً.');
+        _snack('نحتاج إذن الموقع لتحديد مكانك — أو حرّك الخريطة يدويّاً.');
         return;
       }
 
@@ -195,7 +195,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
       if (!mounted) return;
       _moveTo(LatLng(fresh.latitude, fresh.longitude));
     } catch (_) {
-      _snack('تعذّر تحديد موقعك الآن — حاولي مجدداً أو حرّكي الخريطة.');
+      _snack('تعذّر تحديد موقعك الآن — حاوِل مجدداً أو حرّك الخريطة.');
     } finally {
       if (mounted) setState(() => _locating = false);
     }
@@ -269,7 +269,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   /// ‼️ **الفقاعة تقول الحالة لا الترحيب**: «هنا» حين يكفي
-                  /// التقريب، و«قرّبي» حين لا يكفي. ورسالةٌ ثابتة تُطمئن العميل
+                  /// التقريب، و«قرّب» حين لا يكفي. ورسالةٌ ثابتة تُطمئن العميل
                   /// إلى دبّوسٍ لن يجده المندوب.
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
@@ -285,7 +285,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                       ],
                     ),
                     child: Text(
-                      _precise ? 'سيصل طلبك هنا' : 'قرّبي الخريطة وحدّدي المكان',
+                      _precise ? 'سيصل طلبك هنا' : 'قرّب الخريطة وحدّد المكان',
                       style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,
@@ -496,7 +496,7 @@ class _AddressSheet extends StatelessWidget {
                         resolving && line.isEmpty
                             ? 'جارٍ تحديد العنوان…'
                             : (line.isEmpty
-                                ? 'حرّكي الخريطة إلى مكان التوصيل'
+                                ? 'حرّك الخريطة إلى مكان التوصيل'
                                 : line),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -533,7 +533,7 @@ class _AddressSheet extends StatelessWidget {
                 onPressed: precise ? onConfirm : null,
                 icon: Icon(precise ? Icons.check_rounded : Icons.add_rounded),
                 label: Text(
-                  precise ? 'تأكيد الموقع' : 'قرّبي الخريطة أكثر',
+                  precise ? 'تأكيد الموقع' : 'قرّب الخريطة أكثر',
                   style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
                 ),
               ),

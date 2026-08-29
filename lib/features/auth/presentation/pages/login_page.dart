@@ -130,7 +130,7 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 6),
                 Text(
                   _askName
-                      ? 'دخلتِ بنجاح. اكتبي اسمك مرّةً واحدة — يُكتب على طلباتك ولا نسألك عنه بعدها.'
+                      ? 'دخلتَ بنجاح. اكتب اسمك مرّةً واحدة — يُكتب على طلباتك ولا نسألك عنه بعدها.'
                       : onCode
                           ? _sentLine(state)
                           : (_signup
@@ -217,7 +217,7 @@ class _LoginPageState extends State<LoginPage> {
                             FocusScope.of(context).unfocus();
                             if (_askName) {
                               if (_name.text.trim().length < 3) {
-                                _snack(context, 'اكتبي اسمك كما تريدينه على الطلب.');
+                                _snack(context, 'اكتب اسمك كما تريده على الطلب.');
                                 return;
                               }
                               await cubit.updateName(_name.text);
@@ -255,7 +255,7 @@ class _LoginPageState extends State<LoginPage> {
                                 }
                               } else if (!looksLikeSaudiMobile(_phone.text)) {
                                 _snack(context,
-                                    'أدخل رقم جوّالٍ سعوديّ صحيح (5xxxxxxxx).');
+                                    'أدخل رقم جوّالٍ سعُدّ صحيح (5xxxxxxxx).');
                                 return;
                               }
                               cubit.requestOtp(

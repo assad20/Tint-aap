@@ -30,7 +30,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
               icon: Icons.favorite_border_rounded,
               title: 'لم تقومي بحفظ أي منتج بعد',
               subtitle:
-                  'تصفحي تشكيلاتنا الأنيقة واحفظي القطع التي تعجبك هنا للعودة إليها بسهولة.',
+                  'تصفّح تشكيلاتنا الأنيقة واحفظ القطع التي تعجبك هنا للعودة إليها بسهولة.',
               action: TintPrimaryButton(
                 label: 'تصفح المنتجات الآن',
                 onPressed: () => Navigator.of(context).pop(),
@@ -50,7 +50,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'تألقي باختياراتك ✨',
+                            'تألّق باختياراتك ✨',
                             style: TextStyle(
                               color: TintColors.charcoal,
                               fontWeight: FontWeight.w900,
@@ -107,7 +107,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                   child: TintEmptyState(
                     icon: Icons.search_off_rounded,
                     title: 'لا توجد منتجات تطابق هذا الفلتر',
-                    subtitle: 'جرّبي فلترًا آخر أو عودي لاحقًا.',
+                    subtitle: 'جرّب فلترًا آخر أو عُد لاحقًا.',
                   ),
                 )
               else

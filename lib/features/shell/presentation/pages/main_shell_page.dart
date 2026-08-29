@@ -220,7 +220,7 @@ class _MainShellPageState extends State<MainShellPage> {
               /// والدائرة تحجب ربع ما كان يحجبه، وتبقى في متناول الإبهام.
               ///
               /// ‼️ **والاسم بقي داخلها**: أيقونةٌ وحدها تُقرأ زرَّ إضافةٍ أو
-              /// مشاركة، فلا يعرف من لم يجرّبها ماذا تفعل. و«اسألي» فعلٌ يدعو،
+              /// مشاركة، فلا يعرف من لم يجرّبها ماذا تفعل. و«اسأل» فعلٌ يدعو،
               /// ويسع الدائرة — بخلاف «مستشار تِنت».
               Positioned(
                 left: 20,
@@ -242,7 +242,7 @@ class _MainShellPageState extends State<MainShellPage> {
                           Icon(Icons.auto_awesome_rounded, size: 20),
                           SizedBox(height: 1),
                           Text(
-                            'اسألي',
+                            'اسأل',
                             style: TextStyle(
                               fontSize: 9.5,
                               fontWeight: FontWeight.w800,

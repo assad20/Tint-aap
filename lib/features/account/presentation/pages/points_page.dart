@@ -113,7 +113,7 @@ class PointsPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'أنتِ على بُعد ${2500 - bundle.availablePoints} نقطة فقط للحصول على خصم بقيمة 50 ﷼!',
+                      'أنت على بُعد ${2500 - bundle.availablePoints} نقطة فقط للحصول على خصم بقيمة 50 ﷼!',
                       style: const TextStyle(
                         color: TintColors.textMuted,
                         fontSize: 11,
@@ -141,7 +141,7 @@ class PointsPage extends StatelessWidget {
                           ),
                           SizedBox(height: 4),
                           Text(
-                            'لا تدعي مكافآتك تنتظر، تسوقي الآن.',
+                            'لا تدعي مكافآتك تنتظر، تسوّق الآن.',
                             style: TextStyle(
                               color: Color(0xFFD1D5DB),
                               fontSize: 11,
@@ -155,7 +155,7 @@ class PointsPage extends StatelessWidget {
                       style: FilledButton.styleFrom(
                         backgroundColor: TintColors.sand,
                       ),
-                      child: const Text('تسوقي الآن'),
+                      child: const Text('تسوّق الآن'),
                     ),
                   ],
                 ),
@@ -174,10 +174,10 @@ class PointsPage extends StatelessWidget {
                 mainAxisSpacing: 12,
                 childAspectRatio: 1.7,
                 children: const [
-                  _TipsTile(icon: Icons.shopping_bag_outlined, title: 'تسوقي أكثر', subtitle: '1 نقطة لكل ريال تنفقينه'),
-                  _TipsTile(icon: Icons.star_border_rounded, title: 'قيّمي مشترياتك', subtitle: '10 نقاط لكل تقييم'),
+                  _TipsTile(icon: Icons.shopping_bag_outlined, title: 'تسوّق أكثر', subtitle: '1 نقطة لكل ريال تنفقينه'),
+                  _TipsTile(icon: Icons.star_border_rounded, title: 'قيّم مشترياتك', subtitle: '10 نقاط لكل تقييم'),
                   _TipsTile(icon: Icons.share_outlined, title: 'ادعي صديقاتك', subtitle: '50 نقطة لكل دعوة ناجحة'),
-                  _TipsTile(icon: Icons.photo_camera_back_outlined, title: 'شاركي صورك', subtitle: '20 نقطة لمشاركة الإطلالة'),
+                  _TipsTile(icon: Icons.photo_camera_back_outlined, title: 'شارِك صورك', subtitle: '20 نقطة لمشاركة الإطلالة'),
                 ],
               ),
               const SizedBox(height: 14),

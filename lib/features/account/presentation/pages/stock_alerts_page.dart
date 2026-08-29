@@ -19,7 +19,7 @@ class StockAlertsPage extends StatelessWidget {
             return const TintEmptyState(
               icon: Icons.notifications_active_outlined,
               title: 'لا توجد تنبيهات توافر',
-              subtitle: 'أضيفي منتجات منتهية الكمية وسننبهك عند عودتها.',
+              subtitle: 'أضِف منتجات منتهية الكمية وسننبهك عند عودتها.',
             );
           }
           return ListView.separated(

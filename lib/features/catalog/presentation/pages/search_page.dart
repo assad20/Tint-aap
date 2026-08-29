@@ -79,7 +79,7 @@ class _SearchPageState extends State<SearchPage> {
                     unawaited(context.read<TrackingService>().logSearch(value));
                   },
                   decoration: InputDecoration(
-                    hintText: 'ابحثي عن عطر، فستان، هدية...',
+                    hintText: 'ابحث عن عطر، فستان، هدية...',
                     prefixIcon: const Icon(Icons.search),
                     /// ‼️ **زرّان في ذيل الحقل لا زرّ واحد.**
                     ///

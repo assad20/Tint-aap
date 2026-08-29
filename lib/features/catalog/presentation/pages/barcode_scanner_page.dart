@@ -84,7 +84,7 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
       case BarcodeUnknown():
         setState(() {
           _busy = false;
-          _notice = 'لا نبيع هذا المنتج في تِنت — جرّبي منتجاً آخر.';
+          _notice = 'لا نبيع هذا المنتج في تِنت — جرّب منتجاً آخر.';
         });
       case BarcodeFailed(:final message):
         setState(() {
@@ -224,7 +224,7 @@ class _BottomHint extends StatelessWidget {
                 : _Pill(
                     key: ValueKey(notice ?? 'hint'),
                     child: Text(
-                      notice ?? 'وجّهي الكاميرا إلى الباركود على العلبة',
+                      notice ?? 'وجّه الكاميرا إلى الباركود على العلبة',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color:
@@ -284,7 +284,7 @@ class _PermissionNotice extends StatelessWidget {
               const SizedBox(height: 16),
               Text(
                 denied
-                    ? 'صلاحيّة الكاميرا مرفوضة — فعّليها من إعدادات التطبيق ثمّ أعيدي المحاولة.'
+                    ? 'صلاحيّة الكاميرا مرفوضة — فعّلها من إعدادات التطبيق ثمّ أعِد المحاولة.'
                     : 'تعذّر تشغيل الكاميرا على هذا الجهاز.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(

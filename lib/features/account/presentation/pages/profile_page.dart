@@ -47,7 +47,7 @@ class ProfilePage extends StatelessWidget {
   }
 }
 
-// بوّابة تسجيل الدخول — تظهر لغير المسجّلين بدل لوحة حساب وهميّة.
+// بوّابة تسجيل الدخول — تظهر لغير المسجّلن بدل لوحة حساب وهميّة.
 class _SignInGate extends StatelessWidget {
   const _SignInGate();
 
@@ -111,7 +111,7 @@ class _AccountDashboard extends StatelessWidget {
         final auth = context.read<AuthCubit>().state;
         final name = profile.name.isNotEmpty
             ? profile.name
-            : (auth.customer?.name?.isNotEmpty == true ? auth.customer!.name! : 'عميلة تِنت');
+            : (auth.customer?.name?.isNotEmpty == true ? auth.customer!.name! : 'عميل تِنت');
         final phone = profile.phone.isNotEmpty ? profile.phone : (auth.customer?.phone ?? '');
 
         return ListView(
@@ -175,7 +175,7 @@ class _AccountDashboard extends StatelessWidget {
                     icon: Icons.receipt_long_outlined,
                     iconColor: Colors.blue,
                     title: 'طلباتي',
-                    subtitle: 'تابعي حالة طلباتك ومشترياتك',
+                    subtitle: 'تابِع حالة طلباتك ومشترياتك',
                     onTap: () => context.push('/profile/orders'),
                   ),
                   const Divider(height: 1),

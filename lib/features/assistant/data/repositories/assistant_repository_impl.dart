@@ -29,7 +29,7 @@ class AssistantRepositoryImpl implements AssistantRepository {
     } catch (_) {
       return const AssistantReply(
         answer:
-            'أرشح لكِ تنسيقًا عمليًا: اختاري قطعة أساسية واحدة ثم أضيفي إكسسوارًا ناعمًا وعطرًا خفيفًا ليكتمل اللوك ✨',
+            'أرشح لك تنسيقًا عمليًا: اختر قطعة أساسية واحدة ثم أضِف إكسسوارًا ناعمًا وعطرًا خفيفًا ليكتمل اللوك ✨',
       );
     }
   }

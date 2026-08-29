@@ -383,7 +383,7 @@ class _DeliveryCard extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: TintSecondaryButton(
-                label: 'أضيفي عنوان التوصيل',
+                label: 'أضِف عنوان التوصيل',
                 icon: const Icon(Icons.add_location_alt_outlined, size: 18),
                 // ‼️ نصٌّ أسود بطلب المالك — والإطار والأيقونة بلون الهويّة.
                 labelColor: TintColors.charcoal,
@@ -599,7 +599,7 @@ class _AddressPickerSheet extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'اختاري أو أضيفي',
+                  'اختر أو أضِف',
                   style: TextStyle(fontSize: 11.5, color: TintColors.textMuted),
                 ),
               ],
@@ -1006,7 +1006,7 @@ Future<void> _payWithApplePay(
   }
   final a = address;
   if (a.recipient.isEmpty || a.mobile.isEmpty || a.city.isEmpty || a.details.isEmpty) {
-    _showSnackBar(context, 'أكملي عنوان التوصيل قبل المتابعة.');
+    _showSnackBar(context, 'أكمل عنوان التوصيل قبل المتابعة.');
     return;
   }
 
@@ -1362,7 +1362,7 @@ class _PaymentMethodsCard extends StatelessWidget {
                 /// · STC · تحويل بنكيّ). والشبكة تستوعب الجديد **بلا زيادة
                 /// ارتفاع**، لأنّ الخانة تملأ فراغاً قائماً.
                 ///
-                /// ‼️ **وشعاراتٌ بلا جُمَل**: المشتري السعوديّ يعرف «تابي»
+                /// ‼️ **وشعاراتٌ بلا جُمَل**: المشتري السعُدّ يعرف «تابي»
                 /// و«تمارا» و«مدى» **بشكلها**، والوصف تحتها يُطيل ولا يُضيف.
                 /// والوصف يبقى للدفع عند الاستلام وحده — فهو الوحيد الذي يحمل
                 /// رسماً يجب أن يُقرأ قبل الاختيار.
@@ -1378,7 +1378,7 @@ class _PaymentMethodsCard extends StatelessWidget {
                          *
                          * المزوّد واحد (PayTabs) والمعرّف المُرسَل إلى الخادم
                          * واحد — والفرق **عرضٌ لا سلوك**. والسبب أنّ المشتري
-                         * السعوديّ يبحث عن شعار «مدى» بعينه، وخانةٌ واحدة
+                         * السعُدّ يبحث عن شعار «مدى» بعينه، وخانةٌ واحدة
                          * تجعله يظنّ أنّ بطاقته غير مقبولة.
                          */
                         _PayChip(
@@ -1518,7 +1518,7 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
       // ‼️ **صياغةٌ تصلح للمسارين**: «المميّزة بـ*» كانت تشير إلى نجومٍ في
       //    نموذج الزائر، ولا وجود لها في بطاقة العميل المسجَّل — فيقرأ رسالةً
       //    تُحيله إلى ما لا يراه.
-      _showSnackBar(context, 'أكملي عنوان التوصيل قبل المتابعة.');
+      _showSnackBar(context, 'أكمل عنوان التوصيل قبل المتابعة.');
       return;
     }
 
@@ -1674,7 +1674,7 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
       final redirectUrl = session['redirectUrl']?.toString() ?? '';
       if (cartId.isEmpty || redirectUrl.isEmpty) {
         if (!mounted) return;
-        _showSnackBar(context, 'تعذّر فتح صفحة الدفع بالبطاقة. حاولي مجدداً.');
+        _showSnackBar(context, 'تعذّر فتح صفحة الدفع بالبطاقة. حاوِل مجدداً.');
         return;
       }
 
@@ -1766,7 +1766,7 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
 
       if (orderId.isEmpty || checkoutUrl.isEmpty) {
         if (!mounted) return;
-        _showSnackBar(context, 'تعذّر فتح صفحة تمارا. حاولي مجدداً.');
+        _showSnackBar(context, 'تعذّر فتح صفحة تمارا. حاوِل مجدداً.');
         return;
       }
 
@@ -1871,13 +1871,13 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
         _showSnackBar(
           context,
           session['rejectionReason']?.toString() ??
-              'نأسف، تابي غير قادرة على الموافقة على هذه العملية. جرّبي وسيلة دفعٍ أخرى.',
+              'نأسف، تابي غير قادرة على الموافقة على هذه العملية. جرّب وسيلة دفعٍ أخرى.',
         );
         return;
       }
       if (paymentId.isEmpty || checkoutUrl.isEmpty) {
         if (!mounted) return;
-        _showSnackBar(context, 'تعذّر فتح صفحة تابي. حاولي مجدداً.');
+        _showSnackBar(context, 'تعذّر فتح صفحة تابي. حاوِل مجدداً.');
         return;
       }
 
@@ -2035,7 +2035,7 @@ class _CheckoutTotalCardState extends State<_CheckoutTotalCard> {
                         ? 'جاري تأكيد دفعة Tabby...'
                         : 'جاري تأكيد الطلب...')
                     : (state.paymentMethod == 'tabby'
-                        ? 'أكملي الدفع مع Tabby'
+                        ? 'أكمل الدفع مع Tabby'
                         : 'تأكيد الطلب والدفع'),
                 expanded: true,
                 backgroundColor: TintColors.sand,
