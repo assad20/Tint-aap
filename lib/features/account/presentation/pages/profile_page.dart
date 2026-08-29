@@ -47,7 +47,7 @@ class ProfilePage extends StatelessWidget {
   }
 }
 
-// بوّابة تسجيل الدخول — تظهر لغير المسجّلن بدل لوحة حساب وهميّة.
+// بوّابة تسجيل الدخول — تظهر لغير المسجّلين بدل لوحة حساب وهميّة.
 class _SignInGate extends StatelessWidget {
   const _SignInGate();
 

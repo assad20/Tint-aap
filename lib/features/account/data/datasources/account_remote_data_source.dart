@@ -62,4 +62,24 @@ class AccountRemoteDataSource {
   Future<List<dynamic>> deleteAddress(String id) {
     return _apiClient.deleteList('${ApiRoutes.addresses}/$id');
   }
+
+  /// تنبيهات التوفّر — الثلاثة تُعيد القائمة كاملةً.
+  Future<List<dynamic>> fetchStockAlerts() {
+    return _apiClient.getList(ApiRoutes.stockAlerts);
+  }
+
+  Future<List<dynamic>> addStockAlert({
+    required String productId,
+    required String title,
+    required String image,
+  }) {
+    return _apiClient.postList(
+      ApiRoutes.stockAlerts,
+      data: {'productId': productId, 'title': title, 'image': image},
+    );
+  }
+
+  Future<List<dynamic>> removeStockAlert(String productId) {
+    return _apiClient.deleteList('${ApiRoutes.stockAlerts}/$productId');
+  }
 }

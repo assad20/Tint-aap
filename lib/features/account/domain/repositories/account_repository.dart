@@ -31,4 +31,11 @@ abstract class AccountRepository {
   Future<List<AddressModel>> saveAddress(AddressModel address, {required bool isNew});
 
   Future<List<AddressModel>> deleteAddress(String id);
+
+  /// تنبيهات التوفّر — «نبّهني حين يعود هذا المنتج».
+  Future<List<StockAlertModel>> fetchStockAlerts();
+
+  Future<List<StockAlertModel>> addStockAlert(ProductModel product);
+
+  Future<List<StockAlertModel>> removeStockAlert(String productId);
 }

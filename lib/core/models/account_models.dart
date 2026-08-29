@@ -502,26 +502,33 @@ class GiftCardModel {
 
 class StockAlertModel {
   const StockAlertModel({
-    required this.id,
-    required this.product,
-    required this.variant,
-    required this.createdAtLabel,
+    required this.productId,
+    required this.title,
+    required this.image,
+    required this.notified,
   });
 
-  final String id;
-  final ProductModel product;
-  final String variant;
-  final String createdAtLabel;
+  /// `tintId` — نفس المفتاح الذي يُفتح به المنتج ويُلغى به التنبيه.
+  final String productId;
+
+  /// ‼️ **لقطةٌ من الاسم والصورة لا قراءةٌ من الكتالوج.** الشاشة قائمة، وقراءةُ
+  /// منتجٍ لكلّ سطرٍ تعني رحلةً لكلّ صفّ.
+  final String title;
+  final String image;
+
+  /// أُرسل الإشعار فعلاً — فيُعرَض الصفّ «عاد للتوفّر» لا «ينتظر».
+  final bool notified;
 
   factory StockAlertModel.fromJson(Map<String, dynamic> json) {
     return StockAlertModel(
-      id: json['id']?.toString() ?? '',
-      product: ProductModel.fromJson(json['product'] as Map<String, dynamic>),
-      variant: json['variant']?.toString() ?? '',
-      createdAtLabel: json['createdAtLabel']?.toString() ?? '',
+      productId: json['productId']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      image: json['image']?.toString() ?? '',
+      notified: json['notified'] == true,
     );
   }
 }
+
 
 class ProfileBundle {
   const ProfileBundle({

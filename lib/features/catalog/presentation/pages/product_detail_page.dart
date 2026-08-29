@@ -14,6 +14,8 @@ import '../../../../core/storage/app_preferences.dart';
 import '../../domain/repositories/catalog_repository.dart';
 import '../../../../core/widgets/tint_ui.dart';
 import '../../../account/presentation/cubit/favorites_cubit.dart';
+import '../../../account/presentation/cubit/stock_alerts_cubit.dart';
+import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../cart/presentation/cubit/cart_cubit.dart';
 import '../../../shell/presentation/cubit/shell_cubit.dart';
 
@@ -323,6 +325,20 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   ),
                 ),
               ),
+
+              /// ‼️ **مخرجٌ لمن وجد المنتج نافداً — لا زرٌّ معطّلٌ وحده.**
+              ///
+              /// كان الطريق ينتهي هنا: «نفدت الكمية» وزرٌّ لا يستجيب. فيخرج
+              /// الزائر ولا نعرف أنّه أرادها، ولا سبيل لنا إلى إخباره حين تعود.
+              /// وهو **زائرٌ أعلن نيّة الشراء صراحةً** — أثمنُ ما يمرّ بالمتجر.
+              ///
+              /// ‼️ **ويُعرَض للمسجَّل وحده**: التنبيه يُرسَل إلى جهازٍ مربوطٍ
+              /// بحساب، ووعدُ إشعارٍ لزائرٍ بلا هويّة وعدٌ لا يُوفى.
+              if (p.isSoldOut)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                  child: _StockAlertButton(product: p),
+                ),
             ],
           ),
         ),
@@ -375,6 +391,70 @@ class _CartAction extends StatelessWidget {
                 ),
               ),
           ],
+        );
+      },
+    );
+  }
+}
+
+/// زرّ «نبّهني عند التوفّر» — يظهر في المنتج النافد وحده.
+class _StockAlertButton extends StatelessWidget {
+  const _StockAlertButton({required this.product});
+
+  final ProductModel product;
+
+  @override
+  Widget build(BuildContext context) {
+    final signedIn = context.watch<AuthCubit>().state.customer != null;
+
+    /// ‼️ **لغير المسجَّل: دعوةٌ للدخول لا زرٌّ يخيب.** الإشعار يُرسَل إلى جهازٍ
+    /// مربوطٍ بحساب؛ فوعدُ تنبيهٍ لزائرٍ بلا هويّة وعدٌ لا يُوفى.
+    if (!signedIn) {
+      return SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: () => context.push('/login'),
+          icon: const Icon(Icons.notifications_none_rounded, size: 18),
+          label: const Text('سجّل الدخول ليصلك إشعارٌ عند توفّره'),
+        ),
+      );
+    }
+
+    return BlocBuilder<StockAlertsCubit, StockAlertsState>(
+      builder: (context, state) {
+        final subscribed = state.has(product.id);
+        return SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () async {
+              final cubit = context.read<StockAlertsCubit>();
+              final messenger = ScaffoldMessenger.of(context);
+              final ok = subscribed
+                  ? await cubit.unsubscribe(product.id)
+                  : await cubit.subscribe(product);
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text(
+                    !ok
+                        ? 'تعذّر الاتّصال — حاوِل مجدداً.'
+                        : subscribed
+                            ? 'أُلغي التنبيه.'
+                            : 'سنرسل لك إشعاراً فور عودته ✨',
+                  ),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+            icon: Icon(
+              subscribed
+                  ? Icons.notifications_active_rounded
+                  : Icons.notifications_none_rounded,
+              size: 18,
+            ),
+            /// ‼️ **النصّ يتبع الحالة** — وإلّا بقي يقول «نبّهني» بعد الاشتراك
+            /// فيضغطه العميل ثانيةً ظانّاً أنّ الأولى ضاعت.
+            label: Text(subscribed ? 'إلغاء التنبيه' : 'نبّهني عند التوفّر'),
+          ),
         );
       },
     );

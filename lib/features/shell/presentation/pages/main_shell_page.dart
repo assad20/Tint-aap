@@ -21,6 +21,7 @@ import '../../../catalog/presentation/pages/trends_page.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../account/presentation/cubit/addresses_cubit.dart';
 import '../../../account/presentation/cubit/favorites_cubit.dart';
+import '../../../account/presentation/cubit/stock_alerts_cubit.dart';
 import '../../../account/presentation/cubit/orders_cubit.dart';
 import '../../../account/presentation/cubit/profile_cubit.dart';
 import '../../../account/presentation/cubit/rewards_cubit.dart';
@@ -150,6 +151,7 @@ class _MainShellPageState extends State<MainShellPage> {
     context.read<AddressesCubit>().clearForAccountSwitch();
     context.read<RewardsCubit>().clearForAccountSwitch();
     context.read<FavoritesCubit>().clearForAccountSwitch();
+    context.read<StockAlertsCubit>().clearForAccountSwitch();
 
     /// ‼️ **ويُرفَع حارس الجلب أيضاً** — وإلّا بقيت الشاشات فارغةً إلى الأبد:
     /// مُسحت البيانات و`_loaded` يقول إنّها جُلبت. والفراغ الدائم عطلٌ آخر

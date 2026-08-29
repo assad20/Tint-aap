@@ -143,6 +143,33 @@ class AccountRepositoryImpl implements AccountRepository {
     return _readAddresses(await _remoteDataSource.deleteAddress(id));
   }
 
+  @override
+  Future<List<StockAlertModel>> fetchStockAlerts() async {
+    return _readAlerts(await _remoteDataSource.fetchStockAlerts());
+  }
+
+  /// ‼️ **تُرسَل الصورة والاسم مع الاشتراك** — لا يُقرآن من الكتالوج عند
+  /// العرض: الشاشة قائمة، وقراءةُ منتجٍ لكلّ سطرٍ رحلةٌ لكلّ صفّ. والعميل
+  /// يتذكّر ما اشترك فيه بالاسم الذي رآه يومها.
+  @override
+  Future<List<StockAlertModel>> addStockAlert(ProductModel product) async {
+    return _readAlerts(await _remoteDataSource.addStockAlert(
+      productId: product.id,
+      title: product.title,
+      image: product.image,
+    ));
+  }
+
+  @override
+  Future<List<StockAlertModel>> removeStockAlert(String productId) async {
+    return _readAlerts(await _remoteDataSource.removeStockAlert(productId));
+  }
+
+  List<StockAlertModel> _readAlerts(List<dynamic> raw) => raw
+      .whereType<Map<String, dynamic>>()
+      .map(StockAlertModel.fromJson)
+      .toList(growable: false);
+
   List<AddressModel> _readAddresses(List<dynamic> raw) => raw
       .whereType<Map<String, dynamic>>()
       .map(AddressModel.fromJson)

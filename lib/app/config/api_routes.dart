@@ -91,6 +91,11 @@ abstract final class ApiRoutes {
   static const favorites = '/customer/favorites';
   static const addresses = '/customer/addresses';
 
+  /// تنبيهات التوفّر — اشتراكٌ وإلغاءٌ وقائمة.
+  ///
+  /// ‼️ **الثلاثة تُعيد القائمة كاملةً** لا تأكيداً، فتُحدَّث الشاشة بردٍّ واحد.
+  static const stockAlerts = '/customer/stock-alerts'; // + /<productId> للحذف
+
   static const checkout = '/orders/checkout';
   // ‼️ إنشاء جلسة تابي من الخادم لا من الجهاز. حزمة تابي لا ترسل
   // `merchant_urls` إطلاقاً، فتنتهي شاشتها عند «سنعيدك الآن» بلا عنوانٍ تعود

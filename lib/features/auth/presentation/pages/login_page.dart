@@ -255,7 +255,7 @@ class _LoginPageState extends State<LoginPage> {
                                 }
                               } else if (!looksLikeSaudiMobile(_phone.text)) {
                                 _snack(context,
-                                    'أدخل رقم جوّالٍ سعُدّ صحيح (5xxxxxxxx).');
+                                    'أدخل رقم جوّالٍ سعوديّ صحيح (5xxxxxxxx).');
                                 return;
                               }
                               cubit.requestOtp(

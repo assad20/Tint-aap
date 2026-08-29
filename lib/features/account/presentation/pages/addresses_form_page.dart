@@ -162,7 +162,7 @@ class _AddressFormPageState extends State<AddressFormPage> {
     final newCity = picked.city?.trim() ?? '';
     final newHood = picked.neighborhood?.trim() ?? '';
     /// ‼️ **رقم المبنى يُصدَّر الشارع** — «2868 طريق العروبة» هو ما يُكتب في
-    /// العناوين السعُدّة وأوّل ما يبحث عنه المندوب على الباب.
+    /// العناوين السعوديّة وأوّل ما يبحث عنه المندوب على الباب.
     final newStreet = [
       picked.buildingNumber?.trim(),
       picked.street?.trim(),

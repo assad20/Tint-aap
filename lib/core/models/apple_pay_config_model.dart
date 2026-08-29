@@ -31,7 +31,7 @@ class ApplePayConfigModel {
   /// أسماء الشبكات كما تفهمها آبل: `mada` · `visa` · `masterCard` · `amex`.
   final List<String> supportedNetworks;
 
-  /// عادةً `supports3DS` — وهي **شرطٌ لا خيار** لدى مصدري البطاقات السعُدّة.
+  /// عادةً `supports3DS` — وهي **شرطٌ لا خيار** لدى مصدري البطاقات السعوديّة.
   final List<String> merchantCapabilities;
 
   static const empty = ApplePayConfigModel(

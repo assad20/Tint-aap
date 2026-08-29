@@ -15,6 +15,7 @@ import 'features/account/data/datasources/account_remote_data_source.dart';
 import 'features/account/data/repositories/account_repository_impl.dart';
 import 'features/account/domain/repositories/account_repository.dart';
 import 'features/account/presentation/cubit/addresses_cubit.dart';
+import 'features/account/presentation/cubit/stock_alerts_cubit.dart';
 import 'features/account/presentation/cubit/favorites_cubit.dart';
 import 'features/account/presentation/cubit/orders_cubit.dart';
 import 'features/account/presentation/cubit/profile_cubit.dart';
@@ -180,13 +181,18 @@ Future<void> main() async {
               repository: context.read<AccountRepository>(),
               // يُجلب عند الإقلاع لا عند فتح «حسابي»: القلوب صارت على كلّ
               // بطاقة في المتجر، وقلبٌ فارغ لمنتجٍ مُفضَّل كذبٌ لا تأخير.
-              // والنداء صغير، ويعود فارغاً بصمتٍ لغير المسجّلن.
+              // والنداء صغير، ويعود فارغاً بصمتٍ لغير المسجّلين.
             )..load(),
           ),
           BlocProvider(
             create: (context) => AddressesCubit(
               repository: context.read<AccountRepository>(),
             ), // تحميل كسول: عند فتح تبويب حسابي
+          ),
+          BlocProvider(
+            create: (context) => StockAlertsCubit(
+              repository: context.read<AccountRepository>(),
+            ), // تحميل كسول: عند فتح شاشة التنبيهات لا عند الإقلاع
           ),
           BlocProvider(
             create: (context) => CheckoutCubit(
