@@ -161,7 +161,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   Text(
                     p.brand,
                     style: const TextStyle(
-                      color: TintColors.price,
+                      color: TintColors.brand,
                       fontWeight: FontWeight.w800,
                       fontSize: 12,
                     ),
