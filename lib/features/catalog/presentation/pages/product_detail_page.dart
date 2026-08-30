@@ -161,7 +161,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   Text(
                     p.brand,
                     style: const TextStyle(
-                      color: TintColors.sand,
+                      color: TintColors.price,
                       fontWeight: FontWeight.w800,
                       fontSize: 12,
                     ),
@@ -182,7 +182,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     Text(
                       '${p.price.toStringAsFixed(0)} ﷼',
                       style: const TextStyle(
-                        color: TintColors.sand,
+                        color: TintColors.price,
                         fontWeight: FontWeight.w900,
                         fontSize: 26,
                       ),
