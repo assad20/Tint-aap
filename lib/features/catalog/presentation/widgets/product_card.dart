@@ -145,7 +145,7 @@ class ProductCard extends StatelessWidget {
                   Text(
                     product.brand,
                     style: const TextStyle(
-                      color: TintColors.sand,
+                      color: TintColors.price,
                       fontSize: 10,
                       fontWeight: FontWeight.w800,
                     ),
@@ -181,7 +181,7 @@ class ProductCard extends StatelessWidget {
                             Text(
                               '${product.price.toStringAsFixed(0)} ﷼',
                               style: const TextStyle(
-                                color: TintColors.sand,
+                                color: TintColors.price,
                                 fontWeight: FontWeight.w900,
                                 fontSize: 15,
                               ),
