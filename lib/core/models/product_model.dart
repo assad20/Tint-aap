@@ -13,6 +13,8 @@ class ProductModel {
     this.sku,
     this.barcode,
     this.quantity,
+    this.rating,
+    this.ratingCount,
   });
 
   final String id;
@@ -39,6 +41,17 @@ class ProductModel {
   ///
   /// هذه هي قاعدة الخادم نفسها (`typeof doc.quantity === 'number'`).
   final int? quantity;
+
+  /// متوسّط التقييم وعددُه — **`null` = لم يُقيَّم بعد، لا «صفر»**.
+  ///
+  /// ‼️ الخادم يحذف الحقلين حين لا مراجعة ولا يُرسلهما صفراً، والبطاقة ترشّح
+  /// بالوجود. فلو قُرئا صفراً لَرُسمت خمس نجومٍ فارغة تحت كلّ منتجٍ جديد —
+  /// تُقرأ «سيّئ» لا «لم يُقيَّم بعد».
+  final double? rating;
+  final int? ratingCount;
+
+  /// هل له تقييمٌ يُعرَض؟
+  bool get hasRating => rating != null && (ratingCount ?? 0) > 0;
 
   /// نفد فعلاً — لا «غير متتبَّع».
   bool get isSoldOut => quantity != null && quantity! <= 0;
@@ -67,6 +80,8 @@ class ProductModel {
     String? sku,
     String? barcode,
     int? quantity,
+    double? rating,
+    int? ratingCount,
   }) {
     return ProductModel(
       id: id ?? this.id,
@@ -82,6 +97,8 @@ class ProductModel {
       sku: sku ?? this.sku,
       barcode: barcode ?? this.barcode,
       quantity: quantity ?? this.quantity,
+      rating: rating ?? this.rating,
+      ratingCount: ratingCount ?? this.ratingCount,
     );
   }
 
@@ -108,6 +125,11 @@ class ProductModel {
       quantity: json['quantity'] == null
           ? null
           : int.tryParse(json['quantity'].toString()),
+      // بلا `?? 0` لنفس سبب الكميّة: الغياب معنًى لا نقص.
+      rating: parseNullableNum(json['rating']),
+      ratingCount: json['ratingCount'] == null
+          ? null
+          : int.tryParse(json['ratingCount'].toString()),
     );
   }
 
@@ -126,6 +148,8 @@ class ProductModel {
       'sku': sku,
       'barcode': barcode,
       'quantity': quantity,
+      'rating': rating,
+      'ratingCount': ratingCount,
     };
   }
 }

@@ -93,8 +93,12 @@ class ProductCard extends StatelessWidget {
                 // الشارة معناها على منتجٍ متوفّرٍ بكثرة. والصنف غير المتتبَّع
                 // (كميّة `null`) لا شارة له ولا حجب.
                 if (product.isLowStock)
+                  // ‼️ **أسفل اليسار لا أعلاه.** كانت هنا `top: 8, left: 8`
+                  //    وهو موضع زرّ المفضّلة نفسه (`top: 6, left: 6`) — فتغطّيه
+                  //    الشارة تماماً، ويختفي القلب عن كلّ منتجٍ قارب النفاد.
+                  //    وذلك أسوأ ما يقع بزرّ: لا يبدو معطّلاً بل غير موجود.
                   Positioned(
-                    top: 8,
+                    bottom: 8,
                     left: 8,
                     child: _Badge(
                       label: 'بقي ${product.quantity}',
@@ -162,6 +166,19 @@ class ProductCard extends StatelessWidget {
                       height: 1.3,
                     ),
                   ),
+
+                  // ‼️ **سطر التقييم يظهر لمن قُيِّم وحده.** ومنتجٌ جديد لا
+                  //    نجومَ له: خمسُ نجومٍ فارغة تحته تُقرأ «سيّئ» لا «لم
+                  //    يُقيَّم بعد» — فتضرّه الشارة التي وُضعت لتنفعه.
+                  if (product.hasRating) ...[
+                    const SizedBox(height: 5),
+                    _RatingRow(
+                      rating: product.rating!,
+                      count: product.ratingCount ?? 0,
+                      dense: dense,
+                    ),
+                  ],
+
                   SizedBox(height: dense ? 8 : 10),
                   Row(
                     children: [
@@ -169,22 +186,41 @@ class ProductCard extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (product.oldPrice != null)
-                              Text(
-                                '${product.oldPrice!.toStringAsFixed(0)} ﷼',
-                                style: const TextStyle(
-                                  color: TintColors.textMuted,
-                                  decoration: TextDecoration.lineThrough,
-                                  fontSize: 10,
+                            /**
+                             * ‼️ **الفرق يُرى في سطرٍ واحد لا في سطرين.**
+                             *
+                             * كان القديم فوق والحاليّ تحته، فيقرأ العين رقمين
+                             * متتاليين ولا تقارنهما. وجَعْلُهما متجاورين —
+                             * القديم شاحباً مشطوباً والحاليّ أكبر بمرّتين —
+                             * يجعل التوفير هو ما يُرى أوّلاً، وهو المقصود.
+                             */
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.baseline,
+                              textBaseline: TextBaseline.alphabetic,
+                              children: [
+                                Text(
+                                  '${product.price.toStringAsFixed(0)} \u0631\u064a\u0627\u0644',
+                                  style: TextStyle(
+                                    color: TintColors.price,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: dense ? 16 : 17.5,
+                                    height: 1.1,
+                                  ),
                                 ),
-                              ),
-                            Text(
-                              '${product.price.toStringAsFixed(0)} ﷼',
-                              style: const TextStyle(
-                                color: TintColors.price,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 15,
-                              ),
+                                if (product.oldPrice != null) ...[
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    product.oldPrice!.toStringAsFixed(0),
+                                    style: const TextStyle(
+                                      color: TintColors.textMuted,
+                                      decoration: TextDecoration.lineThrough,
+                                      decorationColor: TintColors.textMuted,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ],
                         ),
@@ -216,15 +252,30 @@ class ProductCard extends StatelessWidget {
                                 showTintToast(
                                     context, 'تمت إضافة المنتج إلى السلة');
                               },
+                        /**
+                         * ‼️ **زرٌّ مملوءٌ لا باهت، وأكبر مساحةَ لمس.**
+                         *
+                         * كان رماديّاً فاتحاً على بطاقةٍ بيضاء، فلا يُقرأ زرّاً
+                         * أصلاً — ومساحةُ لمسه أصغر من الأربعين نقطة التي
+                         * توصي بها إرشادات اللمس، فيُخطئها الإبهام على شبكةٍ
+                         * من عمودين.
+                         *
+                         * ‼️ **والنافد يبقى مرئيّاً معطّلاً لا مخفيّاً**: زرٌّ
+                         * يختفي يُقرأ عطلاً، وزرٌّ يقول «نفدت» يُقرأ خبراً.
+                         */
                         style: IconButton.styleFrom(
                           backgroundColor: product.isSoldOut
-                              ? const Color(0xFFECEDEF)
-                              : const Color(0xFFF7F8FA),
-                          foregroundColor: product.isSoldOut
-                              ? Colors.black38
+                              ? const Color(0xFFEDEFF2)
                               : TintColors.charcoal,
+                          foregroundColor:
+                              product.isSoldOut ? Colors.black38 : Colors.white,
+                          minimumSize: const Size(40, 40),
+                          padding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                        icon: const Icon(Icons.shopping_cart_outlined, size: 18),
+                        icon: const Icon(Icons.add_shopping_cart_rounded, size: 20),
                       ),
                     ],
                   ),
@@ -284,6 +335,53 @@ class _FavoriteButton extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// سطر التقييم في البطاقة — **نجمةٌ واحدة ورقم، لا خمس نجوم**.
+///
+/// ‼️ خمسُ نجومٍ في بطاقةٍ عرضها نصف الشاشة تصير خمس نقاطٍ لا تُميَّز ممتلئةً
+/// من فارغة، فتُشغل المساحة ولا تُفيد. والرقم يُقرأ من أوّل نظرة («4.6») وهو
+/// ما يبحث عنه المشتري فعلاً.
+///
+/// ‼️ **والعدد بجانبه لا تحته**: «4.6» وحدها لا تقول إن كانت من مراجعةٍ واحدة
+/// أو من مئة — والفرق بينهما هو كلّ الفرق في الثقة.
+class _RatingRow extends StatelessWidget {
+  const _RatingRow({
+    required this.rating,
+    required this.count,
+    required this.dense,
+  });
+
+  final double rating;
+  final int count;
+  final bool dense;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(Icons.star_rounded, size: dense ? 13 : 14, color: TintColors.tintYellow),
+        const SizedBox(width: 3),
+        Text(
+          rating.toStringAsFixed(1),
+          style: TextStyle(
+            color: TintColors.charcoal,
+            fontSize: dense ? 11 : 11.5,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          '($count)',
+          style: TextStyle(
+            color: TintColors.textMuted,
+            fontSize: dense ? 10 : 10.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }
