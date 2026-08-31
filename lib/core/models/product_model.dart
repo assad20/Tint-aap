@@ -127,9 +127,11 @@ class ProductModel {
           : int.tryParse(json['quantity'].toString()),
       // بلا `?? 0` لنفس سبب الكميّة: الغياب معنًى لا نقص.
       rating: parseNullableNum(json['rating']),
-      ratingCount: json['ratingCount'] == null
+      // ‼️ `reviewsCount` هو اسم الحقل في عقد الخادم — تقرؤه واجهة المتجر منذ
+      //    قبل هذا العمل، واسمٌ ثانٍ هنا يعني تطبيقاً بلا نجومٍ بلا خطأ يدلّ.
+      ratingCount: json['reviewsCount'] == null
           ? null
-          : int.tryParse(json['ratingCount'].toString()),
+          : int.tryParse(json['reviewsCount'].toString()),
     );
   }
 
@@ -149,7 +151,7 @@ class ProductModel {
       'barcode': barcode,
       'quantity': quantity,
       'rating': rating,
-      'ratingCount': ratingCount,
+      'reviewsCount': ratingCount,
     };
   }
 }
